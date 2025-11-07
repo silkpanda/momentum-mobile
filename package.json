@@ -30,7 +30,7 @@
     "@types/react-native": "^0.72.8",
     "@typescript-eslint/eslint-plugin": "^7.11.0",
     "@typescript-eslint/parser": "^7.11.0",
-    "babel-preset-expo": "^11.0.0",
+    "babel-preset-expo": "~54.0.0",
     "eslint": "^8.57.0",
     "eslint-config-airbnb-base": "^15.0.0",
     "eslint-config-airbnb-typescript": "^18.0.0",
