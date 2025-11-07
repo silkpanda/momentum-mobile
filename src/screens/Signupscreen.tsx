@@ -1,7 +1,8 @@
 // src/screens/SignupScreen.tsx
 import React, { useState } from 'react';
-import { ScrollView, View, Text, Alert } from 'react-native';
+import { ScrollView, View, Text, Alert, ViewStyle, TextStyle } from 'react-native';
 import { useTailwind } from 'tailwindcss-react-native';
+import axios, { isAxiosError } from 'axios'; // Import isAxiosError
 import Input from '../components/Input';
 import Button from '../components/Button';
 
@@ -28,20 +29,37 @@ const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
     
     setIsLoading(true);
     
-    // TODO: Replace with actual API call (Phase 2.1 - /api/v1/auth/signup)
-    console.log('Attempting signup with:', { firstName, email, password });
+    // API MANDATE: Phase 2.1 - /api/v1/auth/signup
+    const SIGNUP_URL = 'http://localhost:3000/api/v1/auth/signup'; 
     
     try {
-      // Simulate API call success/failure (replace with axios.post)
-      await new Promise(resolve => setTimeout(resolve, 1500)); 
+      // Replaced TODO with actual axios post to the future API endpoint
+      const response = await axios.post(SIGNUP_URL, {
+        firstName,
+        email,
+        password
+      });
+
+      console.log('Signup successful:', response.data);
       
       // On success, navigate to the Login screen as a placeholder
       Alert.alert('Success', 'Account created! Please log in.');
       navigation.replace('Login'); 
 
     } catch (error) {
-      console.error('Signup failed:', error);
-      Alert.alert('Signup Failed', 'An error occurred during registration. Please try again.');
+      // FIX APPLIED: Use isAxiosError to safely narrow the 'unknown' error type 
+      // and access specific properties like response.
+      if (isAxiosError(error)) {
+        console.error('Signup failed:', error.message);
+        Alert.alert(
+          'Signup Failed', 
+          error.response?.data?.message || 'An error occurred during registration. Please try again.'
+        );
+      } else {
+        // Handle non-Axios errors (e.g., network issues, or other unexpected exceptions)
+        console.error('An unexpected error occurred:', error);
+        Alert.alert('Signup Failed', 'An unexpected error occurred. Please check your network connection.');
+      }
     } finally {
       setIsLoading(false);
     }
@@ -50,19 +68,24 @@ const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
   return (
     // Use the mandated background canvas color
     <ScrollView 
-      style={tw('flex-1 bg-bg-canvas')}
-      contentContainerStyle={tw('p-6 items-center')}
+      // FIX APPLIED: Asserted to ViewStyle
+      style={tw('flex-1 bg-bg-canvas') as ViewStyle}
+      // FIX APPLIED: Asserted to ViewStyle
+      contentContainerStyle={tw('p-6 items-center') as ViewStyle}
       keyboardShouldPersistTaps="handled"
     >
       {/* Screen Title (H1 equivalent: font-semibold, text-2xl) */}
-      <Text style={tw('font-semibold text-2xl text-text-primary mt-10 mb-8')}>
+      {/* FIX APPLIED: Asserted to TextStyle */}
+      <Text style={tw('font-semibold text-2xl text-text-primary mt-10 mb-8') as TextStyle}>
         Welcome to Momentum
       </Text>
-      <Text style={tw('text-text-secondary mb-8 text-center')}>
+      {/* FIX APPLIED: Asserted to TextStyle */}
+      <Text style={tw('text-text-secondary mb-8 text-center') as TextStyle}>
         Let's create your primary Parent account and household.
       </Text>
 
-      <View style={tw('w-full max-w-sm')}>
+      {/* FIX APPLIED: Asserted to ViewStyle */}
+      <View style={tw('w-full max-w-sm') as ViewStyle}>
         <Input 
           label="Your First Name"
           value={firstName}
@@ -87,19 +110,24 @@ const SignupScreen: React.FC<SignupScreenProps> = ({ navigation }) => {
           title={isLoading ? 'Signing Up...' : 'Sign Up & Create Household'}
           onPress={handleSignup}
           disabled={isLoading}
-          style={tw('mt-4')}
+          // FIX APPLIED: Asserted to ViewStyle
+          style={tw('mt-4') as ViewStyle}
         />
 
-        <View style={tw('mt-8 items-center')}>
-          <Text style={tw('text-text-secondary')}>
+        {/* FIX APPLIED: Asserted to ViewStyle */}
+        <View style={tw('mt-8 items-center') as ViewStyle}>
+          {/* FIX APPLIED: Asserted to TextStyle */}
+          <Text style={tw('text-text-secondary') as TextStyle}>
             Already have an account? 
           </Text>
           <Button 
             title="Go to Login" 
             onPress={() => navigation.navigate('Login')} 
             // Tertiary/Text Button style (bg-transparent, text-action-primary)
-            style={tw('mt-2 bg-transparent')}
-            titleStyle={tw('text-color-action-primary')}
+            // FIX APPLIED: Asserted to ViewStyle
+            style={tw('mt-2 bg-transparent') as ViewStyle}
+            // FIX APPLIED: Corrected to pass the class string
+            titleStyle='text-color-action-primary'
           />
         </View>
       </View>

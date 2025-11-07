@@ -1,6 +1,6 @@
 // src/components/Button.tsx
 import React from 'react';
-import { TouchableOpacity, Text, TouchableOpacityProps } from 'react-native';
+import { TouchableOpacity, Text, TouchableOpacityProps, ViewStyle, TextStyle } from 'react-native';
 import { useTailwind } from 'tailwindcss-react-native';
 
 // Mandatory PascalCase interface name
@@ -10,18 +10,22 @@ interface ButtonProps extends TouchableOpacityProps {
 }
 
 // Mandatory PascalCase component name
-const Button: React.FC<ButtonProps> = ({ title, titleStyle, ...props }) => {
+const Button: React.FC<ButtonProps> = ({ title, titleStyle, style, ...props }) => {
   const tw = useTailwind();
+
+  // Primary Button Mandates: bg-action-primary, text-white, rounded-lg, py-3 px-5, shadow-sm
+  const baseButtonClasses = 'bg-color-action-primary rounded-lg py-3 px-5 shadow-sm items-center justify-center';
 
   return (
     <TouchableOpacity
       {...props}
-      // Primary Button Mandates: bg-action-primary, text-white, rounded-lg, py-3 px-5, shadow-sm
-      style={tw(`bg-color-action-primary rounded-lg py-3 px-5 shadow-sm items-center justify-center ${props.style as string}`)}
+      // FIX APPLIED (Previous Step): Asserting as ViewStyle
+      style={[tw(baseButtonClasses) as ViewStyle, style]}
       activeOpacity={0.8}
     >
       {/* Label Mandate: font-medium, text-base */}
-      <Text style={tw(`text-white font-medium text-base ${titleStyle as string}`)}>{title}</Text>
+      {/* FIX APPLIED (Current Step): Asserting the text style output as TextStyle to fix the Text component's style prop error. */}
+      <Text style={tw(`text-white font-medium text-base ${titleStyle as string}`) as TextStyle}>{title}</Text>
     </TouchableOpacity>
   );
 };
