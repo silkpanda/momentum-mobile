@@ -1,0 +1,32 @@
+/* src/styles/tailwind.css */
+@import "tailwindcss";
+
+/* * MANDATE (Section 4): CSS-First Configuration via @theme. 
+* This defines all semantic color roles (Section 3.1 & 3.2). 
+*/
+@theme {
+  /* Default Theme 1: "Calm Light" Colors */
+  --color-bg-canvas: #F9FAFB;     /* bg-gray-50 */
+  --color-bg-surface: #FFFFFF;    /* bg-white */
+  
+  --color-text-primary: #111827;  /* text-gray-900 */
+  --color-text-secondary: #4B5563; /* text-gray-600 */
+  
+  --color-border-subtle: #E5E7EB;  /* border-gray-200 */
+  
+  --color-action-primary: #4F46E5; /* bg-indigo-600 */
+  --color-action-hover: #4338CA;   /* bg-indigo-700 equivalent */
+  
+  --color-signal-success: #16A34A; /* text-green-600 */
+  --color-signal-alert: #DC2626;   /* text-red-600 */
+  --color-signal-focus: #FACC15;   /* bg-yellow-400 */
+}
+
+/* * Typography Mandate (Section 2/4): Set Primary Typeface.
+* This ensures the Inter font is the default sans-serif for the app. 
+*/
+@layer base {
+  :root {
+    font-family: 'Inter', system-ui, sans-serif; 
+  }
+}

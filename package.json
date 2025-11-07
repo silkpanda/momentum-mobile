@@ -1,0 +1,41 @@
+{
+  "name": "momentum-mobile",
+  "version": "1.0.0",
+  "description": "React Native Mobile App for Momentum Family App",
+  "main": "index.js",
+  "scripts": {
+    "start": "expo start",
+    "android": "expo run:android",
+    "ios": "expo run:ios",
+    "web": "expo start --web",
+    "lint": "eslint \"{src,App}.{ts,tsx}\" --fix",
+    "format": "prettier --write \"{src,App}.{ts,tsx}\""
+  },
+  "dependencies": {
+    "@react-navigation/native": "^6.1.18",
+    "@react-navigation/native-stack": "^6.11.0",
+    "expo": "~50.0.17",
+    "expo-status-bar": "~1.11.1",
+    "react": "18.2.0",
+    "react-native": "0.73.6",
+    "react-native-screens": "~3.29.0",
+    "tailwindcss-react-native": "^1.7.10",
+    "zustand": "^4.5.7"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.20.0",
+    "@types/node": "^24.10.0",
+    "@types/react": "~18.2.45",
+    "@types/react-native": "^0.72.8",
+    "@typescript-eslint/eslint-plugin": "^7.11.0",
+    "@typescript-eslint/parser": "^7.11.0",
+    "eslint": "^8.57.0",
+    "eslint-config-airbnb-base": "^15.0.0",
+    "eslint-config-airbnb-typescript": "^18.0.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-import": "^2.29.1",
+    "prettier": "^3.2.5",
+    "typescript": "^5.1.3"
+  },
+  "private": true
+}
