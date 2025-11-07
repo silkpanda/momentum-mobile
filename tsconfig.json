@@ -1,7 +1,10 @@
 {
   "compilerOptions": {
     "target": "es2022",
-    "module": "commonjs",
+    // FIX APPLIED: Changed from "commonjs" to "ESNext". 
+    // This resolves the conflict with "moduleResolution": "bundler", 
+    // allowing the modern bundling process to continue.
+    "module": "ESNext",
     "rootDir": "./",
     "outDir": "./dist",
     "esModuleInterop": true,
