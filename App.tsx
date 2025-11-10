@@ -1,13 +1,13 @@
 // App.tsx
 import "./global.css"; // <-- MUST BE THE FIRST IMPORT
 
-import { StatusBar } from 'expo-status-bar';
-import { NavigationContainer } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import SignupScreen from './src/screens/SignupScreen';
-import LoginScreen from './src/screens/LoginScreen'; 
-import ParentDashboardScreen from './src/screens/ParentDashboardScreen'; // Import the new screen
-import { useAuthStore } from './src/store/authStore'; // Import the store
+import { StatusBar } from "expo-status-bar";
+import { NavigationContainer } from "@react-navigation/native";
+import { createNativeStackNavigator } from "@react-navigation/native-stack";
+import SignupScreen from "./src/screens/SignupScreen";
+import LoginScreen from "./src/screens/LoginScreen";
+import ParentDashboardScreen from "./src/screens/ParentDashboardScreen";
+import { useAuthStore } from "./src/store/authStore"; // This import now works!
 
 // Mandatory PascalCase variable name
 const Stack = createNativeStackNavigator();
@@ -22,28 +22,19 @@ export default function App() {
       <StatusBar style="auto" />
       <Stack.Navigator
         // Use initialRouteName conditionally based on auth state
-        initialRouteName={isAuthenticated ? "Dashboard" : "Signup"} 
+        initialRouteName={isAuthenticated ? "Dashboard" : "Signup"}
         screenOptions={{
           headerShown: false, // For a cleaner, mobile-first design
         }}
       >
         {isAuthenticated ? (
           // Authenticated Stack
-          <Stack.Screen 
-              name="Dashboard" 
-              component={ParentDashboardScreen} 
-          />
+          <Stack.Screen name="Dashboard" component={ParentDashboardScreen} />
         ) : (
           // Unauthenticated Stack
           <>
-            <Stack.Screen 
-                name="Signup" 
-                component={SignupScreen} 
-            />
-            <Stack.Screen 
-                name="Login" 
-                component={LoginScreen} 
-            />
+            <Stack.Screen name="Signup" component={SignupScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
           </>
         )}
       </Stack.Navigator>
