@@ -1,15 +1,7 @@
-import { Text, View } from "react-native";
+import { Redirect } from "expo-router";
 
 export default function Index() {
-  return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-      }}
-    >
-      <Text>Edit app/index.tsx to edit this screen.</Text>
-    </View>
-  );
+  // This root index file will now redirect to our main (app) layout.
+  // We must point to the specific 'index' screen within the (app) group.
+  return <Redirect href="/(app)/index" />;
 }
