@@ -6,10 +6,10 @@ import {
   ThemeProvider,
 } from "@react-navigation/native";
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from "@expo-google-fonts/inter";
-import { Stack } from "expo-router";
+import { Slot } from "expo-router"; // <-- USE SLOT
 import * as SplashScreen from "expo-splash-screen";
 import { useEffect } from "react";
-import { AppState, View, useColorScheme } from "react-native";
+import { View, useColorScheme } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { StatusBar } from "expo-status-bar";
 import { vars } from "nativewind";
@@ -18,9 +18,6 @@ import { vars } from "nativewind";
 SplashScreen.preventAutoHideAsync();
 
 // 1. DEFINE OUR THEMES (Style Guide: 3.2)
-// We are mapping our semantic color roles to the React Navigation theme
-// and our own 'semantic' block for the CSS variables.
-
 const MomentumLightTheme = {
   ...DefaultTheme,
   colors: {
@@ -96,19 +93,14 @@ export default function RootLayout() {
   }
 
   // 2. APPLY THE THEME
-  // This applies the theme colors as CSS variables to the root element,
-  // making our Tailwind classes like `bg-bg-canvas` work.
+  // This applies the theme colors as CSS variables to the root element
   return (
     // Use the `vars` function to apply CSS variables to a View's style prop
     <View style={vars(theme.semantic)} className="flex-1">
       <SafeAreaProvider>
         <ThemeProvider value={theme}>
-          <Stack>
-            <Stack.Screen name="index" options={{ headerShown: false }} />
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            {/* THIS IS THE CRITICAL LINE WE NEED BACK */}
-            <Stack.Screen name="(app)" options={{ headerShown: false }} />
-          </Stack>
+          {/* Slot renders the active layout, either (app) or (auth) */}
+          <Slot />
           <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
         </ThemeProvider>
       </SafeAreaProvider>

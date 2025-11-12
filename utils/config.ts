@@ -9,4 +9,4 @@
 // If you are on an iOS simulator, 'http://localhost:8000' is fine.
 // If you are on an Android emulator, use 'http://10.0.2.2:8000'.
 
-export const API_URL = "http://localhost:8000"; // <-- REPLACE if needed
+export const API_URL = "https://unthirsting-soritic-raymonde.ngrok-free.dev"; // <-- REPLACE if needed
