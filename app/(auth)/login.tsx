@@ -1,3 +1,4 @@
+// silkpanda/momentum-mobile/momentum-mobile-48a3bdaec149b6570562600bab21372e4eb95908/app/(auth)/login.tsx
 import { Link, router } from "expo-router";
 import { useState } from "react";
 import {
@@ -7,15 +8,17 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView, // <-- Import is correct
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
 // --- 1. REMOVE SafeAreaView import ---
 import { Octicons } from "@expo/vector-icons";
 import { API_URL } from "@/utils/config";
+import { useAuthAndHousehold } from "../context/AuthAndHouseholdContext"; // <-- NEW IMPORT
 
 export default function LoginScreen() {
+  const { signIn } = useAuthAndHousehold(); // <-- USE CONTEXT HOOK
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -39,8 +42,11 @@ export default function LoginScreen() {
         throw new Error(data.message || "Something went wrong");
       }
 
+      // CRITICAL CHANGE: Use context's signIn function to store the token and fetch household data
+      await signIn(data.token); 
+
       Alert.alert("Login Success", "Welcome back!");
-      router.replace("/(app)");
+      router.replace("/(app)"); // Navigate only after successful sign-in and household fetch attempt
     } catch (error: any) {
       if (error.message.includes("JSON")) {
         Alert.alert(
@@ -65,11 +71,12 @@ export default function LoginScreen() {
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          justifyContent: "center",
+          // Removed justifyContent: "center" to allow content to scroll correctly when the keyboard is active
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="justify-center p-6">
+        {/* Removed redundant justify-center from className */}
+        <View className="p-6">
           <Text className="mb-2 text-center font-inter-semibold text-2xl text-text-primary">
             Welcome Back
           </Text>

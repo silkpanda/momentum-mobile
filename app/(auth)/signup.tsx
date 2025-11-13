@@ -7,7 +7,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView, // <-- Import is correct
+  KeyboardAvoidingView,
   Platform,
   ScrollView,
 } from "react-native";
@@ -67,11 +67,12 @@ export default function SignupScreen() {
       <ScrollView
         contentContainerStyle={{
           flexGrow: 1,
-          justifyContent: "center",
+          // Removed justifyContent: "center" to allow content to scroll correctly when the keyboard is active
         }}
         keyboardShouldPersistTaps="handled"
       >
-        <View className="justify-center p-6">
+        {/* Removed redundant justify-center from className */}
+        <View className="p-6">
           <Text className="mb-2 text-center font-inter-semibold text-2xl text-text-primary">
             Create Account
           </Text>
