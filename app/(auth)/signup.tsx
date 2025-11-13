@@ -8,7 +8,8 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useState } from "react";
-import { useAuthAndHousehold } from "../context/AuthAndHouseholdContext";
+// FIX: Path updated
+import { useAuthAndHousehold } from "../../context/AuthAndHouseholdContext"; 
 import { router } from "expo-router";
 import { Octicons } from "@expo/vector-icons";
 
@@ -41,22 +42,12 @@ export default function SignUpScreen() {
         firstName,
         lastName,
       });
-
-      if (success) {
-        // The RootLayout will now automatically handle the redirect to /(app)
-      } else {
-        // The signUp function will have set an error, but if it returns false
-        // without an error, show a generic message.
-        Alert.alert("Sign Up Failed", "An unknown error occurred. Please try again.");
+      if (!success) {
+        console.log("Sign up failed (error already alerted to user)");
       }
     } catch (err) {
-      // --- FIX: Type-safe error handling ---
-      let errorMessage = "An error occurred during sign up.";
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      }
-      Alert.alert("Sign Up Error", errorMessage);
-      // --- END FIX ---
+      console.error("Unexpected signup error", err);
+      Alert.alert("Sign Up Error", "An unexpected error occurred.");
     } finally {
       setIsLoading(false);
     }

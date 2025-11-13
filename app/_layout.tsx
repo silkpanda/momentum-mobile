@@ -1,9 +1,10 @@
 // silkpanda/momentum-mobile/momentum-mobile-9f8d4a2b72b1c6b369312ebcd296db8cee196e6d/app/_layout.tsx
-import { Slot, useRouter, useSegments } from 'expo-router'; // <-- FIX: Import useSegments
+import { Slot, useRouter, useSegments } from 'expo-router';
 import { useFonts } from 'expo-font';
-import { useEffect } from 'react'; // <-- FIX: Removed useRef
+import { useEffect } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
-import { AuthAndHouseholdProvider, useAuthAndHousehold } from './context/AuthAndHouseholdContext';
+// FIX: Path updated
+import { AuthAndHouseholdProvider, useAuthAndHousehold } from '../context/AuthAndHouseholdContext'; 
 
 import '../global.css';
 
@@ -12,18 +13,16 @@ SplashScreen.preventAutoHideAsync();
 
 function RootLayoutContent() {
   const router = useRouter();
-  const segments = useSegments(); // <-- FIX: Get current route segments
-  // FIX: Removed the isRoutingComplete ref
-
+  const segments = useSegments();
+    
   const [loaded, error] = useFonts({
-    // FIX: The correct relative path from app/_layout.tsx (inside 'app/') to the assets/ folder
-    // (at the project root) is '../assets/fonts/'. Reverting from the over-corrected path.
     'Inter': require('../assets/fonts/Inter-Regular.ttf'),
     'Inter-medium': require('../assets/fonts/Inter-Medium.ttf'),
     'Inter-semibold': require('../assets/fonts/Inter-SemiBold.ttf'),
   });
 
-  const { isAuthenticated, isLoading } = useAuthAndHousehold();
+  // Use the new auth context
+  const { isAuthenticated, isLoading: isAuthLoading } = useAuthAndHousehold();
 
   // Expo Router's route protection logic
   useEffect(() => {
@@ -38,9 +37,8 @@ function RootLayoutContent() {
 
   // Handle route protection based on auth state
   useEffect(() => {
-    // FIX: Re-written auth logic
     // Wait until auth is no longer loading AND fonts are loaded
-    if (isLoading || !loaded) {
+    if (isAuthLoading || !loaded) {
       return;
     }
 
@@ -56,14 +54,13 @@ function RootLayoutContent() {
       // Redirect them to the login screen.
       router.replace('/(auth)/login');
     }
-    // If (isAuthenticated && inAppGroup) -> do nothing, user is in the right place
-    // If (!isAuthenticated && !inAppGroup) -> do nothing, user is in auth flow
     
-  }, [isAuthenticated, isLoading, loaded, segments, router]); // <-- FIX: Added segments
+  }, [isAuthenticated, isAuthLoading, loaded, segments, router]);
 
   // We rely on the initial splash screen being visible until all assets are loaded.
-  if (!loaded || isLoading) {
-    return null;
+  // We also wait for the initial auth check.
+  if (!loaded || isAuthLoading) {
+    return null; // The native splash screen will be visible
   }
 
   return (
