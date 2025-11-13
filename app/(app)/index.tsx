@@ -6,14 +6,16 @@ import {
   TouchableOpacity,
   ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context"; // <-- FIX 1: Import SafeAreaView
 import { useAuthAndHousehold, IHouseholdMemberProfile } from "../context/AuthAndHouseholdContext";
 import { router } from "expo-router";
 import { Octicons } from "@expo/vector-icons";
 
 // Component for the Kiosk Profile Card
 const ProfileCard = ({ profile }: { profile: IHouseholdMemberProfile }) => {
-  // Utility class for dynamic background color based on the profileColor property
-  const bgColorClass = `bg-${profile.profileColor}-500`; 
+  // FIX 2: Removed broken dynamic bgColorClass. 
+  // NativeWind cannot build dynamic classes like `bg-${color}-500` at runtime.
+  // We will apply the color directly via inline style.
 
   const onPress = () => {
     // Navigate to the member's main task/point view (Phase 3.2, TBD)
@@ -22,10 +24,12 @@ const ProfileCard = ({ profile }: { profile: IHouseholdMemberProfile }) => {
 
   return (
     <TouchableOpacity
-      className={`h-40 w-full p-4 rounded-xl shadow-lg my-2 ${bgColorClass}`}
+      // FIX 3: Removed ${bgColorClass} from className
+      className={`h-40 w-full p-4 rounded-xl shadow-lg my-2`}
       onPress={onPress}
       // Set the color for the Octicons based on the profile color for contrast (e.g., white text on color background)
       style={{ 
+        backgroundColor: profile.profileColor, // <-- FIX 4: Apply color directly as an inline style
         // We'll set the text color to white for contrast on the colorful card
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
@@ -58,10 +62,11 @@ export default function KioskScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 justify-center items-center bg-bg-canvas">
+      // FIX 5: Use SafeAreaView here for loading state as well
+      <SafeAreaView className="flex-1 justify-center items-center bg-bg-canvas">
         <ActivityIndicator size="large" color="#4F46E5" />
         <Text className="mt-4 font-inter text-text-secondary">Loading Household...</Text>
-      </View>
+      </SafeAreaView>
     );
   }
 
@@ -69,7 +74,8 @@ export default function KioskScreen() {
   if (!currentHousehold) {
     // In a final MVP, this would navigate to the Create Household screen.
     return (
-      <View className="flex-1 justify-center items-center p-6 bg-bg-canvas">
+      // FIX 6: Use SafeAreaView here for the "No Household" state
+      <SafeAreaView className="flex-1 justify-center items-center p-6 bg-bg-canvas">
         <Text className="font-inter-semibold text-xl text-text-primary mb-4 text-center">
           No Household Context
         </Text>
@@ -84,13 +90,14 @@ export default function KioskScreen() {
                 Create Household
             </Text>
           </TouchableOpacity>
-      </View>
+      </SafeAreaView>
     );
   }
 
   // Kiosk View: Display all member profiles
   return (
-    <View className="flex-1 bg-bg-canvas p-6">
+    // FIX 7: Replace root View with SafeAreaView to respect device's status bar/notch
+    <SafeAreaView className="flex-1 bg-bg-canvas p-6">
       <Text className="font-inter-semibold text-3xl text-text-primary mb-2">
         {currentHousehold.householdName}
       </Text>
@@ -104,6 +111,6 @@ export default function KioskScreen() {
         renderItem={({ item }) => <ProfileCard profile={item} />}
         contentContainerStyle={{ paddingBottom: 20 }}
       />
-    </View>
+    </SafeAreaView>
   );
 }
