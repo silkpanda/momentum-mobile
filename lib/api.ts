@@ -1,6 +1,7 @@
-// silkpanda/momentum-mobile/momentum-mobile-a483d2d53d1f991b30c6e3ed537ec9950d1fafa4/lib/api.ts
+// silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/lib/api.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IHousehold, ISession } from "./types"; // <-- Path updated
+import { API_URL } from "../utils/config"; // <-- Import the URL from config
 
 // !!! IMPORTANT !!!
 // THIS IS LIKELY THE SOURCE OF YOUR NETWORK ERROR
@@ -12,7 +13,7 @@ import { IHousehold, ISession } from "./types"; // <-- Path updated
 // const API_BASE_URL = "http://192.168.1.100:3000";
 //
 // 'localhost' WILL NOT WORK.
-const API_BASE_URL = "http://10.0.2.2:3000"; // <-- FIX: Update this!
+const API_BASE_URL = "https://unthirsting-soritic-raymonde.ngrok-free.dev"; // <-- Use the imported URL
 
 // Custom error class for API failures
 export class ApiError extends Error {
@@ -44,7 +45,10 @@ const api = {
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     body?: unknown
   ): Promise<T> {
-    const url = `${API_BASE_URL}/api${endpoint}`;
+    //
+    // FIX: The prefix MUST match the server's /api/v1 structure
+    //
+    const url = `${API_BASE_URL}/api/v1${endpoint}`; 
     const token = await AsyncStorage.getItem("authToken");
 
     const headers: HeadersInit = {
