@@ -28,11 +28,6 @@ export interface IAuthAndHouseholdContext {
   }) => Promise<boolean>;
   signOut: () => Promise<void>;
 
-  // Data Hooks (provided by SWR)
-  // We no longer store household/profile in context state.
-  // We'll use SWR hooks in the components that need them.
-  // This simplifies state management immensely.
-  
   // Profile Selection
   currentMemberProfile: IHouseholdMemberProfile | null;
   selectMemberProfile: (profile: IHouseholdMemberProfile | null) => void;
@@ -55,8 +50,6 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoading, setIsLoading] = useState(true); // This is now for the initial token check
   
-  // This is the ONLY piece of household state we track globally.
-  // The rest (household, tasks, etc) is fetched by SWR.
   const [currentMemberProfile, setCurrentMemberProfile] = useState<IHouseholdMemberProfile | null>(null);
 
   // Check for auth token on app load
@@ -66,10 +59,6 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
       try {
         const token = await AsyncStorage.getItem("authToken");
         if (token) {
-          // We could verify the token with the API, but for now,
-          // just having it means we are "authenticated".
-          // The SWR hooks will fail if the token is invalid,
-          // which we can handle gracefully.
           setIsAuthenticated(true);
         } else {
           setIsAuthenticated(false);
@@ -90,7 +79,6 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
   const signIn = async (email: string, password: string): Promise<boolean> => {
     try {
       setIsLoading(true);
-      // The API should return { token: "..." }
       const { token } = await api.post<{ token: string }>("/auth/login", {
         email,
         password,
@@ -123,7 +111,6 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
   }): Promise<boolean> => {
     try {
       setIsLoading(true);
-      // The API should return { token: "..." }
       const { token } = await api.post<{ token: string }>("/auth/signup", credentials);
 
       if (!token) {
@@ -132,8 +119,6 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
       
       await AsyncStorage.setItem("authToken", token);
       setIsAuthenticated(true);
-      // When you sign up, you might not have a household yet.
-      // The 'No Household' screen in (app)/index.tsx will handle this.
       setIsLoading(false);
       return true;
     } catch (err) {
@@ -151,17 +136,14 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
     await AsyncStorage.removeItem("authToken");
     setIsAuthenticated(false);
     setCurrentMemberProfile(null);
-    // Clear all SWR cache on sign out
     mutate(() => true, undefined, { revalidate: false });
   };
   
-  // Function to select a profile
   const selectMemberProfile = (profile: IHouseholdMemberProfile | null) => {
     setCurrentMemberProfile(profile);
   };
 
 
-  // The value provided to the context consumers
   const contextValue: IAuthAndHouseholdContext = {
     isAuthenticated,
     isLoading,
@@ -177,10 +159,8 @@ export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> =
       <SWRConfig
         value={{
           fetcher: swrFetcher,
-          // Optional: Add global SWR config
           onError: (error, key) => {
             if (error.status === 401 || error.status === 403) {
-              // Unauthorized, force a sign-out
               console.error("SWR: Auth error, signing out.", key);
               signOut();
             }
@@ -205,14 +185,11 @@ export const useAuthAndHousehold = () => {
 };
 
 // --- NEW DATA HOOKS ---
-// These are the hooks we'll use in our components to get data.
 
 /**
  * Fetches the user's session info (user, householdId).
- * This is the mobile equivalent of the web app's useSession.
  */
 export const useSession = () => {
-  // This endpoint is correct now
   const { data, error, isLoading, mutate } = useSWR<ISession>("/auth/me");
   
   return {
@@ -226,20 +203,17 @@ export const useSession = () => {
 
 /**
  * Fetches the full household data (member profiles, etc.)
- * It's dependent on the session, so it won't run until we have a householdId.
  */
 export const useHousehold = () => {
   const { session } = useSession();
-  
-  //
-  // FIX: Read from session.householdId (the string)
-  // NOT session.household._id (the nested object)
-  //
   const householdId = session?.householdId;
 
-  // Only fetch if householdId is available
+  //
+  // --- THIS IS THE CRITICAL CHANGE ---
+  // The server route is '/households', not '/households/:id'.
+  //
   const { data, error, isLoading, mutate } = useSWR<IHousehold>(
-    householdId ? `/households/${householdId}` : null
+    householdId ? `/households` : null // <-- WAS: `/households/${householdId}`
   );
 
   return {

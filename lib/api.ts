@@ -3,7 +3,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IHousehold, ISession } from "./types";
 import { API_URL } from "../utils/config";
 
-const API_BASE_URL = "https://unthirsting-soritic-raymonde.ngrok-free.dev";
+const API_BASE_URL =  "https://unthirsting-soritic-raymonde.ngrok-free.dev";
 
 // Custom error class for API failures
 export class ApiError extends Error {
@@ -75,9 +75,6 @@ const api = {
         return null as T;
       }
 
-      // Return the FULL JSON response.
-      // The login/signup functions need this to get the top-level 'token'.
-      // The swrFetcher (below) will handle unwrapping the 'data' property.
       return response.json() as Promise<T>;
 
     } catch (err) {
@@ -95,28 +92,17 @@ const api = {
 export default api;
 
 /**
- * A simple fetcher function for SWR.
- * SWR will call this with the endpoint (which is the key).
+ * --- THIS IS THE CRITICAL CHANGE ---
  *
- * --- THIS IS THE FIX ---
- *
- * This function intercepts all SWR data requests.
- * It calls api.get(), which returns the full JSend response:
- * { status: 'success', data: { ... } }
- *
- * This fetcher unwraps that envelope and returns *only* the 'data'
- * object to SWR, which is what our hooks (useSession, useHousehold) expect.
+ * This fetcher unwraps the JSend envelope
+ * and returns *only* the 'data' object to SWR.
  */
 export const swrFetcher = async (endpoint: string) => {
-  // api.get() will return the full JSend object, e.g., { status: 'success', data: ... }
   const response: any = await api.get(endpoint);
 
-  // If it's a successful JSend response, unwrap it and return the data.
   if (response && response.status === 'success' && typeof response.data !== 'undefined') {
     return response.data;
   }
   
-  // If the response is NOT a JSend object (which shouldn't happen for GETs),
-  // or if 'data' is missing, return the whole thing.
   return response;
 };
