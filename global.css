@@ -1,3 +1,37 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+|--------------------------------------------------------------------------
+| Semantic Color Role Definitions (Light Theme)
+|--------------------------------------------------------------------------
+| These CSS variables provide the actual color values for the semantic
+| names defined in tailwind.config.js. A theme without these definitions
+| will cause the app to render with missing styles.
+*/
+:root {
+  /* 1. Backgrounds */
+  --color-bg-canvas: #FFFFFF; /* Pure White */
+  --color-bg-surface: #F9FAFB; /* Light Gray */
+
+  /* 2. Text */
+  --color-text-primary: #1F2937; /* Dark Gray (almost black) */
+  --color-text-secondary: #6B7280; /* Medium Gray */
+
+  /* 3. Borders */
+  --color-border-subtle: #E5E7EB; /* Very Light Gray */
+
+  /* 4. Actions */
+  --color-action-primary: #3B82F6; /* Primary Blue (Contrasts with text-white) */
+  --color-action-hover: #2563EB; /* Darker Blue for Hover/Press */
+
+  /* 5. Signals */
+  --color-signal-success: #10B981; /* Green */
+  --color-signal-alert: #F87171; /* Red */
+  --color-signal-focus: #FBBF24; /* Amber/Yellow */
+}
