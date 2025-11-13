@@ -1,55 +1,39 @@
-// silkpanda/momentum-mobile/momentum-mobile-a483d2d53d1f991b30c6e3ed537ec9950d1fafa4/app/lib/types.ts
+// silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/lib/types.ts
 
-// The user's global identity, from the FamilyMember document
-export interface IUser {
-  _id: string;
-  email: string;
-  firstName: string;
-  lastName: string;
-}
+// (Other types like ITask, IStoreItem, etc. would be here)
 
-// The profile for a member *within* a specific household
 export interface IHouseholdMemberProfile {
-  _id: string; // This is the profile's unique ID
-  familyMemberId: string; // Reference to the FamilyMember document
+  _id: string;
+  familyMemberId: string;
   displayName: string;
-  role: "parent" | "child" | "other";
-  profileColor: string; // e.g., "#EF4444"
+  profileColor: string;
+  role: "Parent" | "Child";
   pointsTotal: number;
 }
 
-// The Household document
 export interface IHousehold {
   _id: string;
-  householdName: string;
+  name: string;
+  ownerId: string;
   memberProfiles: IHouseholdMemberProfile[];
-  // tasks and storeItems will be fetched from separate endpoints
+  // Other household data (tasks, store items) will be fetched by other hooks
 }
 
-// The core session payload, combining user and household info
+/**
+ * Defines the shape of the data returned from the /api/v1/auth/me endpoint.
+ */
 export interface ISession {
-  user: IUser;
-  household: {
+  user: {
     _id: string;
-    householdName: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: "Parent" | "Child";
   };
-}
-
-// A Task
-export interface ITask {
-  _id: string;
-  name: string;
-  points: number;
-  status: "pending" | "completed" | "approved";
-  assignedTo: string; // This will be a profile _id
-  // Add other fields from the web app as needed
-}
-
-// A Store Item
-export interface IStoreItem {
-  _id: string;
-  name: string;
-  points: number;
-  stock: number;
-  // Add other fields from the web app as needed
+  
+  //
+  // FIX: Changed this to match the web app and the actual API response.
+  // The API sends `householdId`, not a populated `household` object.
+  //
+  householdId: string | null;
 }

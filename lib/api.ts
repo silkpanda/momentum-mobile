@@ -1,19 +1,9 @@
 // silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/lib/api.ts
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IHousehold, ISession } from "./types"; // <-- Path updated
-import { API_URL } from "../utils/config"; // <-- Import the URL from config
+import { IHousehold, ISession } from "./types";
+import { API_URL } from "../utils/config";
 
-// !!! IMPORTANT !!!
-// THIS IS LIKELY THE SOURCE OF YOUR NETWORK ERROR
-//
-// If running on an Android Emulator, use:
-// const API_BASE_URL = "http://10.0.2.2:3000";
-//
-// If running on a Physical Device, find your computer's Network IP (e.g., 192.168.1.100):
-// const API_BASE_URL = "http://192.168.1.100:3000";
-//
-// 'localhost' WILL NOT WORK.
-const API_BASE_URL = "https://unthirsting-soritic-raymonde.ngrok-free.dev"; // <-- Use the imported URL
+const API_BASE_URL = "https://unthirsting-soritic-raymonde.ngrok-free.dev";
 
 // Custom error class for API failures
 export class ApiError extends Error {
@@ -45,10 +35,7 @@ const api = {
     method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
     body?: unknown
   ): Promise<T> {
-    //
-    // FIX: The prefix MUST match the server's /api/v1 structure
-    //
-    const url = `${API_BASE_URL}/api/v1${endpoint}`; 
+    const url = `${API_BASE_URL}/api/v1${endpoint}`;
     const token = await AsyncStorage.getItem("authToken");
 
     const headers: HeadersInit = {
@@ -75,6 +62,7 @@ const api = {
         let errorMessage = "An API error occurred";
         try {
           const errorBody = await response.json();
+          // API sends errors in { status: 'fail', message: '...' }
           errorMessage = errorBody.message || errorMessage;
         } catch (e) {
           // Ignore, just use the default message
@@ -87,6 +75,9 @@ const api = {
         return null as T;
       }
 
+      // Return the FULL JSON response.
+      // The login/signup functions need this to get the top-level 'token'.
+      // The swrFetcher (below) will handle unwrapping the 'data' property.
       return response.json() as Promise<T>;
 
     } catch (err) {
@@ -106,7 +97,26 @@ export default api;
 /**
  * A simple fetcher function for SWR.
  * SWR will call this with the endpoint (which is the key).
+ *
+ * --- THIS IS THE FIX ---
+ *
+ * This function intercepts all SWR data requests.
+ * It calls api.get(), which returns the full JSend response:
+ * { status: 'success', data: { ... } }
+ *
+ * This fetcher unwraps that envelope and returns *only* the 'data'
+ * object to SWR, which is what our hooks (useSession, useHousehold) expect.
  */
 export const swrFetcher = async (endpoint: string) => {
-  return api.get(endpoint);
+  // api.get() will return the full JSend object, e.g., { status: 'success', data: ... }
+  const response: any = await api.get(endpoint);
+
+  // If it's a successful JSend response, unwrap it and return the data.
+  if (response && response.status === 'success' && typeof response.data !== 'undefined') {
+    return response.data;
+  }
+  
+  // If the response is NOT a JSend object (which shouldn't happen for GETs),
+  // or if 'data' is missing, return the whole thing.
+  return response;
 };

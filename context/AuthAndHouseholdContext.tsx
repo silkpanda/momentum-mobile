@@ -1,4 +1,4 @@
-// silkpanda/momentum-mobile/momentum-mobile-a483d2d53d1f991b30c6e3ed537ec9950d1fafa4/context/AuthAndHouseholdContext.tsx
+// silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/context/AuthAndHouseholdContext.tsx
 import React, {
   createContext,
   useContext,
@@ -208,11 +208,12 @@ export const useAuthAndHousehold = () => {
 // These are the hooks we'll use in our components to get data.
 
 /**
- * Fetches the user's session info (user, household).
+ * Fetches the user's session info (user, householdId).
  * This is the mobile equivalent of the web app's useSession.
  */
 export const useSession = () => {
-  const { data, error, isLoading, mutate } = useSWR<ISession>("/session");
+  // This endpoint is correct now
+  const { data, error, isLoading, mutate } = useSWR<ISession>("/auth/me");
   
   return {
     session: data,
@@ -229,7 +230,12 @@ export const useSession = () => {
  */
 export const useHousehold = () => {
   const { session } = useSession();
-  const householdId = session?.household?._id;
+  
+  //
+  // FIX: Read from session.householdId (the string)
+  // NOT session.household._id (the nested object)
+  //
+  const householdId = session?.householdId;
 
   // Only fetch if householdId is available
   const { data, error, isLoading, mutate } = useSWR<IHousehold>(
