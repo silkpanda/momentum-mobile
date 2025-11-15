@@ -1,108 +1,57 @@
-// silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/lib/api.ts
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { IHousehold, ISession } from "./types";
-import { API_URL } from "../utils/config";
+import axios from 'axios';
+import * as SecureStore from 'expo-secure-store';
+import { API_BASE_URL } from '../utils/config'; // This will now be http://localhost:3002
 
-const API_BASE_URL =  "https://unthirsting-soritic-raymonde.ngrok-free.dev";
-
-// Custom error class for API failures
-export class ApiError extends Error {
-  status: number;
-  constructor(message: string, status: number) {
-    super(message);
-    this.name = "ApiError";
-    this.status = status;
-  }
-}
-
-/**
- * The core API fetcher function.
- * Handles adding auth token and parsing JSON response.
- */
-const api = {
-  async get<T>(endpoint: string): Promise<T> {
-    return this.request<T>(endpoint, "GET");
+// --- THIS IS THE CRITICAL V4 CHANGE ---
+// This apiClient is now configured to speak ONLY to the
+// momentum-mobile-bff, which acts as a secure proxy.
+//
+// The value of API_BASE_URL (from utils/config.ts)
+// MUST be changed from 'http://localhost:3001'
+// to 'http://localhost:3002'
+// --- END OF CHANGE ---
+const apiClient = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
   },
+});
 
-  async post<T>(endpoint: string, body: unknown): Promise<T> {
-    return this.request<T>(endpoint, "POST", body);
-  },
-  
-  // Add put, patch, delete as needed
-
-  async request<T>(
-    endpoint: string,
-    method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
-    body?: unknown
-  ): Promise<T> {
-    const url = `${API_BASE_URL}/api/v1${endpoint}`;
-    const token = await AsyncStorage.getItem("authToken");
-
-    const headers: HeadersInit = {
-      "Content-Type": "application/json",
-    };
-
+// Interceptor to add the JWT to every request
+apiClient.interceptors.request.use(
+  async (config) => {
+    const token = await SecureStore.getItemAsync('token');
     if (token) {
-      headers["Authorization"] = `Bearer ${token}`;
+      config.headers.Authorization = `Bearer ${token}`;
     }
-
-    const config: RequestInit = {
-      method,
-      headers,
-    };
-
-    if (body) {
-      config.body = JSON.stringify(body);
-    }
-
-    try {
-      const response = await fetch(url, config);
-
-      if (!response.ok) {
-        let errorMessage = "An API error occurred";
-        try {
-          const errorBody = await response.json();
-          // API sends errors in { status: 'fail', message: '...' }
-          errorMessage = errorBody.message || errorMessage;
-        } catch (e) {
-          // Ignore, just use the default message
-        }
-        throw new ApiError(errorMessage, response.status);
-      }
-
-      // Handle "No Content" responses
-      if (response.status === 204) {
-        return null as T;
-      }
-
-      return response.json() as Promise<T>;
-
-    } catch (err) {
-      if (err instanceof ApiError) {
-        throw err;
-      } else {
-        // Handle network errors
-        console.error("Network or fetch error:", err);
-        throw new ApiError("A network error occurred.", 0);
-      }
-    }
+    return config;
   },
-};
+  (error) => {
+    return Promise.reject(error);
+  },
+);
 
-export default api;
-
-/**
- * --- THIS IS THE CRITICAL CHANGE ---
- *
- * This fetcher unwraps the JSend envelope
- * and returns *only* the 'data' object to SWR.
- */
-export const swrFetcher = async (endpoint: string) => {
-  const response: any = await api.get(endpoint);
-
-  if (response && response.status === 'success' && typeof response.data !== 'undefined') {
+// --- API FUNCTION ---
+// This function is now simplified. It just calls the one BFF endpoint.
+export const getKioskData = async () => {
+  try {
+    // --- UPDATED ENDPOINT ---
+    // Instead of GET '/api/v1/households',
+    // we now call our new BFF endpoint from Step 3.1
+    const response = await apiClient.get('/api/v1/kiosk-data');
+    // --- END OF UPDATE ---
+    
+    // The BFF forwards the API's response structure,
+    // so this data shape should be the same as before.
     return response.data;
+  } catch (error) {
+    console.error('Error fetching kiosk data from BFF:', error);
+    throw error;
   }
-  
-  return response;
 };
+
+// We can add other API calls here later, e.g.:
+// export const completeTaskOnBff = (taskId: string) => apiClient.post(`/api/v1/tasks/${taskId}/complete`);
+// export const purchaseItemOnBff = (itemId: string) => apiClient.post(`/api/v1/store/${itemId}/purchase`);
+
+export default apiClient;

@@ -1,225 +1,233 @@
-// silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/context/AuthAndHouseholdContext.tsx
 import React, {
   createContext,
   useContext,
-  useState,
   useEffect,
-  ReactNode,
-} from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import { SWRConfig } from "swr";
-import useSWR, { mutate } from "swr";
-import api, { swrFetcher, ApiError } from "../lib/api"; // <-- Path Updated
-import { IHousehold, ISession, IHouseholdMemberProfile } from "../lib/types"; // <-- Path Updated
+  useState,
+  useCallback,
+} from 'react';
+import * as SecureStore from 'expo-secure-store';
+import { useRouter, useSegments } from 'expo-router';
+// Correctly importing axios
+import axios from 'axios';
+import { IHousehold, IMemberProfile, ITask, IStoreItem } from '../lib/types';
+import apiClient, { getKioskData } from '../lib/api';
 
-// Define the shape of the authentication context
-export interface IAuthAndHouseholdContext {
-  // Auth State
-  isAuthenticated: boolean;
-  isLoading: boolean; // This is now for auth actions (login, etc)
-
-  // Auth Methods
-  signIn: (email: string, password: string) => Promise<boolean>;
-  signUp: (credentials: {
-    email?: string;
-    password?: string;
-    firstName?: string;
-    lastName?: string;
-  }) => Promise<boolean>;
-  signOut: () => Promise<void>;
-
-  // Profile Selection
-  currentMemberProfile: IHouseholdMemberProfile | null;
-  selectMemberProfile: (profile: IHouseholdMemberProfile | null) => void;
+// Define the shape of the data returned by the BFF
+interface KioskData {
+  status: string;
+  data: {
+    household: IHousehold;
+    tasks: ITask[];
+    storeItems: IStoreItem[];
+  };
 }
 
-// Create the context
-const AuthAndHouseholdContext = createContext<IAuthAndHouseholdContext | undefined>(
-  undefined
+// Define the shape of the context
+interface AuthContextType {
+  authToken: string | null;
+  household: IHousehold | null;
+  tasks: ITask[];
+  storeItems: IStoreItem[];
+  isLoading: boolean;
+  selectedMember: IMemberProfile | null;
+  login: (email: string, pass: string) => Promise<void>;
+  signup: (formData: any) => Promise<void>;
+  logout: () => void;
+  selectMember: (member: IMemberProfile | null) => void;
+  fetchHouseholdData: () => Promise<void>; // To allow manual refresh
+}
+
+const AuthAndHouseholdContext = createContext<AuthContextType | undefined>(
+  undefined,
 );
 
-// Define the props for the provider
-interface AuthAndHouseholdProviderProps {
-  children: ReactNode;
-}
-
-// Create the provider component
-export const AuthAndHouseholdProvider: React.FC<AuthAndHouseholdProviderProps> = ({
-  children,
-}) => {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoading, setIsLoading] = useState(true); // This is now for the initial token check
-  
-  const [currentMemberProfile, setCurrentMemberProfile] = useState<IHouseholdMemberProfile | null>(null);
-
-  // Check for auth token on app load
-  useEffect(() => {
-    const checkAuth = async () => {
-      setIsLoading(true);
-      try {
-        const token = await AsyncStorage.getItem("authToken");
-        if (token) {
-          setIsAuthenticated(true);
-        } else {
-          setIsAuthenticated(false);
-        }
-      } catch (e) {
-        console.error("Failed to load auth token:", e);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkAuth();
-  }, []);
-
-  // --- Real Auth Methods ---
-
-  const signIn = async (email: string, password: string): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      const { token } = await api.post<{ token: string }>("/auth/login", {
-        email,
-        password,
-      });
-
-      if (!token) {
-        throw new Error("No token received from API");
-      }
-
-      await AsyncStorage.setItem("authToken", token);
-      setIsAuthenticated(true);
-      setIsLoading(false);
-      return true;
-    } catch (err) {
-      if (err instanceof ApiError) {
-        alert(`Login Failed: ${err.message}`);
-      } else {
-        alert("An unknown error occurred.");
-      }
-      setIsLoading(false);
-      return false;
-    }
-  };
-
-  const signUp = async (credentials: {
-    email?: string;
-    password?: string;
-    firstName?: string;
-    lastName?: string;
-  }): Promise<boolean> => {
-    try {
-      setIsLoading(true);
-      const { token } = await api.post<{ token: string }>("/auth/signup", credentials);
-
-      if (!token) {
-        throw new Error("No token received from API");
-      }
-      
-      await AsyncStorage.setItem("authToken", token);
-      setIsAuthenticated(true);
-      setIsLoading(false);
-      return true;
-    } catch (err) {
-      if (err instanceof ApiError) {
-        alert(`Sign Up Failed: ${err.message}`);
-      } else {
-        alert("An unknown error occurred.");
-      }
-      setIsLoading(false);
-      return false;
-    }
-  };
-
-  const signOut = async (): Promise<void> => {
-    await AsyncStorage.removeItem("authToken");
-    setIsAuthenticated(false);
-    setCurrentMemberProfile(null);
-    mutate(() => true, undefined, { revalidate: false });
-  };
-  
-  const selectMemberProfile = (profile: IHouseholdMemberProfile | null) => {
-    setCurrentMemberProfile(profile);
-  };
-
-
-  const contextValue: IAuthAndHouseholdContext = {
-    isAuthenticated,
-    isLoading,
-    signIn,
-    signUp,
-    signOut,
-    currentMemberProfile,
-    selectMemberProfile,
-  };
-
-  return (
-    <AuthAndHouseholdContext.Provider value={contextValue}>
-      <SWRConfig
-        value={{
-          fetcher: swrFetcher,
-          onError: (error, key) => {
-            if (error.status === 401 || error.status === 403) {
-              console.error("SWR: Auth error, signing out.", key);
-              signOut();
-            }
-          },
-        }}
-      >
-        {children}
-      </SWRConfig>
-    </AuthAndHouseholdContext.Provider>
-  );
-};
-
-// Create the custom hook
-export const useAuthAndHousehold = () => {
+// Custom hook to use the context
+export const useAuth = () => {
   const context = useContext(AuthAndHouseholdContext);
-  if (context === undefined) {
-    throw new Error(
-      "useAuthAndHousehold must be used within an AuthAndHouseholdProvider"
-    );
+  if (!context) {
+    throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
 };
 
-// --- NEW DATA HOOKS ---
+// Custom hook to manage auth state and redirects
+function useProtectedRoute(authToken: string | null) {
+  const segments = useSegments();
+  const router = useRouter();
 
-/**
- * Fetches the user's session info (user, householdId).
- */
-export const useSession = () => {
-  const { data, error, isLoading, mutate } = useSWR<ISession>("/auth/me");
-  
-  return {
-    session: data,
-    error,
-    isLoading,
-    mutate,
-  };
-};
+  useEffect(() => {
+    const inAuthGroup = segments[0] === '(auth)';
 
+    if (!authToken && !inAuthGroup) {
+      router.replace('/login');
+    } else if (authToken && inAuthGroup) {
+      router.replace('/');
+    }
+  }, [authToken, segments, router]);
+}
 
-/**
- * Fetches the full household data (member profiles, etc.)
- */
-export const useHousehold = () => {
-  const { session } = useSession();
-  const householdId = session?.householdId;
-
-  //
-  // --- THIS IS THE CRITICAL CHANGE ---
-  // The server route is '/households', not '/households/:id'.
-  //
-  const { data, error, isLoading, mutate } = useSWR<IHousehold>(
-    householdId ? `/households` : null // <-- WAS: `/households/${householdId}`
+// The provider component
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
+  children,
+}) => {
+  const [authToken, setAuthToken] = useState<string | null>(null);
+  const [household, setHousehold] = useState<IHousehold | null>(null);
+  const [tasks, setTasks] = useState<ITask[]>([]);
+  const [storeItems, setStoreItems] = useState<IStoreItem[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedMember, setSelectedMember] = useState<IMemberProfile | null>(
+    null,
   );
 
-  return {
-    household: data,
-    error,
-    isLoading,
-    mutate,
+  useProtectedRoute(authToken);
+
+  const fetchHouseholdData = useCallback(async () => {
+    if (!authToken) return;
+    setIsLoading(true);
+    try {
+      // We call our new getKioskData function which hits the BFF.
+      const data: KioskData = await getKioskData();
+
+      if (data.status === 'success' && data.data.household) {
+        setHousehold(data.data.household);
+        setTasks(data.data.tasks || []);
+        setStoreItems(data.data.storeItems || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch household data from BFF:', error);
+      // If we fail (e.g., token expired), log out
+      logout();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [authToken]);
+
+  // Load token and data on app start
+  useEffect(() => {
+    const loadAuthData = async () => {
+      setIsLoading(true);
+      try {
+        const token = await SecureStore.getItemAsync('token');
+        if (token) {
+          setAuthToken(token);
+          // Manually set token for subsequent apiClient requests
+          apiClient.defaults.headers.common[
+            'Authorization'
+          ] = `Bearer ${token}`;
+
+          const data: KioskData = await getKioskData();
+
+          if (data.status === 'success' && data.data.household) {
+            setHousehold(data.data.household);
+            setTasks(data.data.tasks || []);
+            setStoreItems(data.data.storeItems || []);
+          } else {
+            // Token might be invalid, clear it
+            await SecureStore.deleteItemAsync('token');
+            setAuthToken(null);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to load auth token:', e);
+        await SecureStore.deleteItemAsync('token');
+        setAuthToken(null);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    loadAuthData();
+  }, []);
+
+  const login = async (email: string, pass: string) => {
+    setIsLoading(true);
+    try {
+      // --- THIS IS THE FIX ---
+      // Changed 'password' to 'pass' to match the function argument
+      const response = await apiClient.post('/api/v1/auth/login', {
+        email,
+        password: pass, // Using the 'pass' variable here
+      });
+      // --- END OF FIX ---
+
+      if (response.data.token) {
+        const { token } = response.data;
+        await SecureStore.setItemAsync('token', token);
+        setAuthToken(token);
+        // Set token for all future requests
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Fetch household data after successful login
+        await fetchHouseholdData();
+      }
+    } catch (error) {
+      console.error('Login failed:', error);
+      throw new Error('Login failed. Please check your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
+
+  const signup = async (formData: any) => {
+    setIsLoading(true);
+    try {
+      // The signup endpoint is now on the BFF.
+      const response = await apiClient.post('/api/v1/auth/signup', formData);
+
+      if (response.data.token) {
+        const { token } = response.data;
+        await SecureStore.setItemAsync('token', token);
+        setAuthToken(token);
+        // Set token for all future requests
+        apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+        // Fetch household data after successful signup
+        await fetchHouseholdData();
+      }
+    } catch (error) {
+      console.error('Signup failed:', error);
+      // Use the correctly imported 'axios'
+      if (axios.isAxiosError(error) && error.response) {
+        throw new Error(
+          error.response.data.message ||
+            'Signup failed. Please try again.',
+        );
+      }
+      throw new Error('Signup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    await SecureStore.deleteItemAsync('token');
+    setAuthToken(null);
+    setHousehold(null);
+    setTasks([]);
+    setStoreItems([]);
+    setSelectedMember(null);
+    // Remove auth header from apiClient
+    delete apiClient.defaults.headers.common['Authorization'];
+  };
+
+  const selectMember = (member: IMemberProfile | null) => {
+    setSelectedMember(member);
+  };
+
+  const value = {
+    authToken,
+    household,
+    tasks,
+    storeItems,
+    isLoading,
+    selectedMember,
+    login,
+    signup,
+    logout,
+    selectMember,
+    fetchHouseholdData,
+  };
+
+  return (
+    <AuthAndHouseholdContext.Provider value={value}>
+      {children}
+    </AuthAndHouseholdContext.Provider>
+  );
 };

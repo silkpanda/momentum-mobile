@@ -1,39 +1,50 @@
-// silkpanda/momentum-mobile/momentum-mobile-15b59c26f6ccaf50749d72d04c8e30b0a6821e20/lib/types.ts
+// lib/types.ts
 
-// (Other types like ITask, IStoreItem, etc. would be here)
-
-export interface IHouseholdMemberProfile {
+// --- THIS IS THE FIX ---
+// We MUST export IMemberProfile as its own interface
+// so we can import it in other files (like the context).
+export interface IMemberProfile {
   _id: string;
   familyMemberId: string;
   displayName: string;
   profileColor: string;
-  role: "Parent" | "Child";
+  role: 'Parent' | 'Child';
   pointsTotal: number;
 }
+// --- END OF FIX ---
 
+// This is the main Household object
 export interface IHousehold {
   _id: string;
-  name: string;
-  ownerId: string;
-  memberProfiles: IHouseholdMemberProfile[];
-  // Other household data (tasks, store items) will be fetched by other hooks
+  householdName: string;
+  // This array now correctly uses the exported interface
+  memberProfiles: IMemberProfile[];
+  createdAt: string;
+  updatedAt: string;
 }
 
-/**
- * Defines the shape of the data returned from the /api/v1/auth/me endpoint.
- */
-export interface ISession {
-  user: {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: "Parent" | "Child";
-  };
-  
-  //
-  // FIX: Changed this to match the web app and the actual API response.
-  // The API sends `householdId`, not a populated `household` object.
-  //
-  householdId: string | null;
+// This is the Task object
+export interface ITask {
+  _id: string;
+  householdId: string;
+  title: string;
+  description?: string;
+  pointsValue: number;
+  status: 'Pending' | 'PendingApproval' | 'Approved';
+  assignedTo: string[]; // Array of member profile _ids
+  completedBy?: string; // The member profile _id who completed it
+  dueDate?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// This is the StoreItem object
+export interface IStoreItem {
+  _id: string;
+  householdId: string;
+  itemName: string;
+  description?: string;
+  cost: number;
+  createdAt: string;
+  updatedAt: string;
 }

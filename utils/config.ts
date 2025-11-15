@@ -1,12 +1,7 @@
-// This is the base URL for your local API.
-//
-// IMPORTANT:
-// When running on a physical device, 'localhost' will not work.
-// You must:
-// 1. Find your computer's "Network IP" (e.g., 192.168.1.100)
-// 2. Use that IP address here.
-//
-// If you are on an iOS simulator, 'http://localhost:8000' is fine.
-// If you are on an Android emulator, use 'http://10.0.2.2:8000'.
+// --- THIS IS THE CRITICAL V4 CHANGE (Step 3.2) ---
+// The mobile app MUST talk to the BFF, not the API directly.
+// We are changing the port from 3001 (API) to 3002 (BFF).
+export const API_BASE_URL = 'http://localhost:3002';
+// --- END OF CHANGE ---
 
-export const API_URL = "https://unthirsting-soritic-raymonde.ngrok-free.dev"; // <-- REPLACE if needed
+// You can export other global config variables here
