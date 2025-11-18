@@ -1,10 +1,12 @@
-import { View, Text, ActivityIndicator, Pressable, ScrollView } from 'react-native';
-import { useQuery } from '@tanstack/react-query';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ActivityIndicator, Pressable, ScrollView, TextInput, Alert } from 'react-native';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../src/lib/api';
+import { Auth } from '../src/lib/auth';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 // --- TYPES ---
-// We should eventually move these to a shared types file
 interface MemberProfile {
   _id: string;
   familyMemberId: string;
@@ -20,55 +22,161 @@ interface HouseholdData {
   memberProfiles: MemberProfile[];
 }
 
-// --- COMPONENT ---
-export default function ProfileSelectionScreen() {
-  // HARDCODED HOUSEHOLD ID FOR PHASE 1/2 DEV
-  // In Phase 3 (Auth), we will get this from the logged-in user's context.
-  // REPLACEME: Put a valid Household ID from your MongoDB here!
-  const TEST_HOUSEHOLD_ID = 'REPLACE_WITH_VALID_HOUSEHOLD_ID'; 
+export default function LandingScreen() {
+  const router = useRouter();
+  const queryClient = useQueryClient();
+  
+  // --- STATE ---
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
+  const [storedHouseholdId, setStoredHouseholdId] = useState<string | null>(null);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
 
-  // 1. Fetch Household Data using React Query
-  const { data, isLoading, error } = useQuery({
-    queryKey: ['household', TEST_HOUSEHOLD_ID],
+  // Login Form State
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  // --- 1. CHECK AUTH ON LOAD ---
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    const token = await Auth.getToken();
+    const hhId = await Auth.getHouseholdId();
+    
+    if (token && hhId) {
+      setIsAuthenticated(true);
+      setStoredHouseholdId(hhId);
+    }
+    setIsCheckingAuth(false);
+  };
+
+  // --- 2. HANDLE LOGIN ---
+  const handleLogin = async () => {
+    if (!email || !password) {
+      Alert.alert('Error', 'Please enter email and password');
+      return;
+    }
+
+    setIsLoggingIn(true);
+    try {
+      // Call BFF Login
+      const response = await api.post('/api/v1/auth/login', { email, password });
+      
+      const { token, data } = response.data;
+      const householdId = data.primaryHouseholdId;
+
+      // Save Session
+      await Auth.saveSession(token, householdId);
+
+      // Update State
+      setStoredHouseholdId(householdId);
+      setIsAuthenticated(true);
+      
+      // Prefetch the household data
+      queryClient.invalidateQueries({ queryKey: ['household'] });
+
+    } catch (error: any) {
+      const msg = error.response?.data?.message || 'Login failed';
+      Alert.alert('Login Error', msg);
+    } finally {
+      setIsLoggingIn(false);
+    }
+  };
+
+  // --- 3. FETCH HOUSEHOLD DATA (Only if authenticated) ---
+  const { data: household, isLoading: isHouseholdLoading } = useQuery({
+    queryKey: ['household', storedHouseholdId],
     queryFn: async () => {
-      // This calls GET /api/v1/household/:id on the BFF
-      const response = await api.get(`/api/v1/household/${TEST_HOUSEHOLD_ID}`);
-      return response.data as HouseholdData; // core API returns the object directly now
+      if (!storedHouseholdId) return null;
+      const response = await api.get(`/api/v1/household/${storedHouseholdId}`);
+      return response.data.data as HouseholdData;
     },
+    enabled: isAuthenticated && !!storedHouseholdId,
   });
 
-  // 2. Loading State
-  if (isLoading) {
+  const handleProfileSelect = (profile: MemberProfile) => {
+    if (profile.role === 'Child') {
+       router.push('/kiosk');
+    } else {
+       Alert.alert('Parent Mode', 'Parent Dashboard coming in Phase 3!');
+    }
+  };
+
+  // --- RENDER: LOADING ---
+  if (isCheckingAuth || (isAuthenticated && isHouseholdLoading)) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text className="mt-4 text-gray-500 font-medium">Loading Household...</Text>
+        <Text className="mt-4 text-gray-500">Loading Momentum...</Text>
       </SafeAreaView>
     );
   }
 
-  // 3. Error State
-  if (error) {
+  // --- RENDER: LOGIN FORM (If not authenticated) ---
+  if (!isAuthenticated) {
     return (
-      <SafeAreaView className="flex-1 justify-center items-center bg-gray-50 p-6">
-        <Text className="text-red-600 text-lg font-bold mb-2">Unable to Connect</Text>
-        <Text className="text-gray-600 text-center mb-6">
-          Could not fetch household data. Is the BFF running on Port 3002?
-        </Text>
-        <Text className="text-xs text-gray-400 mb-4 text-center">
-          {(error as Error).message}
-        </Text>
+      <SafeAreaView className="flex-1 bg-gray-50 justify-center p-6">
+        <View className="bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
+          <Text className="text-3xl font-bold text-gray-900 text-center mb-2">Momentum</Text>
+          <Text className="text-gray-500 text-center mb-8">Family Management</Text>
+
+          <Text className="text-sm font-medium text-gray-700 mb-1 ml-1">Email</Text>
+          <TextInput 
+            className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-4 text-gray-900"
+            placeholder="parent@example.com"
+            autoCapitalize="none"
+            value={email}
+            onChangeText={setEmail}
+          />
+
+          <Text className="text-sm font-medium text-gray-700 mb-1 ml-1">Password</Text>
+          <TextInput 
+            className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-8 text-gray-900"
+            placeholder="••••••••"
+            secureTextEntry
+            value={password}
+            onChangeText={setPassword}
+          />
+
+          <Pressable 
+            className="bg-indigo-600 py-4 rounded-xl items-center active:bg-indigo-700"
+            onPress={handleLogin}
+            disabled={isLoggingIn}
+          >
+            {isLoggingIn ? (
+               <ActivityIndicator color="white" />
+            ) : (
+               <Text className="text-white font-bold text-lg">Log In</Text>
+            )}
+          </Pressable>
+          
+          <Text className="text-center text-gray-400 text-xs mt-6">
+            Use the account you created in Postman/Curl
+          </Text>
+        </View>
       </SafeAreaView>
     );
   }
 
-  // 4. Success State - Render Profiles
-  const household = data;
-  
+  // --- RENDER: PROFILE SELECTION (If authenticated) ---
   return (
     <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView contentContainerClassName="p-6">
-        <Text className="text-3xl font-bold text-gray-900 text-center mt-10 mb-2">
+        <View className="flex-row justify-between items-center mt-6 mb-10">
+           <View /> 
+           <Pressable 
+             onPress={async () => {
+               await Auth.clearSession();
+               setIsAuthenticated(false);
+             }}
+           >
+             <Text className="text-indigo-600 font-medium">Log Out</Text>
+           </Pressable>
+        </View>
+
+        <Text className="text-3xl font-bold text-gray-900 text-center mb-2">
           Who is watching?
         </Text>
         <Text className="text-gray-500 text-center mb-10">
@@ -80,9 +188,8 @@ export default function ProfileSelectionScreen() {
             <Pressable 
               key={profile._id || profile.familyMemberId}
               className="items-center mb-6"
-              onPress={() => console.log(`Selected: ${profile.displayName}`)}
+              onPress={() => handleProfileSelect(profile)}
             >
-              {/* Avatar Circle */}
               <View 
                 className="w-24 h-24 rounded-full justify-center items-center shadow-sm mb-3"
                 style={{ backgroundColor: profile.profileColor }}
@@ -91,13 +198,9 @@ export default function ProfileSelectionScreen() {
                   {profile.displayName.charAt(0).toUpperCase()}
                 </Text>
               </View>
-              
-              {/* Name Label */}
               <Text className="text-lg font-medium text-gray-800">
                 {profile.displayName}
               </Text>
-              
-              {/* Role Badge */}
               <View className={`mt-1 px-2 py-0.5 rounded-full ${profile.role === 'Parent' ? 'bg-indigo-100' : 'bg-green-100'}`}>
                  <Text className={`text-xs ${profile.role === 'Parent' ? 'text-indigo-700' : 'text-green-700'}`}>
                    {profile.role}
