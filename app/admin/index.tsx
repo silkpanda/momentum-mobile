@@ -15,23 +15,23 @@ export default function AdminDashboard() {
         {
           title: 'Manage Tasks',
           subtitle: 'Assign chores & values',
-          icon: 'checkbox', // Matches 'Award' concept
-          color: '#4F46E5', // indigo-600
-          route: '/admin/tasks/create',
+          icon: 'checkbox',
+          color: '#4F46E5',
+          route: '/admin/tasks',
         },
         {
           title: 'Reward Store',
           subtitle: 'Stock items & prizes',
-          icon: 'gift', // Matches 'Award'
-          color: '#EA580C', // orange-600
-          route: '/admin/store/create', 
+          icon: 'gift',
+          color: '#EA580C',
+          route: '/admin/store',
         },
         {
           title: 'Family Members',
           subtitle: 'Edit profiles & roles',
-          icon: 'people', // Matches 'Users'
-          color: '#0EA5E9', // sky-500
-          route: '/admin/members', // Future Phase
+          icon: 'people',
+          color: '#0EA5E9',
+          route: '/admin/members',
         },
       ]
     },
@@ -42,9 +42,9 @@ export default function AdminDashboard() {
           title: 'Approvals',
           subtitle: 'Verify completed work',
           icon: 'checkmark-done-circle',
-          color: '#16A34A', // green-600
+          color: '#16A34A',
           route: '/admin/approvals',
-          badge: 0, 
+          badge: 0,
         },
       ]
     },
@@ -54,8 +54,8 @@ export default function AdminDashboard() {
         {
           title: 'Settings',
           subtitle: 'App configuration',
-          icon: 'settings', // Matches 'Settings'
-          color: '#64748B', // slate-500
+          icon: 'settings',
+          color: '#64748B',
           route: '/settings',
         },
       ]
@@ -63,9 +63,7 @@ export default function AdminDashboard() {
   ];
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50"> 
-      {/* ^ Matched --color-bg-canvas (#F9FAFB) */}
-      
+    <SafeAreaView className="flex-1 bg-gray-50">
       <ScrollView contentContainerClassName="p-6">
         {/* Header */}
         <View className="flex-row items-center mb-8">
@@ -93,13 +91,13 @@ export default function AdminDashboard() {
                     className="bg-white p-4 rounded-xl border border-gray-200 shadow-sm flex-row items-center active:bg-gray-50"
                   >
                     {/* Icon Box */}
-                    <View 
+                    <View
                       className="w-10 h-10 rounded-lg items-center justify-center mr-4"
-                      style={{ backgroundColor: `${item.color}15` }} // 15% opacity bg
+                      style={{ backgroundColor: `${item.color}15` }}
                     >
                       <Ionicons name={item.icon as any} size={22} color={item.color} />
                     </View>
-                    
+
                     {/* Text */}
                     <View className="flex-1">
                       <Text className="text-base font-semibold text-gray-900">{item.title}</Text>

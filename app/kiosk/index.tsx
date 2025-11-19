@@ -37,20 +37,29 @@ export default function MemberDashboard() {
   const memberId = params.memberId as string;
 
   const [activeTab, setActiveTab] = useState<'Tasks' | 'Rewards'>('Tasks');
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
   // --- 1. FETCH DATA ---
-  
-  const { data: member, isLoading: isMemberLoading } = useQuery({
+
+  const { data: member, isLoading: isMemberLoading, refetch: refetchMember } = useQuery({
     queryKey: ['member', memberId],
     queryFn: async () => {
-      const hhId = (await import('../../src/lib/auth')).Auth.getHouseholdId(); 
-      // Use Singular Route
+      console.log(`[Kiosk] 🔍 Fetching member data for memberId: ${memberId}`);
+      const hhId = (await import('../../src/lib/auth')).Auth.getHouseholdId();
       const response = await api.get(`/api/v1/household/${await hhId}`);
       const profiles = response.data.data.memberProfiles as MemberProfile[];
-      return profiles.find(p => p._id === memberId);
+      const foundProfile = profiles.find(p => p._id === memberId);
+      console.log(`[Kiosk] 📊 Member data fetched:`, {
+        displayName: foundProfile?.displayName,
+        pointsTotal: foundProfile?.pointsTotal,
+        role: foundProfile?.role
+      });
+      return foundProfile;
     },
-    // FIX: Only enable fetching if we have a memberId
     enabled: !!memberId,
+    refetchOnMount: 'always',
+    refetchOnWindowFocus: true,
+    refetchInterval: 3000, // 🔄 Auto-poll every 3 seconds - works over ngrok!
   });
 
   const { data: tasks, isLoading: isTasksLoading, refetch: refetchTasks } = useQuery({
@@ -59,35 +68,56 @@ export default function MemberDashboard() {
       const response = await api.get('/api/v1/tasks');
       return response.data.data.tasks as Task[];
     },
-    // FIX: Only enable fetching if we have a memberId
     enabled: !!memberId,
+    refetchInterval: 3000, // Also poll tasks
   });
 
   const { data: storeItems, isLoading: isStoreLoading } = useQuery({
     queryKey: ['store-items'],
     queryFn: async () => {
-      // The old route was: '/api/v1/rewards'
-      // The new standardized route is: '/api/v1/store-items'
-      const response = await api.get('/api/v1/store-items'); 
+      const response = await api.get('/api/v1/store-items');
       return response.data.data.storeItems as StoreItem[];
     },
-    // FIX: Only enable fetching if we have a memberId
     enabled: !!memberId,
   });
 
-  // --- 2. ACTIONS ---
+  // Combined refetch function for pull-to-refresh
+  const handleRefresh = async () => {
+    console.log('[Kiosk] 🔄 Manual refresh triggered');
+    setIsRefreshing(true);
+    try {
+      await Promise.all([refetchTasks(), refetchMember()]);
+      console.log('[Kiosk] ✅ Manual refresh completed');
+    } catch (error) {
+      console.error('[Kiosk] ❌ Error during manual refresh:', error);
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
+  // --- 2. MUTATIONS ---
 
   const completeTaskMutation = useMutation({
     mutationFn: async (taskId: string) => {
       return api.post(`/api/v1/tasks/${taskId}/complete`, { memberId });
     },
-    onSuccess: () => {
-      Alert.alert('Nice!', 'Task marked as done. Waiting for approval.');
+    onMutate: async (taskId) => {
+      await queryClient.cancelQueries({ queryKey: ['tasks'] });
+      const previousTasks = queryClient.getQueryData<Task[]>(['tasks']);
+      if (previousTasks) {
+        queryClient.setQueryData<Task[]>(['tasks'], (old) =>
+          old?.map(t => t._id === taskId ? { ...t, status: 'PendingApproval' } : t) || []
+        );
+      }
+      return { previousTasks };
+    },
+    onError: (err, newTodo, context) => {
+      queryClient.setQueryData(['tasks'], context?.previousTasks);
+      Alert.alert('Oops', 'Failed to complete task');
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
     },
-    onError: (error: any) => {
-      Alert.alert('Oops', error.response?.data?.message || 'Failed to complete task');
-    }
   });
 
   const purchaseItemMutation = useMutation({
@@ -103,14 +133,15 @@ export default function MemberDashboard() {
       Alert.alert('Purchase Failed', error.response?.data?.message || 'Could not buy item');
     }
   });
- // --- 3. ADMIN ACCESS HANDLER ---
+
+  // --- 3. ADMIN ACCESS HANDLER ---
   const handleAdminAccess = () => {
-      // Navigate to the Admin Dashboard we just created
-      router.push('/admin'); 
+    router.push('/admin');
   };
+
   // --- 4. FILTERING ---
   const myTasks = tasks?.filter(t => t.assignedTo.includes(memberId)) || [];
-  
+
   if (isMemberLoading || isTasksLoading || isStoreLoading) {
     return (
       <SafeAreaView className="flex-1 justify-center items-center bg-slate-50">
@@ -125,9 +156,9 @@ export default function MemberDashboard() {
         {/* Header */}
         <View className="flex-row justify-between items-center mb-6">
           <Pressable onPress={() => router.back()} className="bg-slate-100 p-2 rounded-full">
-             <Ionicons name="arrow-back" size={24} color="#64748b" />
+            <Ionicons name="arrow-back" size={24} color="#64748b" />
           </Pressable>
-          
+
           <View className="items-center">
             <Text className="text-xl font-bold text-slate-900">{member?.displayName}</Text>
             <Text className="text-slate-500 text-xs uppercase tracking-wider">{member?.role}</Text>
@@ -135,23 +166,23 @@ export default function MemberDashboard() {
 
           {/* ADMIN TOGGLE: Only visible for Parents */}
           {member?.role === 'Parent' ? (
-              <Pressable onPress={handleAdminAccess} className="bg-slate-100 p-2 rounded-full border border-slate-200">
-                <Ionicons name="settings-sharp" size={24} color="#475569" />
-              </Pressable>
+            <Pressable onPress={handleAdminAccess} className="bg-slate-100 p-2 rounded-full border border-slate-200">
+              <Ionicons name="settings-sharp" size={24} color="#475569" />
+            </Pressable>
           ) : (
-              <View className="w-10" /> 
+            <View className="w-10" />
           )}
         </View>
 
         {/* Points Card */}
         <View className="bg-indigo-600 rounded-2xl p-6 shadow-lg shadow-indigo-200 mb-6 flex-row justify-between items-center">
-           <View>
-             <Text className="text-indigo-200 font-medium mb-1">Current Balance</Text>
-             <Text className="text-4xl font-black text-white">{member?.pointsTotal}</Text>
-           </View>
-           <View className="bg-white/20 p-3 rounded-xl">
-             <Ionicons name="trophy" size={32} color="white" />
-           </View>
+          <View>
+            <Text className="text-indigo-200 font-medium mb-1">Current Balance</Text>
+            <Text className="text-4xl font-black text-white">{member?.pointsTotal}</Text>
+          </View>
+          <View className="bg-white/20 p-3 rounded-xl">
+            <Ionicons name="trophy" size={32} color="white" />
+          </View>
         </View>
 
         {/* Tabs */}
@@ -170,25 +201,24 @@ export default function MemberDashboard() {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         contentContainerClassName="p-6 gap-4"
-        refreshControl={<RefreshControl refreshing={isTasksLoading} onRefresh={refetchTasks} />}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} />}
       >
         {activeTab === 'Tasks' ? (
           <>
             {myTasks.length === 0 && (
-               <Text className="text-center text-slate-400 mt-10">No tasks assigned to you.</Text>
+              <Text className="text-center text-slate-400 mt-10">No tasks assigned to you.</Text>
             )}
             {myTasks.map((task) => {
               const isDone = task.status === 'PendingApproval' || task.status === 'Approved';
               return (
-                <Pressable 
+                <Pressable
                   key={task._id}
                   disabled={isDone}
                   onPress={() => completeTaskMutation.mutate(task._id)}
-                  className={`p-4 rounded-2xl border shadow-sm flex-row justify-between items-center ${
-                    isDone ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100'
-                  }`}
+                  className={`p-4 rounded-2xl border shadow-sm flex-row justify-between items-center ${isDone ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-100'
+                    }`}
                 >
                   <View className="flex-1 pr-4">
                     <Text className={`text-lg font-bold mb-1 ${isDone ? 'text-slate-400 line-through' : 'text-slate-800'}`}>
@@ -198,9 +228,8 @@ export default function MemberDashboard() {
                       {isDone ? 'Waiting for approval' : `${task.pointsValue} points`}
                     </Text>
                   </View>
-                  <View className={`w-8 h-8 rounded-full border-2 items-center justify-center ${
-                    isDone ? 'bg-green-500 border-green-500' : 'border-slate-300'
-                  }`}>
+                  <View className={`w-8 h-8 rounded-full border-2 items-center justify-center ${isDone ? 'bg-green-500 border-green-500' : 'border-slate-300'
+                    }`}>
                     {isDone && <Ionicons name="checkmark" size={20} color="white" />}
                   </View>
                 </Pressable>
@@ -209,24 +238,24 @@ export default function MemberDashboard() {
           </>
         ) : (
           <>
-             {storeItems?.length === 0 && (
-               <Text className="text-center text-slate-400 mt-10">The store is empty.</Text>
+            {storeItems?.length === 0 && (
+              <Text className="text-center text-slate-400 mt-10">The store is empty.</Text>
             )}
             <View className="flex-row flex-wrap justify-between">
               {storeItems?.map((item) => (
-                <Pressable 
+                <Pressable
                   key={item._id}
                   onPress={() => purchaseItemMutation.mutate(item._id)}
                   className="w-[48%] bg-white p-4 rounded-2xl border border-slate-100 mb-4 shadow-sm"
                 >
-                   <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mb-3">
-                     <Ionicons name="gift" size={20} color="#ea580c" />
-                   </View>
-                   <Text className="font-bold text-slate-900 mb-1">{item.itemName}</Text>
-                   <Text className="text-slate-500 text-xs mb-3">{item.cost} pts</Text>
-                   <View className="bg-slate-50 py-2 rounded-lg items-center">
-                     <Text className="text-slate-600 font-bold text-xs">Buy Now</Text>
-                   </View>
+                  <View className="w-10 h-10 bg-orange-100 rounded-full items-center justify-center mb-3">
+                    <Ionicons name="gift" size={20} color="#ea580c" />
+                  </View>
+                  <Text className="font-bold text-slate-900 mb-1">{item.itemName}</Text>
+                  <Text className="text-slate-500 text-xs mb-3">{item.cost} pts</Text>
+                  <View className="bg-slate-50 py-2 rounded-lg items-center">
+                    <Text className="text-slate-600 font-bold text-xs">Buy Now</Text>
+                  </View>
                 </Pressable>
               ))}
             </View>
