@@ -3,8 +3,8 @@ import { View, Text, TextInput, ScrollView, Pressable, ActivityIndicator, Alert 
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { api } from '../../src/lib/api';
-import { Auth } from '../../src/lib/auth';
+import { api } from '../../../src/lib/api'; // Updated import path
+import { Auth } from '../../../src/lib/auth'; // Updated import path
 import { Ionicons } from '@expo/vector-icons';
 
 interface MemberProfile {
@@ -22,7 +22,7 @@ export default function CreateTaskScreen() {
   const [title, setTitle] = useState('');
   const [points, setPoints] = useState('10');
   const [assignedTo, setAssignedTo] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  // Removed unused 'isSubmitting' state
 
   // --- FETCH MEMBERS ---
   const { data: members, isLoading: isMembersLoading } = useQuery({

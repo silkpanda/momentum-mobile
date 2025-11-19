@@ -6,7 +6,7 @@ import * as SecureStore from 'expo-secure-store';
 
 // 1. YOUR NGROK URL
 // Make sure this is the full URL exactly as Ngrok gave it to you.
-const MANUAL_LAN_IP = 'https://unthirsting-soritic-raymonde.ngrok-free.dev'; 
+const MANUAL_LAN_IP = 'https://unthirsting-soritic-raymonde.ngrok-free.dev';
 
 // 2. Standard Loopbacks for Emulators
 const LOCAL_BFF_URL = Platform.select({
@@ -32,7 +32,7 @@ export const api = axios.create({
     'Content-Type': 'application/json',
   },
   // Add a timeout to fail faster if the server is unreachable (5 seconds)
-  timeout: 5000, 
+  timeout: 5000,
 });
 
 // --- REQUEST INTERCEPTOR ---
@@ -41,7 +41,7 @@ api.interceptors.request.use(
   async (config) => {
     // Log the attempt for debugging
     console.log(`[API Request] ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    
+
     const token = await SecureStore.getItemAsync('momentum_auth_token');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -56,8 +56,8 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     // Enhanced Error Logging
-    const targetUrl = error.config 
-      ? `${error.config.baseURL || ''}${error.config.url || ''}` 
+    const targetUrl = error.config
+      ? `${error.config.baseURL || ''}${error.config.url || ''}`
       : 'Unknown URL';
 
     if (error.response) {

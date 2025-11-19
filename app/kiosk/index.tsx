@@ -49,6 +49,8 @@ export default function MemberDashboard() {
       const profiles = response.data.data.memberProfiles as MemberProfile[];
       return profiles.find(p => p._id === memberId);
     },
+    // FIX: Only enable fetching if we have a memberId
+    enabled: !!memberId,
   });
 
   const { data: tasks, isLoading: isTasksLoading, refetch: refetchTasks } = useQuery({
@@ -57,14 +59,20 @@ export default function MemberDashboard() {
       const response = await api.get('/api/v1/tasks');
       return response.data.data.tasks as Task[];
     },
+    // FIX: Only enable fetching if we have a memberId
+    enabled: !!memberId,
   });
 
   const { data: storeItems, isLoading: isStoreLoading } = useQuery({
     queryKey: ['store-items'],
     queryFn: async () => {
-      const response = await api.get('/api/v1/store-items');
+      // The old route was: '/api/v1/rewards'
+      // The new standardized route is: '/api/v1/store-items'
+      const response = await api.get('/api/v1/store-items'); 
       return response.data.data.storeItems as StoreItem[];
     },
+    // FIX: Only enable fetching if we have a memberId
+    enabled: !!memberId,
   });
 
   // --- 2. ACTIONS ---
