@@ -5,11 +5,19 @@ console.log('[Socket] 🔌 Initializing socket connection to:', BASE_URL);
 
 export const socket = io(BASE_URL, {
     autoConnect: true,
-    transports: ['polling', 'websocket'], // Try polling first, then upgrade to websocket
+    transports: ['polling', 'websocket'],
     reconnection: true,
     reconnectionAttempts: 5,
     reconnectionDelay: 1000,
     timeout: 10000,
+    // CRITICAL FIX: Pass headers specifically to the polling transport
+    transportOptions: {
+        polling: {
+            extraHeaders: {
+                'ngrok-skip-browser-warning': 'true'
+            }
+        }
+    }
 });
 
 socket.on('connect', () => {
@@ -23,7 +31,7 @@ socket.on('disconnect', (reason) => {
 
 socket.on('connect_error', (err) => {
     console.error('[Socket] 🚨 Connection Error:', err.message);
-    console.error('[Socket] Error details:', err);
+    // console.error('[Socket] Error details:', err); // Reduce noise
 });
 
 socket.on('reconnect_attempt', (attemptNumber) => {

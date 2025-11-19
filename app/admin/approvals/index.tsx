@@ -13,8 +13,31 @@ interface Task {
     title: string;
     pointsValue: number;
     status: 'Pending' | 'PendingApproval' | 'Approved';
-    completedBy?: string; // ID of the member who did it
+    completedBy?: string;
     assignedTo: string[];
+    type: 'task'; // Discriminator
+}
+
+interface QuestClaim {
+    memberId: string;
+    status: 'claimed' | 'completed' | 'approved';
+}
+
+interface Quest {
+    _id: string;
+    title: string;
+    pointsValue: number;
+    claims: QuestClaim[];
+    type: 'quest'; // Discriminator
+}
+
+interface ApprovalItem {
+    id: string;
+    title: string;
+    pointsValue: number;
+    completedBy: string;
+    type: 'task' | 'quest';
+    originalObject: Task | Quest;
 }
 
 interface MemberProfile {
@@ -40,7 +63,14 @@ export default function ApprovalsScreen() {
         },
     });
 
-    // Fetch household data to get member names
+    const { data: quests, isLoading: isQuestsLoading, refetch: refetchQuests } = useQuery({
+        queryKey: ['quests'],
+        queryFn: async () => {
+            const response = await api.get('/api/v1/quests');
+            return response.data.data.quests as Quest[];
+        },
+    });
+
     const { data: household } = useQuery({
         queryKey: ['household'],
         queryFn: async () => {
@@ -50,70 +80,106 @@ export default function ApprovalsScreen() {
         },
     });
 
-    // Filter for PendingApproval
-    const pendingTasks = tasks?.filter(t => t.status === 'PendingApproval') || [];
+    // --- 2. PROCESS DATA ---
+    const pendingTasks: ApprovalItem[] = (tasks || [])
+        .filter(t => t.status === 'PendingApproval')
+        .map(t => ({
+            id: t._id,
+            title: t.title,
+            pointsValue: t.pointsValue,
+            completedBy: t.completedBy || '',
+            type: 'task',
+            originalObject: { ...t, type: 'task' }
+        }));
 
-    // Helper to get member name
+    const pendingQuests: ApprovalItem[] = (quests || [])
+        .flatMap(q =>
+            q.claims
+                .filter(c => c.status === 'completed')
+                .map(c => ({
+                    id: q._id,
+                    title: q.title,
+                    pointsValue: q.pointsValue,
+                    completedBy: c.memberId,
+                    type: 'quest',
+                    originalObject: { ...q, type: 'quest' }
+                }))
+        );
+
+    const allPendingItems = [...pendingTasks, ...pendingQuests];
+    const isLoading = isTasksLoading || isQuestsLoading;
+
+    const handleRefresh = () => {
+        refetchTasks();
+        refetchQuests();
+    };
+
+    // --- 3. HELPERS ---
     const getMemberName = (memberId?: string) => {
         if (!memberId || !household) return 'Unknown';
         const member = household.memberProfiles.find(m => m._id === memberId);
         return member?.displayName || 'Unknown';
     };
 
-    // Helper to get member color
     const getMemberColor = (memberId?: string) => {
         if (!memberId || !household) return '#94A3B8';
         const member = household.memberProfiles.find(m => m._id === memberId);
         return member?.profileColor || '#94A3B8';
     };
 
-    // --- 2. ACTIONS ---
-    const approveMutation = useMutation({
-        mutationFn: async (taskId: string) => {
-            return api.post(`/api/v1/admin/tasks/${taskId}/approve`);
-        },
+    // --- 4. ACTIONS ---
+    const approveTaskMutation = useMutation({
+        mutationFn: async (taskId: string) => api.post(`/api/v1/admin/tasks/${taskId}/approve`),
         onSuccess: () => {
-            Alert.alert('Approved!', 'Points have been awarded.');
+            Alert.alert('Approved!', 'Points awarded.');
             queryClient.invalidateQueries({ queryKey: ['tasks'] });
             queryClient.invalidateQueries({ queryKey: ['member'] });
-            queryClient.invalidateQueries({ queryKey: ['household'] });
-        },
-        onError: (error: any) => {
-            Alert.alert('Error', error.response?.data?.message || 'Could not approve task.');
         }
     });
 
-    const rejectMutation = useMutation({
-        mutationFn: async (taskId: string) => {
-            // Reset task status back to Pending
-            return api.patch(`/api/v1/admin/tasks/${taskId}`, { status: 'Pending' });
-        },
+    const approveQuestMutation = useMutation({
+        mutationFn: async ({ questId, memberId }: { questId: string, memberId: string }) =>
+            api.post(`/api/v1/admin/quests/${questId}/approve`, { memberId }),
         onSuccess: () => {
-            Alert.alert('Rejected', 'Task has been sent back.');
-            queryClient.invalidateQueries({ queryKey: ['tasks'] });
-        },
-        onError: (error: any) => {
-            Alert.alert('Error', error.response?.data?.message || 'Could not reject task.');
+            Alert.alert('Approved!', 'Points awarded.');
+            queryClient.invalidateQueries({ queryKey: ['quests'] });
+            queryClient.invalidateQueries({ queryKey: ['member'] });
         }
     });
 
-    const handleApprove = (task: Task) => {
-        approveMutation.mutate(task._id);
+    const rejectTaskMutation = useMutation({
+        mutationFn: async (taskId: string) => api.patch(`/api/v1/admin/tasks/${taskId}`, { status: 'Pending' }),
+        onSuccess: () => {
+            Alert.alert('Rejected', 'Task sent back.');
+            queryClient.invalidateQueries({ queryKey: ['tasks'] });
+        }
+    });
+
+    // Note: Quest rejection logic might need to be added to API if we want to support it properly.
+    // For now, we'll just not implement it or maybe set status back to 'claimed'? 
+    // Let's assume for now we can't easily reject quests without an API update, so I'll disable it or show an alert.
+
+    const handleApprove = (item: ApprovalItem) => {
+        if (item.type === 'task') {
+            approveTaskMutation.mutate(item.id);
+        } else {
+            approveQuestMutation.mutate({ questId: item.id, memberId: item.completedBy });
+        }
     };
 
-    const handleReject = (task: Task) => {
-        Alert.alert(
-            'Reject Task',
-            `Send "${task.title}" back to ${getMemberName(task.completedBy)}?`,
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Reject',
-                    style: 'destructive',
-                    onPress: () => rejectMutation.mutate(task._id),
-                },
-            ]
-        );
+    const handleReject = (item: ApprovalItem) => {
+        if (item.type === 'task') {
+            Alert.alert(
+                'Reject Task',
+                `Send "${item.title}" back?`,
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Reject', style: 'destructive', onPress: () => rejectTaskMutation.mutate(item.id) },
+                ]
+            );
+        } else {
+            Alert.alert('Not Supported', 'Rejecting quests is not yet supported.');
+        }
     };
 
     return (
@@ -127,14 +193,13 @@ export default function ApprovalsScreen() {
                         <View>
                             <Text className="text-xl font-bold text-gray-900">Approvals</Text>
                             <Text className="text-gray-500 text-xs">
-                                {pendingTasks.length} task{pendingTasks.length !== 1 ? 's' : ''} waiting
+                                {allPendingItems.length} item{allPendingItems.length !== 1 ? 's' : ''} waiting
                             </Text>
                         </View>
                     </View>
-
-                    {pendingTasks.length > 0 && (
+                    {allPendingItems.length > 0 && (
                         <View className="bg-yellow-100 px-3 py-1 rounded-full">
-                            <Text className="text-yellow-700 font-bold text-sm">{pendingTasks.length}</Text>
+                            <Text className="text-yellow-700 font-bold text-sm">{allPendingItems.length}</Text>
                         </View>
                     )}
                 </View>
@@ -142,34 +207,37 @@ export default function ApprovalsScreen() {
 
             <ScrollView
                 contentContainerClassName="p-6"
-                refreshControl={<RefreshControl refreshing={isTasksLoading} onRefresh={refetchTasks} />}
+                refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
             >
-                {isTasksLoading ? (
-                    <View className="items-center justify-center mt-20">
-                        <ActivityIndicator size="large" color="#4F46E5" />
-                        <Text className="mt-4 text-gray-500">Loading approvals...</Text>
-                    </View>
-                ) : pendingTasks.length === 0 ? (
+                {isLoading ? (
+                    <ActivityIndicator size="large" color="#4F46E5" className="mt-20" />
+                ) : allPendingItems.length === 0 ? (
                     <View className="items-center justify-center mt-20">
                         <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-4">
                             <Ionicons name="checkmark-done" size={40} color="#16A34A" />
                         </View>
                         <Text className="text-gray-500 font-medium">All caught up!</Text>
-                        <Text className="text-gray-400 text-xs mt-1">No tasks waiting for approval.</Text>
                     </View>
                 ) : (
                     <View className="gap-4">
-                        {pendingTasks.map((task) => {
-                            const memberName = getMemberName(task.completedBy);
-                            const memberColor = getMemberColor(task.completedBy);
+                        {allPendingItems.map((item, index) => {
+                            const memberName = getMemberName(item.completedBy);
+                            const memberColor = getMemberColor(item.completedBy);
+                            const isQuest = item.type === 'quest';
 
                             return (
-                                <View key={task._id} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
+                                <View key={`${item.type}-${item.id}-${index}`} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
                                     <View className="flex-row justify-between items-start mb-4">
                                         <View className="flex-1">
-                                            <Text className="text-lg font-bold text-gray-900 mb-2">{task.title}</Text>
+                                            <View className="flex-row items-center mb-1">
+                                                {isQuest && (
+                                                    <View className="bg-purple-100 px-2 py-0.5 rounded mr-2">
+                                                        <Text className="text-purple-700 text-[10px] font-bold uppercase">Quest</Text>
+                                                    </View>
+                                                )}
+                                                <Text className="text-lg font-bold text-gray-900 flex-1">{item.title}</Text>
+                                            </View>
 
-                                            {/* Member Info */}
                                             <View className="flex-row items-center mb-2">
                                                 <View
                                                     className="w-6 h-6 rounded-full items-center justify-center mr-2"
@@ -184,10 +252,9 @@ export default function ApprovalsScreen() {
                                                 </Text>
                                             </View>
 
-                                            {/* Points Badge */}
                                             <View className="bg-indigo-100 px-3 py-1.5 rounded-lg self-start">
                                                 <Text className="text-indigo-700 text-xs font-bold">
-                                                    +{task.pointsValue} points
+                                                    +{item.pointsValue} points
                                                 </Text>
                                             </View>
                                         </View>
@@ -197,36 +264,25 @@ export default function ApprovalsScreen() {
                                         </View>
                                     </View>
 
-                                    {/* Action Buttons */}
                                     <View className="flex-row gap-3">
                                         <Pressable
                                             className="flex-1 bg-gray-100 py-3 rounded-xl items-center active:bg-gray-200"
-                                            onPress={() => handleReject(task)}
-                                            disabled={rejectMutation.isPending}
+                                            onPress={() => handleReject(item)}
                                         >
-                                            {rejectMutation.isPending ? (
-                                                <ActivityIndicator color="#6B7280" size="small" />
-                                            ) : (
-                                                <View className="flex-row items-center">
-                                                    <Ionicons name="close-circle-outline" size={18} color="#6B7280" />
-                                                    <Text className="font-bold text-gray-600 ml-1">Reject</Text>
-                                                </View>
-                                            )}
+                                            <View className="flex-row items-center">
+                                                <Ionicons name="close-circle-outline" size={18} color="#6B7280" />
+                                                <Text className="font-bold text-gray-600 ml-1">Reject</Text>
+                                            </View>
                                         </Pressable>
 
                                         <Pressable
                                             className="flex-1 bg-indigo-600 py-3 rounded-xl items-center active:bg-indigo-700 shadow-md shadow-indigo-200"
-                                            onPress={() => handleApprove(task)}
-                                            disabled={approveMutation.isPending}
+                                            onPress={() => handleApprove(item)}
                                         >
-                                            {approveMutation.isPending ? (
-                                                <ActivityIndicator color="white" size="small" />
-                                            ) : (
-                                                <View className="flex-row items-center">
-                                                    <Ionicons name="checkmark-circle" size={18} color="white" />
-                                                    <Text className="font-bold text-white ml-1">Approve</Text>
-                                                </View>
-                                            )}
+                                            <View className="flex-row items-center">
+                                                <Ionicons name="checkmark-circle" size={18} color="white" />
+                                                <Text className="font-bold text-white ml-1">Approve</Text>
+                                            </View>
                                         </Pressable>
                                     </View>
                                 </View>

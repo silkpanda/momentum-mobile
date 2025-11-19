@@ -13,6 +13,13 @@ export default function AdminDashboard() {
       section: 'Management',
       items: [
         {
+          title: 'Kitchen',
+          subtitle: 'Meals & Recipes',
+          icon: 'restaurant',
+          color: '#10B981', // emerald-500
+          route: '/admin/kitchen',
+        },
+        {
           title: 'Manage Tasks',
           subtitle: 'Assign chores & values',
           icon: 'checkbox',
@@ -25,6 +32,20 @@ export default function AdminDashboard() {
           icon: 'gift',
           color: '#EA580C',
           route: '/admin/store',
+        },
+        {
+          title: 'Quest Board',
+          subtitle: 'Shared tasks & challenges',
+          icon: 'game-controller',
+          color: '#8B5CF6', // violet-500
+          route: '/admin/quests',
+        },
+        {
+          title: 'Routines',
+          subtitle: 'Daily flows & schedules',
+          icon: 'list',
+          color: '#F59E0B', // amber-500
+          route: '/admin/routines',
         },
         {
           title: 'Family Members',
