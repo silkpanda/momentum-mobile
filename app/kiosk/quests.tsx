@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl, Modal } from 'react-native';
+import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl, Modal, StyleSheet } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 import { api } from '../../src/lib/api';
 import { Auth } from '../../src/lib/auth';
 
@@ -120,76 +122,77 @@ export default function KioskQuestBoard() {
         const isActive = type === 'active';
 
         return (
-            <Pressable
-                onPress={() => isAvailable ? setSelectedQuest(quest) : null}
-                className={`p-4 rounded-2xl border mb-3 shadow-sm ${isActive ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-gray-200'
-                    }`}
-            >
-                <View className="flex-row justify-between items-start">
-                    <View className="flex-1 mr-3">
-                        <Text className="text-lg font-bold text-gray-900 mb-1">{quest.title}</Text>
-                        <View className="flex-row items-center gap-2">
-                            <View className="bg-yellow-100 px-2 py-1 rounded-lg flex-row items-center">
-                                <Ionicons name="trophy" size={12} color="#CA8A04" />
-                                <Text className="text-yellow-800 text-xs font-bold ml-1">{quest.pointsValue} pts</Text>
+            <BlurView intensity={20} tint="light" style={styles.card} className="border border-white/10">
+                <Pressable
+                    onPress={() => isAvailable ? setSelectedQuest(quest) : null}
+                    className="p-4"
+                >
+                    <View className="flex-row justify-between items-start">
+                        <View className="flex-1 mr-3">
+                            <Text className="text-lg font-bold text-white mb-1">{quest.title}</Text>
+                            <View className="flex-row items-center gap-2">
+                                <View className="bg-yellow-500/20 px-2 py-1 rounded-lg flex-row items-center border border-yellow-500/30">
+                                    <Ionicons name="trophy" size={12} color="#F59E0B" />
+                                    <Text className="text-yellow-400 text-xs font-bold ml-1">{quest.pointsValue} pts</Text>
+                                </View>
+                                {quest.questType === 'limited' && (
+                                    <Text className="text-xs text-indigo-200">
+                                        {quest.currentClaims}/{quest.maxClaims} claimed
+                                    </Text>
+                                )}
                             </View>
-                            {quest.questType === 'limited' && (
-                                <Text className="text-xs text-gray-500">
-                                    {quest.currentClaims}/{quest.maxClaims} claimed
-                                </Text>
-                            )}
                         </View>
+
+                        {isActive && (
+                            <Pressable
+                                onPress={() => handleComplete(quest)}
+                                className="bg-green-500 p-2 rounded-full shadow-lg shadow-green-500/30 active:bg-green-600"
+                            >
+                                <Ionicons name="checkmark" size={20} color="white" />
+                            </Pressable>
+                        )}
+
+                        {type === 'pending' && (
+                            <View className="bg-white/10 p-2 rounded-full border border-white/10">
+                                <Ionicons name="hourglass" size={20} color="#94a3b8" />
+                            </View>
+                        )}
+
+                        {isAvailable && (
+                            <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.3)" />
+                        )}
                     </View>
-
-                    {isActive && (
-                        <Pressable
-                            onPress={() => handleComplete(quest)}
-                            className="bg-green-500 p-2 rounded-full shadow-sm active:bg-green-600"
-                        >
-                            <Ionicons name="checkmark" size={20} color="white" />
-                        </Pressable>
-                    )}
-
-                    {type === 'pending' && (
-                        <View className="bg-gray-100 p-2 rounded-full">
-                            <Ionicons name="hourglass" size={20} color="#9CA3AF" />
-                        </View>
-                    )}
-
-                    {isAvailable && (
-                        <Ionicons name="chevron-forward" size={20} color="#D1D5DB" />
-                    )}
-                </View>
-            </Pressable>
+                </Pressable>
+            </BlurView>
         );
     };
 
     const DetailModal = () => (
         <Modal visible={!!selectedQuest} animationType="slide" transparent={true}>
-            <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
+            <BlurView intensity={40} tint="dark" className="flex-1 justify-end">
+                <View className="bg-slate-900/90 rounded-t-3xl p-6 max-h-[80%] border-t border-white/10">
                     <View className="flex-row justify-between items-start mb-6">
                         <View className="flex-1">
-                            <Text className="text-2xl font-bold text-gray-900 mb-2">{selectedQuest?.title}</Text>
+                            <Text className="text-2xl font-bold text-white mb-2">{selectedQuest?.title}</Text>
                             <View className="flex-row gap-2">
-                                <View className="bg-yellow-100 px-3 py-1 rounded-full self-start flex-row items-center">
-                                    <Ionicons name="trophy" size={14} color="#CA8A04" />
-                                    <Text className="text-yellow-800 font-bold ml-1">{selectedQuest?.pointsValue} Points</Text>
+                                <View className="bg-yellow-500/20 px-3 py-1 rounded-full self-start flex-row items-center border border-yellow-500/30">
+                                    <Ionicons name="trophy" size={14} color="#F59E0B" />
+                                    <Text className="text-yellow-400 font-bold ml-1">{selectedQuest?.pointsValue} Points</Text>
                                 </View>
-                                <View className="bg-blue-100 px-3 py-1 rounded-full self-start">
-                                    <Text className="text-blue-800 font-bold text-xs capitalize">
+                                <View className="bg-indigo-500/20 px-3 py-1 rounded-full self-start border border-indigo-500/30">
+                                    <Text className="text-indigo-300 font-bold text-xs capitalize">
                                         {selectedQuest?.questType.replace('-', ' ')}
                                     </Text>
                                 </View>
                             </View>
                         </View>
-                        <Pressable onPress={() => setSelectedQuest(null)} className="p-2 bg-gray-100 rounded-full">
-                            <Ionicons name="close" size={24} color="#6B7280" />
+                        <Pressable onPress={() => setSelectedQuest(null)} className="p-2 bg-white/10 rounded-full">
+                            <Ionicons name="close" size={24} color="#fff" />
                         </Pressable>
                     </View>
 
                     <ScrollView className="mb-6">
-                        <Text className="text-gray-600 text-lg leading-relaxed">
+                        <Text className="text-indigo-100 text-lg leading-relaxed">
                             {selectedQuest?.description || 'No description provided.'}
                         </Text>
                     </ScrollView>
@@ -197,7 +200,7 @@ export default function KioskQuestBoard() {
                     <Pressable
                         onPress={() => selectedQuest && handleClaim(selectedQuest)}
                         disabled={claimQuestMutation.isPending}
-                        className="bg-indigo-600 py-4 rounded-xl items-center shadow-lg shadow-indigo-200 active:bg-indigo-700"
+                        className="bg-indigo-600 py-4 rounded-xl items-center shadow-lg shadow-indigo-500/30 active:bg-indigo-700"
                     >
                         {claimQuestMutation.isPending ? (
                             <ActivityIndicator color="white" />
@@ -206,76 +209,91 @@ export default function KioskQuestBoard() {
                         )}
                     </Pressable>
                 </View>
-            </View>
+            </BlurView>
         </Modal>
     );
 
     if (isLoading) {
         return (
-            <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
-                <ActivityIndicator size="large" color="#4F46E5" />
-            </SafeAreaView>
+            <View className="flex-1 items-center justify-center bg-slate-900">
+                <ActivityIndicator size="large" color="#818cf8" />
+            </View>
         );
     }
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50">
-            {/* Header */}
-            <View className="p-6 pb-4 bg-white border-b border-gray-200">
-                <View className="flex-row items-center justify-between mb-2">
-                    <Pressable onPress={() => router.back()} className="bg-gray-100 p-2 rounded-full">
-                        <Ionicons name="arrow-back" size={24} color="#374151" />
-                    </Pressable>
-                    <View className="items-end">
-                        <Text className="text-lg font-bold text-gray-900">{member?.displayName}</Text>
-                        <Text className="text-indigo-600 font-bold">{member?.pointsTotal} pts</Text>
-                    </View>
-                </View>
-                <Text className="text-3xl font-extrabold text-gray-900">Quest Board</Text>
-                <Text className="text-gray-500">Find extra tasks to earn points!</Text>
-            </View>
-
-            <ScrollView
-                contentContainerClassName="p-6"
-                refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}
-            >
-                {/* Active Quests Section */}
-                {myActiveQuests.length > 0 && (
-                    <View className="mb-8">
-                        <Text className="text-sm font-bold text-gray-500 uppercase mb-3 tracking-wider">
-                            My Active Quests
-                        </Text>
-                        {myActiveQuests.map(q => <QuestCard key={q._id} quest={q} type="active" />)}
-                    </View>
-                )}
-
-                {/* Available Quests Section */}
-                <View className="mb-8">
-                    <Text className="text-sm font-bold text-gray-500 uppercase mb-3 tracking-wider">
-                        Available Quests
-                    </Text>
-                    {availableQuests.length === 0 ? (
-                        <View className="bg-white p-8 rounded-2xl border border-gray-200 items-center">
-                            <Ionicons name="search" size={32} color="#D1D5DB" />
-                            <Text className="text-gray-400 mt-2">No new quests available</Text>
+        <View className="flex-1 bg-slate-900">
+            <LinearGradient colors={['#1e1b4b', '#312e81']} style={StyleSheet.absoluteFill} />
+            <SafeAreaView className="flex-1">
+                {/* Header */}
+                <View className="p-6 pb-4 border-b border-white/10">
+                    <View className="flex-row items-center justify-between mb-2">
+                        <Pressable onPress={() => router.back()} className="bg-white/10 p-2 rounded-full backdrop-blur-sm">
+                            <Ionicons name="arrow-back" size={24} color="#fff" />
+                        </Pressable>
+                        <View className="items-end">
+                            <Text className="text-lg font-bold text-white">{member?.displayName}</Text>
+                            <Text className="text-indigo-300 font-bold">{member?.pointsTotal} pts</Text>
                         </View>
-                    ) : (
-                        availableQuests.map(q => <QuestCard key={q._id} quest={q} type="available" />)
-                    )}
+                    </View>
+                    <Text className="text-3xl font-extrabold text-white">Quest Board</Text>
+                    <Text className="text-indigo-200">Find extra tasks to earn points!</Text>
                 </View>
 
-                {/* Pending Quests Section */}
-                {myPendingQuests.length > 0 && (
-                    <View>
-                        <Text className="text-sm font-bold text-gray-500 uppercase mb-3 tracking-wider">
-                            Pending Approval
-                        </Text>
-                        {myPendingQuests.map(q => <QuestCard key={q._id} quest={q} type="pending" />)}
-                    </View>
-                )}
-            </ScrollView>
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor="white" />}
+                >
+                    {/* Active Quests Section */}
+                    {myActiveQuests.length > 0 && (
+                        <View className="mb-8">
+                            <Text className="text-sm font-bold text-indigo-200 uppercase mb-3 tracking-wider">
+                                My Active Quests
+                            </Text>
+                            {myActiveQuests.map(q => <QuestCard key={q._id} quest={q} type="active" />)}
+                        </View>
+                    )}
 
-            <DetailModal />
-        </SafeAreaView>
+                    {/* Available Quests Section */}
+                    <View className="mb-8">
+                        <Text className="text-sm font-bold text-indigo-200 uppercase mb-3 tracking-wider">
+                            Available Quests
+                        </Text>
+                        {availableQuests.length === 0 ? (
+                            <BlurView intensity={20} tint="light" className="p-8 rounded-2xl border border-white/10 border-dashed items-center">
+                                <Ionicons name="search" size={32} color="rgba(255,255,255,0.3)" />
+                                <Text className="text-white/40 mt-2">No new quests available</Text>
+                            </BlurView>
+                        ) : (
+                            availableQuests.map(q => <QuestCard key={q._id} quest={q} type="available" />)
+                        )}
+                    </View>
+
+                    {/* Pending Quests Section */}
+                    {myPendingQuests.length > 0 && (
+                        <View>
+                            <Text className="text-sm font-bold text-indigo-200 uppercase mb-3 tracking-wider">
+                                Pending Approval
+                            </Text>
+                            {myPendingQuests.map(q => <QuestCard key={q._id} quest={q} type="pending" />)}
+                        </View>
+                    )}
+                </ScrollView>
+
+                <DetailModal />
+            </SafeAreaView>
+        </View>
     );
 }
+
+const styles = StyleSheet.create({
+    content: {
+        padding: 24,
+    },
+    card: {
+        borderRadius: 16,
+        marginBottom: 12,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+    },
+});

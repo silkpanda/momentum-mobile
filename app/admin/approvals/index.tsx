@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../../../src/lib/api';
 import { Auth } from '../../../src/lib/auth';
+import { LinearGradient } from 'expo-linear-gradient';
+import { BlurView } from 'expo-blur';
 
 // --- TYPES ---
 interface Task {
@@ -183,114 +185,125 @@ export default function ApprovalsScreen() {
     };
 
     return (
-        <SafeAreaView className="flex-1 bg-gray-50">
-            <View className="p-6 border-b border-gray-200 bg-white">
-                <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center flex-1">
-                        <Pressable onPress={() => router.back()} className="bg-gray-100 p-2 rounded-full mr-4">
-                            <Ionicons name="arrow-back" size={24} color="#374151" />
-                        </Pressable>
-                        <View>
-                            <Text className="text-xl font-bold text-gray-900">Approvals</Text>
-                            <Text className="text-gray-500 text-xs">
-                                {allPendingItems.length} item{allPendingItems.length !== 1 ? 's' : ''} waiting
-                            </Text>
-                        </View>
-                    </View>
-                    {allPendingItems.length > 0 && (
-                        <View className="bg-yellow-100 px-3 py-1 rounded-full">
-                            <Text className="text-yellow-700 font-bold text-sm">{allPendingItems.length}</Text>
-                        </View>
-                    )}
-                </View>
-            </View>
-
-            <ScrollView
-                contentContainerClassName="p-6"
-                refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} />}
+        <View className="flex-1 bg-slate-900">
+            <LinearGradient
+                colors={['#1e1b4b', '#312e81']}
+                className="flex-1"
             >
-                {isLoading ? (
-                    <ActivityIndicator size="large" color="#4F46E5" className="mt-20" />
-                ) : allPendingItems.length === 0 ? (
-                    <View className="items-center justify-center mt-20">
-                        <View className="w-20 h-20 bg-green-100 rounded-full items-center justify-center mb-4">
-                            <Ionicons name="checkmark-done" size={40} color="#16A34A" />
-                        </View>
-                        <Text className="text-gray-500 font-medium">All caught up!</Text>
-                    </View>
-                ) : (
-                    <View className="gap-4">
-                        {allPendingItems.map((item, index) => {
-                            const memberName = getMemberName(item.completedBy);
-                            const memberColor = getMemberColor(item.completedBy);
-                            const isQuest = item.type === 'quest';
-
-                            return (
-                                <View key={`${item.type}-${item.id}-${index}`} className="bg-white p-5 rounded-2xl border border-gray-200 shadow-sm">
-                                    <View className="flex-row justify-between items-start mb-4">
-                                        <View className="flex-1">
-                                            <View className="flex-row items-center mb-1">
-                                                {isQuest && (
-                                                    <View className="bg-purple-100 px-2 py-0.5 rounded mr-2">
-                                                        <Text className="text-purple-700 text-[10px] font-bold uppercase">Quest</Text>
-                                                    </View>
-                                                )}
-                                                <Text className="text-lg font-bold text-gray-900 flex-1">{item.title}</Text>
-                                            </View>
-
-                                            <View className="flex-row items-center mb-2">
-                                                <View
-                                                    className="w-6 h-6 rounded-full items-center justify-center mr-2"
-                                                    style={{ backgroundColor: memberColor }}
-                                                >
-                                                    <Text className="text-white text-xs font-bold">
-                                                        {memberName.charAt(0).toUpperCase()}
-                                                    </Text>
-                                                </View>
-                                                <Text className="text-gray-600 text-sm">
-                                                    Completed by <Text className="font-bold">{memberName}</Text>
-                                                </Text>
-                                            </View>
-
-                                            <View className="bg-indigo-100 px-3 py-1.5 rounded-lg self-start">
-                                                <Text className="text-indigo-700 text-xs font-bold">
-                                                    +{item.pointsValue} points
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        <View className="bg-yellow-100 p-2 rounded-full">
-                                            <Ionicons name="time" size={20} color="#CA8A04" />
-                                        </View>
-                                    </View>
-
-                                    <View className="flex-row gap-3">
-                                        <Pressable
-                                            className="flex-1 bg-gray-100 py-3 rounded-xl items-center active:bg-gray-200"
-                                            onPress={() => handleReject(item)}
-                                        >
-                                            <View className="flex-row items-center">
-                                                <Ionicons name="close-circle-outline" size={18} color="#6B7280" />
-                                                <Text className="font-bold text-gray-600 ml-1">Reject</Text>
-                                            </View>
-                                        </Pressable>
-
-                                        <Pressable
-                                            className="flex-1 bg-indigo-600 py-3 rounded-xl items-center active:bg-indigo-700 shadow-md shadow-indigo-200"
-                                            onPress={() => handleApprove(item)}
-                                        >
-                                            <View className="flex-row items-center">
-                                                <Ionicons name="checkmark-circle" size={18} color="white" />
-                                                <Text className="font-bold text-white ml-1">Approve</Text>
-                                            </View>
-                                        </Pressable>
-                                    </View>
+                <SafeAreaView className="flex-1">
+                    {/* Header */}
+                    <View className="p-6 border-b border-white/10">
+                        <View className="flex-row items-center justify-between">
+                            <View className="flex-row items-center flex-1">
+                                <Pressable onPress={() => router.back()} className="bg-white/10 p-3 rounded-full mr-4 backdrop-blur-sm">
+                                    <Ionicons name="arrow-back" size={24} color="white" />
+                                </Pressable>
+                                <View>
+                                    <Text className="text-2xl font-bold text-white">Approvals</Text>
+                                    <Text className="text-indigo-200 text-xs">
+                                        {allPendingItems.length} item{allPendingItems.length !== 1 ? 's' : ''} waiting
+                                    </Text>
                                 </View>
-                            );
-                        })}
+                            </View>
+                            {allPendingItems.length > 0 && (
+                                <View className="bg-yellow-500/20 border border-yellow-500/30 px-3 py-1 rounded-full">
+                                    <Text className="text-yellow-400 font-bold text-sm">{allPendingItems.length}</Text>
+                                </View>
+                            )}
+                        </View>
                     </View>
-                )}
-            </ScrollView>
-        </SafeAreaView>
+
+                    <ScrollView
+                        contentContainerClassName="p-6"
+                        refreshControl={<RefreshControl refreshing={isLoading} onRefresh={handleRefresh} tintColor="white" />}
+                    >
+                        {isLoading ? (
+                            <ActivityIndicator size="large" color="#ffffff" className="mt-20" />
+                        ) : allPendingItems.length === 0 ? (
+                            <BlurView intensity={20} tint="light" className="items-center justify-center mt-20 p-8 rounded-3xl border border-white/10 border-dashed">
+                                <View className="w-20 h-20 bg-green-500/20 rounded-full items-center justify-center mb-4 border border-green-500/30">
+                                    <Ionicons name="checkmark-done" size={40} color="#4ade80" />
+                                </View>
+                                <Text className="text-white font-bold text-lg">All caught up!</Text>
+                                <Text className="text-indigo-200 text-sm mt-1">No pending approvals found.</Text>
+                            </BlurView>
+                        ) : (
+                            <View className="gap-4">
+                                {allPendingItems.map((item, index) => {
+                                    const memberName = getMemberName(item.completedBy);
+                                    const memberColor = getMemberColor(item.completedBy);
+                                    const isQuest = item.type === 'quest';
+
+                                    return (
+                                        <BlurView key={`${item.type}-${item.id}-${index}`} intensity={20} tint="light" className="overflow-hidden rounded-2xl border border-white/10">
+                                            <View className="p-5 bg-white/5">
+                                                <View className="flex-row justify-between items-start mb-4">
+                                                    <View className="flex-1">
+                                                        <View className="flex-row items-center mb-1">
+                                                            {isQuest && (
+                                                                <View className="bg-purple-500/20 border border-purple-500/30 px-2 py-0.5 rounded mr-2">
+                                                                    <Text className="text-purple-300 text-[10px] font-bold uppercase">Quest</Text>
+                                                                </View>
+                                                            )}
+                                                            <Text className="text-lg font-bold text-white flex-1">{item.title}</Text>
+                                                        </View>
+
+                                                        <View className="flex-row items-center mb-2">
+                                                            <View
+                                                                className="w-6 h-6 rounded-full items-center justify-center mr-2 border border-white/20"
+                                                                style={{ backgroundColor: memberColor }}
+                                                            >
+                                                                <Text className="text-white text-xs font-bold shadow-sm">
+                                                                    {memberName.charAt(0).toUpperCase()}
+                                                                </Text>
+                                                            </View>
+                                                            <Text className="text-indigo-200 text-sm">
+                                                                Completed by <Text className="font-bold text-white">{memberName}</Text>
+                                                            </Text>
+                                                        </View>
+
+                                                        <View className="bg-indigo-500/20 border border-indigo-500/30 px-3 py-1.5 rounded-lg self-start">
+                                                            <Text className="text-indigo-300 text-xs font-bold">
+                                                                +{item.pointsValue} points
+                                                            </Text>
+                                                        </View>
+                                                    </View>
+
+                                                    <View className="bg-yellow-500/20 p-2 rounded-full border border-yellow-500/30">
+                                                        <Ionicons name="time" size={20} color="#FBBF24" />
+                                                    </View>
+                                                </View>
+
+                                                <View className="flex-row gap-3">
+                                                    <Pressable
+                                                        className="flex-1 bg-white/10 py-3 rounded-xl items-center active:bg-white/20 border border-white/5"
+                                                        onPress={() => handleReject(item)}
+                                                    >
+                                                        <View className="flex-row items-center">
+                                                            <Ionicons name="close-circle-outline" size={18} color="#FCA5A5" />
+                                                            <Text className="font-bold text-red-200 ml-1">Reject</Text>
+                                                        </View>
+                                                    </Pressable>
+
+                                                    <Pressable
+                                                        className="flex-1 bg-indigo-600 py-3 rounded-xl items-center active:bg-indigo-700 shadow-lg shadow-indigo-500/30"
+                                                        onPress={() => handleApprove(item)}
+                                                    >
+                                                        <View className="flex-row items-center">
+                                                            <Ionicons name="checkmark-circle" size={18} color="white" />
+                                                            <Text className="font-bold text-white ml-1">Approve</Text>
+                                                        </View>
+                                                    </Pressable>
+                                                </View>
+                                            </View>
+                                        </BlurView>
+                                    );
+                                })}
+                            </View>
+                        )}
+                    </ScrollView>
+                </SafeAreaView>
+            </LinearGradient>
+        </View>
     );
 }

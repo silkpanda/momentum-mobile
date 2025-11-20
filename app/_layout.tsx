@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { socket } from '../src/lib/socket';
+import { ThemeProvider } from '../src/contexts/ThemeContext';
 
 // 1. Create the QueryClient instance
 const queryClient = new QueryClient({
@@ -84,12 +85,14 @@ export default function RootLayout() {
   return (
     // 2. Wrap the app in the Provider
     <QueryClientProvider client={queryClient}>
-      <GlobalSocketListener />
-      <SafeAreaProvider>
-        {/* Slot renders the current route (e.g., index.tsx) */}
-        <Slot />
-        <StatusBar style="auto" />
-      </SafeAreaProvider>
+      <ThemeProvider>
+        <GlobalSocketListener />
+        <SafeAreaProvider>
+          {/* Slot renders the current route (e.g., index.tsx) */}
+          <Slot />
+          <StatusBar style="auto" />
+        </SafeAreaProvider>
+      </ThemeProvider>
     </QueryClientProvider>
   );
 }

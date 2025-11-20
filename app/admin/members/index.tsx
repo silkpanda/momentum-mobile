@@ -1,9 +1,12 @@
 import React, { useState } from 'react';
+import { KeyboardAvoidingView, Platform } from 'react-native';
+import { BlurView } from 'expo-blur';
 import { View, Text, ScrollView, Pressable, ActivityIndicator, Alert, RefreshControl, TextInput, Modal } from 'react-native';
 import { useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import { api } from '../../../src/lib/api';
 import { Auth } from '../../../src/lib/auth';
 
@@ -35,6 +38,141 @@ const PROFILE_COLORS = [
     '#F97316', // orange
 ];
 
+// Member Modal Component
+const MemberModal = ({
+    visible,
+    onClose,
+    isEdit,
+    displayName,
+    setDisplayName,
+    selectedColor,
+    setSelectedColor,
+    usedColors,
+    currentMemberColor,
+    role,
+    setRole,
+    onSubmit,
+    isSubmitting
+}: {
+    visible: boolean;
+    onClose: () => void;
+    isEdit: boolean;
+    displayName: string;
+    setDisplayName: (text: string) => void;
+    selectedColor: string;
+    setSelectedColor: (color: string) => void;
+    usedColors: string[];
+    currentMemberColor?: string;
+    role: 'Parent' | 'Child';
+    setRole: (role: 'Parent' | 'Child') => void;
+    onSubmit: () => void;
+    isSubmitting: boolean;
+}) => (
+    <Modal visible={visible} animationType="fade" transparent={true} onRequestClose={onClose}>
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} className="flex-1">
+            <View className="flex-1 justify-center items-center bg-black/80 px-4">
+                <BlurView intensity={80} tint="dark" className="w-full max-w-md overflow-hidden rounded-3xl border border-white/20">
+                    <LinearGradient
+                        colors={['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                        className="p-6"
+                    >
+                        <View className="flex-row justify-between items-center mb-6">
+                            <Text className="text-2xl font-bold text-white">
+                                {isEdit ? 'Edit Profile' : 'New Child Profile'}
+                            </Text>
+                            <Pressable onPress={onClose} className="bg-white/10 p-2 rounded-full">
+                                <Ionicons name="close" size={20} color="white" />
+                            </Pressable>
+                        </View>
+
+                        <ScrollView showsVerticalScrollIndicator={false}>
+                            <Text className="text-indigo-200 font-bold text-xs uppercase mb-2 ml-1">Display Name</Text>
+                            <TextInput
+                                className="bg-black/40 border border-white/20 rounded-2xl p-4 text-white mb-6 text-lg placeholder:text-white/30"
+                                placeholder="e.g. Mom, Dad, Sarah"
+                                placeholderTextColor="rgba(255,255,255,0.3)"
+                                value={displayName}
+                                onChangeText={setDisplayName}
+                                autoFocus
+                            />
+
+                            {isEdit && (
+                                <>
+                                    <Text className="text-indigo-200 font-bold text-xs uppercase mb-3 ml-1">Role</Text>
+                                    <View className="flex-row gap-3 mb-6">
+                                        <Pressable
+                                            onPress={() => setRole('Parent')}
+                                            className={`flex-1 p-4 rounded-2xl border ${role === 'Parent' ? 'bg-indigo-600 border-indigo-400' : 'bg-white/5 border-white/10'}`}
+                                        >
+                                            <View className="items-center">
+                                                <Ionicons name="person" size={24} color={role === 'Parent' ? 'white' : '#94a3b8'} />
+                                                <Text className={`font-bold mt-2 ${role === 'Parent' ? 'text-white' : 'text-slate-400'}`}>Parent</Text>
+                                            </View>
+                                        </Pressable>
+                                        <Pressable
+                                            onPress={() => setRole('Child')}
+                                            className={`flex-1 p-4 rounded-2xl border ${role === 'Child' ? 'bg-indigo-600 border-indigo-400' : 'bg-white/5 border-white/10'}`}
+                                        >
+                                            <View className="items-center">
+                                                <Ionicons name="happy" size={24} color={role === 'Child' ? 'white' : '#94a3b8'} />
+                                                <Text className={`font-bold mt-2 ${role === 'Child' ? 'text-white' : 'text-slate-400'}`}>Child</Text>
+                                            </View>
+                                        </Pressable>
+                                    </View>
+                                </>
+                            )}
+
+                            <Text className="text-indigo-200 font-bold text-xs uppercase mb-3 ml-1">Avatar Color</Text>
+                            <View className="flex-row flex-wrap gap-3 mb-8">
+                                {PROFILE_COLORS.map((color) => {
+                                    const isUsed = usedColors.includes(color) && color !== currentMemberColor;
+                                    const isSelected = color === selectedColor;
+                                    return (
+                                        <Pressable
+                                            key={color}
+                                            onPress={() => !isUsed && setSelectedColor(color)}
+                                            disabled={isUsed}
+                                            className={`w-12 h-12 rounded-full items-center justify-center ${isUsed ? 'opacity-20' : ''}`}
+                                            style={{
+                                                backgroundColor: color,
+                                                borderWidth: isSelected ? 4 : 1,
+                                                borderColor: isSelected ? 'white' : 'rgba(255,255,255,0.1)',
+                                                transform: isSelected ? [{ scale: 1.1 }] : []
+                                            }}
+                                        >
+                                            {isSelected && <Ionicons name="checkmark" size={24} color="white" />}
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            <View className="flex-row gap-3">
+                                <Pressable
+                                    onPress={onClose}
+                                    className="flex-1 bg-white/10 py-4 rounded-2xl items-center active:bg-white/20"
+                                >
+                                    <Text className="font-bold text-white">Cancel</Text>
+                                </Pressable>
+                                <Pressable
+                                    onPress={onSubmit}
+                                    disabled={isSubmitting}
+                                    className="flex-1 bg-indigo-500 py-4 rounded-2xl items-center active:bg-indigo-600 shadow-lg shadow-indigo-500/30"
+                                >
+                                    {isSubmitting ? (
+                                        <ActivityIndicator color="white" />
+                                    ) : (
+                                        <Text className="font-bold text-white">{isEdit ? 'Save Changes' : 'Create Profile'}</Text>
+                                    )}
+                                </Pressable>
+                            </View>
+                        </ScrollView>
+                    </LinearGradient>
+                </BlurView>
+            </View>
+        </KeyboardAvoidingView>
+    </Modal>
+);
+
 export default function FamilyMembersScreen() {
     const router = useRouter();
     const queryClient = useQueryClient();
@@ -46,6 +184,7 @@ export default function FamilyMembersScreen() {
     // Form state for add/edit
     const [displayName, setDisplayName] = useState('');
     const [selectedColor, setSelectedColor] = useState(PROFILE_COLORS[0]);
+    const [role, setRole] = useState<'Parent' | 'Child'>('Child');
 
     // --- FETCH DATA ---
     const { data: household, isLoading: isHouseholdLoading, refetch: refetchHousehold } = useQuery({
@@ -83,15 +222,19 @@ export default function FamilyMembersScreen() {
 
     // --- MUTATIONS ---
     const addMemberMutation = useMutation({
-        mutationFn: async (data: { displayName: string; profileColor: string }) => {
+        mutationFn: async (data: { displayName: string; profileColor: string; role: 'Parent' | 'Child' }) => {
             const hhId = await Auth.getHouseholdId();
-            return api.post(`/api/v1/admin/households/${hhId}/members`, data);
+            return api.post(`/api/v1/admin/households/${hhId}/members`, {
+                ...data,
+                firstName: data.displayName, // Map displayName to firstName as required by API
+            });
         },
         onSuccess: () => {
             Alert.alert('Success', 'Family member added!');
             queryClient.invalidateQueries({ queryKey: ['household'] });
             setIsAddModalOpen(false);
             setDisplayName('');
+            setRole('Child');
             setSelectedColor(PROFILE_COLORS[0]);
         },
         onError: (error: any) => {
@@ -138,7 +281,11 @@ export default function FamilyMembersScreen() {
             Alert.alert('Error', 'Please enter a name');
             return;
         }
-        addMemberMutation.mutate({ displayName: displayName.trim(), profileColor: selectedColor });
+        addMemberMutation.mutate({
+            displayName: displayName.trim(),
+            profileColor: selectedColor,
+            role: role
+        });
     };
 
     const handleEditMember = () => {
@@ -172,11 +319,13 @@ export default function FamilyMembersScreen() {
         setSelectedMember(member);
         setDisplayName(member.displayName);
         setSelectedColor(member.profileColor || PROFILE_COLORS[0]);
+        setRole(member.role);
         setIsEditModalOpen(true);
     };
 
     const openAddModal = () => {
         setDisplayName('');
+        setRole('Child');
         setSelectedColor(PROFILE_COLORS.find(c => !usedColors.includes(c)) || PROFILE_COLORS[0]);
         setIsAddModalOpen(true);
     };
@@ -186,7 +335,7 @@ export default function FamilyMembersScreen() {
         const taskCount = getTaskCount(member._id);
 
         return (
-            <View className="bg-white p-4 rounded-2xl border border-gray-200 shadow-sm mb-3">
+            <BlurView intensity={20} tint="light" className="bg-white/10 p-4 rounded-2xl border border-white/10 mb-3 overflow-hidden">
                 <View className="flex-row items-center justify-between">
                     <View className="flex-row items-center flex-1">
                         {/* Avatar */}
@@ -205,8 +354,8 @@ export default function FamilyMembersScreen() {
 
                         {/* Info */}
                         <View className="flex-1">
-                            <Text className="text-base font-bold text-gray-900">{member.displayName}</Text>
-                            <Text className="text-xs text-gray-500">
+                            <Text className="text-lg font-bold text-white">{member.displayName}</Text>
+                            <Text className="text-xs text-indigo-200 font-medium">
                                 {member.role === 'Parent' ? 'Parent' : 'Child Profile'}
                             </Text>
                         </View>
@@ -216,14 +365,14 @@ export default function FamilyMembersScreen() {
                     <View className="flex-row items-center space-x-4 mr-2">
                         {/* Points */}
                         <View className="items-center w-14">
-                            <Text className="text-lg font-bold text-indigo-600">{member.pointsTotal}</Text>
-                            <Text className="text-xs text-gray-400">pts</Text>
+                            <Text className="text-lg font-bold text-indigo-300">{member.pointsTotal}</Text>
+                            <Text className="text-xs text-white/50">pts</Text>
                         </View>
 
                         {/* Tasks */}
                         <View className="flex-row items-center">
-                            <Ionicons name="trophy" size={16} color="#9CA3AF" />
-                            <Text className="text-lg font-bold text-gray-900 ml-1">{taskCount}</Text>
+                            <Ionicons name="trophy" size={16} color="rgba(255,255,255,0.5)" />
+                            <Text className="text-lg font-bold text-white ml-1">{taskCount}</Text>
                         </View>
                     </View>
 
@@ -231,198 +380,138 @@ export default function FamilyMembersScreen() {
                     <View className="flex-row space-x-2">
                         <Pressable
                             onPress={() => openEditModal(member)}
-                            className="p-2 bg-gray-100 rounded-lg active:bg-gray-200"
+                            className="p-2 bg-white/10 rounded-lg active:bg-white/20"
                         >
-                            <Ionicons name="pencil" size={16} color="#6B7280" />
+                            <Ionicons name="pencil" size={16} color="white" />
                         </Pressable>
 
                         {member.role === 'Child' && (
                             <Pressable
                                 onPress={() => handleDeleteMember(member)}
-                                className="p-2 bg-gray-100 rounded-lg active:bg-gray-200"
+                                className="p-2 bg-red-500/20 rounded-lg active:bg-red-500/30"
                             >
-                                <Ionicons name="trash-outline" size={16} color="#6B7280" />
+                                <Ionicons name="trash-outline" size={16} color="#F87171" />
                             </Pressable>
                         )}
                     </View>
                 </View>
-            </View>
+            </BlurView>
         );
     };
 
-    // --- MODAL COMPONENT ---
-    const MemberModal = ({ visible, onClose, isEdit }: { visible: boolean; onClose: () => void; isEdit: boolean }) => (
-        <Modal visible={visible} animationType="slide" transparent={true}>
-            <View className="flex-1 justify-end bg-black/50">
-                <View className="bg-white rounded-t-3xl p-6 max-h-[80%]">
-                    <View className="flex-row justify-between items-center mb-6">
-                        <Text className="text-xl font-bold text-gray-900">
-                            {isEdit ? 'Edit Member' : 'Add New Member'}
-                        </Text>
-                        <Pressable onPress={onClose} className="p-2">
-                            <Ionicons name="close" size={24} color="#6B7280" />
-                        </Pressable>
+    return (
+        <View className="flex-1 bg-slate-900">
+            <LinearGradient
+                colors={['#1e1b4b', '#312e81']}
+                className="flex-1"
+            >
+                <SafeAreaView className="flex-1">
+                    {/* Header */}
+                    <View className="p-6">
+                        <View className="flex-row items-center justify-between">
+                            <View className="flex-row items-center flex-1">
+                                <Pressable onPress={() => router.back()} className="bg-white/10 p-3 rounded-full mr-4 backdrop-blur-sm">
+                                    <Ionicons name="arrow-back" size={24} color="white" />
+                                </Pressable>
+                                <View>
+                                    <Text className="text-2xl font-bold text-white">Family Members</Text>
+                                    <Text className="text-indigo-200 text-xs font-medium">
+                                        {memberProfiles.length} Total Member{memberProfiles.length !== 1 ? 's' : ''}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            <Pressable
+                                onPress={openAddModal}
+                                className="bg-indigo-500 px-5 py-3 rounded-2xl flex-row items-center shadow-lg shadow-indigo-500/30 active:bg-indigo-600"
+                            >
+                                <Ionicons name="person-add" size={20} color="white" />
+                                <Text className="text-white font-bold ml-2">Add New</Text>
+                            </Pressable>
+                        </View>
                     </View>
 
-                    <ScrollView showsVerticalScrollIndicator={false}>
-                        {/* Name Input */}
-                        <Text className="text-sm font-bold text-gray-700 mb-2">Display Name</Text>
-                        <TextInput
-                            className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-gray-900"
-                            placeholder="Enter name"
-                            value={displayName}
-                            onChangeText={setDisplayName}
-                            autoFocus
-                        />
-
-                        {/* Color Picker */}
-                        <Text className="text-sm font-bold text-gray-700 mb-3">Profile Color</Text>
-                        <View className="flex-row flex-wrap gap-3 mb-6">
-                            {PROFILE_COLORS.map((color) => {
-                                const isUsed = usedColors.includes(color) && color !== selectedMember?.profileColor;
-                                const isSelected = color === selectedColor;
-
-                                return (
-                                    <Pressable
-                                        key={color}
-                                        onPress={() => !isUsed && setSelectedColor(color)}
-                                        disabled={isUsed}
-                                        className="relative"
-                                    >
-                                        <View
-                                            className={`w-14 h-14 rounded-full items-center justify-center ${isSelected ? 'border-4 border-gray-900' : 'border-2 border-gray-200'
-                                                } ${isUsed ? 'opacity-30' : ''}`}
-                                            style={{ backgroundColor: color }}
-                                        >
-                                            {isSelected && <Ionicons name="checkmark" size={24} color="white" />}
-                                            {isUsed && !isSelected && (
-                                                <View className="absolute inset-0 items-center justify-center">
-                                                    <Ionicons name="close" size={24} color="white" />
-                                                </View>
-                                            )}
-                                        </View>
-                                    </Pressable>
-                                );
-                            })}
-                        </View>
-
-                        {/* Action Buttons */}
-                        <View className="flex-row gap-3">
-                            <Pressable
-                                onPress={onClose}
-                                className="flex-1 bg-gray-100 py-4 rounded-xl items-center active:bg-gray-200"
-                            >
-                                <Text className="font-bold text-gray-600">Cancel</Text>
-                            </Pressable>
-
-                            <Pressable
-                                onPress={isEdit ? handleEditMember : handleAddMember}
-                                disabled={addMemberMutation.isPending || updateMemberMutation.isPending}
-                                className="flex-1 bg-indigo-600 py-4 rounded-xl items-center active:bg-indigo-700 shadow-md shadow-indigo-200"
-                            >
-                                {(addMemberMutation.isPending || updateMemberMutation.isPending) ? (
-                                    <ActivityIndicator color="white" />
-                                ) : (
-                                    <Text className="font-bold text-white">
-                                        {isEdit ? 'Update' : 'Add Member'}
+                    {/* Content */}
+                    <ScrollView
+                        contentContainerClassName="p-6"
+                        refreshControl={
+                            <RefreshControl refreshing={isHouseholdLoading} onRefresh={refetchHousehold} tintColor="white" />
+                        }
+                    >
+                        {/* Parents Section */}
+                        {parentProfiles.length > 0 && (
+                            <View className="mb-6">
+                                <View className="flex-row items-center mb-3">
+                                    <Ionicons name="people" size={20} color="#818cf8" />
+                                    <Text className="text-sm font-bold text-indigo-200 uppercase ml-2 tracking-wider">
+                                        Parents ({parentProfiles.length})
                                     </Text>
-                                )}
-                            </Pressable>
+                                </View>
+                                {parentProfiles.map((member: MemberProfile) => (
+                                    <MemberItem key={member._id} member={member} />
+                                ))}
+                            </View>
+                        )}
+
+                        {/* Children Section */}
+                        <View>
+                            <View className="flex-row items-center mb-3">
+                                <Ionicons name="people" size={20} color="#818cf8" />
+                                <Text className="text-sm font-bold text-indigo-200 uppercase ml-2 tracking-wider">
+                                    Children ({childProfiles.length})
+                                </Text>
+                            </View>
+
+                            {childProfiles.length > 0 ? (
+                                childProfiles.map((member: MemberProfile) => (
+                                    <MemberItem key={member._id} member={member} />
+                                ))
+                            ) : (
+                                <View className="bg-white/5 p-8 rounded-2xl border border-white/10 items-center">
+                                    <View className="w-16 h-16 bg-white/10 rounded-full items-center justify-center mb-4">
+                                        <Ionicons name="people-outline" size={32} color="rgba(255,255,255,0.5)" />
+                                    </View>
+                                    <Text className="text-white/70 font-medium mb-1">No children yet</Text>
+                                    <Text className="text-white/40 text-xs text-center">
+                                        Tap "Add New" to create child profiles
+                                    </Text>
+                                </View>
+                            )}
                         </View>
                     </ScrollView>
-                </View>
-            </View>
-        </Modal>
-    );
 
-    if (isHouseholdLoading) {
-        return (
-            <SafeAreaView className="flex-1 justify-center items-center bg-gray-50">
-                <ActivityIndicator size="large" color="#4F46E5" />
-                <Text className="mt-4 text-gray-500">Loading family members...</Text>
-            </SafeAreaView>
-        );
-    }
-
-    return (
-        <SafeAreaView className="flex-1 bg-gray-50">
-            {/* Header */}
-            <View className="p-6 border-b border-gray-200 bg-white">
-                <View className="flex-row items-center justify-between">
-                    <View className="flex-row items-center flex-1">
-                        <Pressable onPress={() => router.back()} className="bg-gray-100 p-2 rounded-full mr-4">
-                            <Ionicons name="arrow-back" size={24} color="#374151" />
-                        </Pressable>
-                        <View>
-                            <Text className="text-xl font-bold text-gray-900">Family Members</Text>
-                            <Text className="text-gray-500 text-xs">
-                                {memberProfiles.length} Total Member{memberProfiles.length !== 1 ? 's' : ''}
-                            </Text>
-                        </View>
-                    </View>
-
-                    <Pressable
-                        onPress={openAddModal}
-                        className="bg-indigo-600 px-4 py-2 rounded-xl flex-row items-center shadow-md shadow-indigo-200 active:bg-indigo-700"
-                    >
-                        <Ionicons name="person-add" size={18} color="white" />
-                        <Text className="text-white font-bold ml-2">Add</Text>
-                    </Pressable>
-                </View>
-            </View>
-
-            {/* Content */}
-            <ScrollView
-                contentContainerClassName="p-6"
-                refreshControl={
-                    <RefreshControl refreshing={isHouseholdLoading} onRefresh={refetchHousehold} />
-                }
-            >
-                {/* Parents Section */}
-                {parentProfiles.length > 0 && (
-                    <View className="mb-6">
-                        <View className="flex-row items-center mb-3">
-                            <Ionicons name="people" size={20} color="#6B7280" />
-                            <Text className="text-sm font-bold text-gray-500 uppercase ml-2 tracking-wider">
-                                Parents ({parentProfiles.length})
-                            </Text>
-                        </View>
-                        {parentProfiles.map((member: MemberProfile) => (
-                            <MemberItem key={member._id} member={member} />
-                        ))}
-                    </View>
-                )}
-
-                {/* Children Section */}
-                <View>
-                    <View className="flex-row items-center mb-3">
-                        <Ionicons name="people" size={20} color="#6B7280" />
-                        <Text className="text-sm font-bold text-gray-500 uppercase ml-2 tracking-wider">
-                            Children ({childProfiles.length})
-                        </Text>
-                    </View>
-
-                    {childProfiles.length > 0 ? (
-                        childProfiles.map((member: MemberProfile) => (
-                            <MemberItem key={member._id} member={member} />
-                        ))
-                    ) : (
-                        <View className="bg-white p-8 rounded-2xl border border-gray-200 items-center">
-                            <View className="w-16 h-16 bg-gray-100 rounded-full items-center justify-center mb-4">
-                                <Ionicons name="people-outline" size={32} color="#9CA3AF" />
-                            </View>
-                            <Text className="text-gray-500 font-medium mb-1">No children yet</Text>
-                            <Text className="text-gray-400 text-xs text-center">
-                                Tap "Add" to create child profiles
-                            </Text>
-                        </View>
-                    )}
-                </View>
-            </ScrollView>
-
-            {/* Modals */}
-            <MemberModal visible={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} isEdit={false} />
-            <MemberModal visible={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} isEdit={true} />
-        </SafeAreaView>
+                    {/* Modals */}
+                    <MemberModal
+                        visible={isAddModalOpen}
+                        onClose={() => setIsAddModalOpen(false)}
+                        isEdit={false}
+                        displayName={displayName}
+                        setDisplayName={setDisplayName}
+                        selectedColor={selectedColor}
+                        setSelectedColor={setSelectedColor}
+                        role={role}
+                        setRole={setRole}
+                        usedColors={usedColors}
+                        onSubmit={handleAddMember}
+                        isSubmitting={addMemberMutation.isPending}
+                    />
+                    <MemberModal
+                        visible={isEditModalOpen}
+                        onClose={() => setIsEditModalOpen(false)}
+                        isEdit={true}
+                        displayName={displayName}
+                        setDisplayName={setDisplayName}
+                        selectedColor={selectedColor}
+                        setSelectedColor={setSelectedColor}
+                        role={role}
+                        setRole={setRole}
+                        usedColors={usedColors}
+                        currentMemberColor={selectedMember?.profileColor}
+                        onSubmit={handleEditMember}
+                        isSubmitting={updateMemberMutation.isPending}
+                    />
+                </SafeAreaView>
+            </LinearGradient>
+        </View>
     );
 }
