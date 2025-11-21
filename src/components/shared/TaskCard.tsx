@@ -11,21 +11,34 @@ interface TaskCardProps {
 
 export default function TaskCard({ task, onPress, onComplete }: TaskCardProps) {
     const theme = themes.calmLight;
-    const isCompleted = task.status === 'COMPLETED';
+    const isCompleted = task.status === 'Approved';
+    const isPendingApproval = task.status === 'PendingApproval';
+    const isPending = task.status === 'Pending';
+
+    const handleCardPress = () => {
+        if (isPending && onComplete) {
+            onComplete();
+        } else if (onPress) {
+            onPress();
+        }
+    };
 
     return (
         <TouchableOpacity
             style={[styles.container, { backgroundColor: theme.colors.bgSurface }]}
-            onPress={onPress}
+            onPress={handleCardPress}
             activeOpacity={0.7}
+            disabled={isPendingApproval}
         >
-            <TouchableOpacity onPress={onComplete} style={styles.checkContainer}>
+            <View style={styles.checkContainer}>
                 {isCompleted ? (
                     <CheckCircle size={24} color={theme.colors.signalSuccess} />
+                ) : isPendingApproval ? (
+                    <Circle size={24} color="#F59E0B" fill="#F59E0B" fillOpacity={0.2} />
                 ) : (
                     <Circle size={24} color={theme.colors.borderSubtle} />
                 )}
-            </TouchableOpacity>
+            </View>
 
             <View style={styles.content}>
                 <Text
@@ -37,11 +50,18 @@ export default function TaskCard({ task, onPress, onComplete }: TaskCardProps) {
                 >
                     {task.title}
                 </Text>
-                {task.value && (
-                    <Text style={[styles.points, { color: theme.colors.actionPrimary }]}>
-                        +{task.value} pts
-                    </Text>
-                )}
+                <View style={styles.bottomRow}>
+                    {task.pointsValue && (
+                        <Text style={[styles.points, { color: theme.colors.actionPrimary }]}>
+                            +{task.pointsValue} pts
+                        </Text>
+                    )}
+                    {isPendingApproval && (
+                        <Text style={[styles.statusBadge, { color: '#F59E0B' }]}>
+                            ⏳ Waiting for approval
+                        </Text>
+                    )}
+                </View>
             </View>
         </TouchableOpacity>
     );
@@ -71,8 +91,18 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         marginBottom: 4,
     },
+    bottomRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
     points: {
         fontSize: 14,
         fontWeight: '600',
+    },
+    statusBadge: {
+        fontSize: 12,
+        fontWeight: '500',
+        fontStyle: 'italic',
     },
 });

@@ -12,6 +12,7 @@ import TasksTab from './TasksTab';
 import StoreTab from './StoreTab';
 import QuestsTab from './QuestsTab';
 import MealsTab from './MealsTab';
+import DashboardTab from './DashboardTab';
 import SettingsTab from './SettingsTab';
 import { ParentTabParamList } from '../../navigation/types';
 
@@ -55,8 +56,10 @@ export default function ParentScreen() {
                     tabBarInactiveTintColor: theme.colors.textSecondary,
                     tabBarIndicatorStyle: { backgroundColor: theme.colors.actionPrimary },
                     tabBarLabelStyle: { fontWeight: '600', fontSize: 12 },
+                    tabBarScrollEnabled: true,
                 }}
             >
+                <Tab.Screen name="Dashboard" component={DashboardTab} />
                 <Tab.Screen name="Tasks" component={TasksTab} />
                 <Tab.Screen name="Store" component={StoreTab} />
                 <Tab.Screen name="Quests" component={QuestsTab} />

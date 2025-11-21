@@ -4,8 +4,9 @@
 // =========================================================
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
-import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
-import { ArrowLeft, Star, Trophy, Settings } from 'lucide-react-native';
+import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
+import { ArrowLeft, Star, Trophy, Settings, ShoppingBag } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
@@ -15,37 +16,50 @@ import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
+type NavigationProp = StackNavigationProp<RootStackParamList>;
+
+import { useSocket } from '../../contexts/SocketContext';
 
 export default function MemberDetailScreen() {
     const route = useRoute<MemberDetailRouteProp>();
-    const navigation = useNavigation();
+    const navigation = useNavigation<NavigationProp>();
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
+    const { on, off } = useSocket();
 
-    // Safety check for params
-    const { memberId, memberName = 'Member', memberColor, memberPoints = 0 } = route.params || {};
+    const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const theme = themes.calmLight;
 
     const [tasks, setTasks] = useState<any[]>([]);
+    const [memberPoints, setMemberPoints] = useState(initialPoints);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    // In a real implementation, we would fetch tasks specifically for this member
-    // For now, we'll fetch family data and filter, or use the tasks endpoint if it supports filtering
     const loadMemberData = async () => {
         try {
-            // Fetching all tasks for the household to filter for this member
-            // This assumes the logged-in user (Parent) has access to see these tasks
-            const response = await api.getTasks();
-
-            if (response.data && Array.isArray(response.data.tasks)) {
-                const memberTasks = response.data.tasks.filter((t: any) =>
-                    t.assignees && Array.isArray(t.assignees) && t.assignees.some((a: any) => a._id === memberId || a.id === memberId)
-                );
+            // Load tasks
+            const tasksResponse = await api.getTasks();
+            if (tasksResponse.data && Array.isArray(tasksResponse.data.tasks)) {
+                const memberTasks = tasksResponse.data.tasks.filter((t: any) => {
+                    const isAssigned = t.assignedTo && Array.isArray(t.assignedTo) &&
+                        t.assignedTo.some((assigneeId: string) => assigneeId === memberId);
+                    const isPending = t.status === 'Pending' || t.status === 'PendingApproval';
+                    return isAssigned && isPending;
+                });
                 setTasks(memberTasks);
             } else {
                 setTasks([]);
             }
+
+            // Load fresh member data (points)
+            const familyResponse = await api.getFamilyData();
+            if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
+                const member = familyResponse.data.household.members.find((m: any) => m.id === memberId || m._id === memberId);
+                if (member) {
+                    setMemberPoints(member.pointsTotal || 0);
+                }
+            }
+
         } catch (error) {
             console.error('Error loading member data:', error);
             setTasks([]);
@@ -55,9 +69,29 @@ export default function MemberDetailScreen() {
         }
     };
 
+    useFocusEffect(
+        useCallback(() => {
+            loadMemberData();
+        }, [])
+    );
+
+    // Real-time updates
     React.useEffect(() => {
-        loadMemberData();
-    }, []);
+        const handleUpdate = () => {
+            console.log('🔄 Received real-time update, refreshing member data...');
+            loadMemberData();
+        };
+
+        on('task_updated', handleUpdate);
+        on('member_points_updated', handleUpdate);
+        on('quest_updated', handleUpdate);
+
+        return () => {
+            off('task_updated', handleUpdate);
+            off('member_points_updated', handleUpdate);
+            off('quest_updated', handleUpdate);
+        };
+    }, [on, off]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -67,17 +101,15 @@ export default function MemberDetailScreen() {
     const handleCompleteTask = async (taskId: string) => {
         try {
             await api.completeTask(taskId, memberId);
-            loadMemberData(); // Refresh after completion
-        } catch (error) {
+            loadMemberData();
+        } catch (error: any) {
             console.error('Error completing task:', error);
-            // Use Alert instead of alert for React Native
-            // Alert.alert('Error', 'Failed to complete task');
+            alert(`Failed to complete task: ${error.message || 'Unknown error'}`);
         }
     };
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
-            {/* Header */}
             <View style={[
                 styles.header,
                 {
@@ -101,7 +133,6 @@ export default function MemberDetailScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 contentContainerStyle={styles.content}
             >
-                {/* Profile Hero */}
                 <View style={styles.heroSection}>
                     <MemberAvatar name={memberName} color={memberColor} size={80} />
                     <Text style={[styles.greeting, { color: theme.colors.textPrimary }]}>
@@ -109,7 +140,6 @@ export default function MemberDetailScreen() {
                     </Text>
                 </View>
 
-                {/* Stats Row (Placeholder) */}
                 <View style={styles.statsRow}>
                     <View style={[styles.statCard, { backgroundColor: theme.colors.bgSurface }]}>
                         <Star size={20} color={theme.colors.actionPrimary} />
@@ -123,7 +153,20 @@ export default function MemberDetailScreen() {
                     </View>
                 </View>
 
-                {/* Tasks List */}
+                <TouchableOpacity
+                    style={[styles.storeButton, { backgroundColor: theme.colors.actionPrimary }]}
+                    onPress={() => navigation.navigate('MemberStore', {
+                        memberId,
+                        userId,
+                        memberName,
+                        memberColor,
+                        memberPoints
+                    })}
+                >
+                    <ShoppingBag size={20} color="#FFFFFF" />
+                    <Text style={styles.storeButtonText}>Visit Rewards Store</Text>
+                </TouchableOpacity>
+
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>My Tasks</Text>
 
                 {isLoading ? (
@@ -142,7 +185,7 @@ export default function MemberDetailScreen() {
                     </View>
                 )}
             </ScrollView>
-        </View>
+        </View >
     );
 }
 
@@ -207,5 +250,24 @@ const styles = StyleSheet.create({
     emptyState: {
         alignItems: 'center',
         padding: 32,
+    },
+    storeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        borderRadius: 16,
+        marginBottom: 32,
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    storeButtonText: {
+        color: '#FFFFFF',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

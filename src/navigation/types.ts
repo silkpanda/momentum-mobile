@@ -6,10 +6,12 @@ export type AuthStackParamList = {
 export type RootStackParamList = {
     Family: undefined;
     Parent: undefined;
-    MemberDetail: { memberId: string; memberName: string; memberColor: string; memberPoints: number };
+    MemberDetail: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
+    MemberStore: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
 } & AuthStackParamList;
 
 export type ParentTabParamList = {
+    Dashboard: undefined;
     Tasks: undefined;
     Store: undefined;
     Quests: undefined;

@@ -8,16 +8,19 @@ import TaskCard from '../../components/shared/TaskCard';
 import { Plus } from 'lucide-react-native';
 import CreateTaskModal from '../../components/parent/CreateTaskModal';
 
-type FilterType = 'ALL' | 'PENDING' | 'COMPLETED';
+type FilterType = 'ALL' | 'Pending' | 'Approved';
+
+import { useSocket } from '../../contexts/SocketContext';
 
 export default function TasksScreen() {
     const { user } = useAuth();
+    const { on, off } = useSocket();
     const [tasks, setTasks] = useState<any[]>([]);
     const [members, setMembers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-    const [filter, setFilter] = useState<FilterType>('PENDING');
+    const [filter, setFilter] = useState<FilterType>('Pending');
     const theme = themes.calmLight;
 
     const loadData = async () => {
@@ -50,6 +53,20 @@ export default function TasksScreen() {
         }, [])
     );
 
+    // Real-time updates
+    React.useEffect(() => {
+        const handleUpdate = () => {
+            console.log('🔄 Received real-time update, refreshing tasks...');
+            loadData();
+        };
+
+        on('task_updated', handleUpdate);
+
+        return () => {
+            off('task_updated', handleUpdate);
+        };
+    }, [on, off]);
+
     const onRefresh = () => {
         setRefreshing(true);
         loadData();
@@ -59,16 +76,18 @@ export default function TasksScreen() {
         if (!user?._id) return;
         try {
             await api.completeTask(taskId, user._id);
-            // Optimistic update or reload
             loadData();
         } catch (error) {
             console.error('Error completing task:', error);
-            alert('Failed to complete task');
         }
     };
 
     const filteredTasks = tasks.filter(task => {
         if (filter === 'ALL') return true;
+        if (filter === 'Pending') {
+            // Show both Pending and PendingApproval as "To Do"
+            return task.status === 'Pending' || task.status === 'PendingApproval';
+        }
         return task.status === filter;
     });
 
@@ -105,8 +124,8 @@ export default function TasksScreen() {
             </View>
 
             <View style={styles.filterContainer}>
-                {renderFilterButton('PENDING', 'To Do')}
-                {renderFilterButton('COMPLETED', 'Completed')}
+                {renderFilterButton('Pending', 'To Do')}
+                {renderFilterButton('Approved', 'Completed')}
                 {renderFilterButton('ALL', 'All')}
             </View>
 

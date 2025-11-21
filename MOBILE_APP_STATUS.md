@@ -80,6 +80,13 @@ The Momentum mobile app is a React Native application built with Expo, designed 
 - ✅ Shadow and elevation effects
 - ✅ Icon integration (Lucide React Native)
 
+### 11. **Real-time Updates**
+- ✅ WebSocket integration via `SocketContext`
+- ✅ Real-time task updates (create, update, delete)
+- ✅ Real-time point updates (instant balance refresh)
+- ✅ Real-time household updates (member changes)
+- ✅ Auto-refresh on event reception
+
 ## 🚀 How to Run
 
 ### Development (Web)
@@ -87,7 +94,7 @@ The Momentum mobile app is a React Native application built with Expo, designed 
 cd momentum-mobile
 npx expo start --web --clear
 ```
-Access at: `http://localhost:8082`
+Access at: `http://localhost:8083`
 
 ### Development (iOS/Android)
 ```bash

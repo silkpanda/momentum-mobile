@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
@@ -7,9 +7,11 @@ import { themes } from '../../theme/colors';
 import { Plus, Trash2, ShoppingBag, Star, Edit2 } from 'lucide-react-native';
 import CreateStoreItemModal from '../../components/parent/CreateStoreItemModal';
 import EditStoreItemModal from '../../components/parent/EditStoreItemModal';
+import { useSocket } from '../../contexts/SocketContext';
 
 export default function StoreScreen() {
     const { user } = useAuth();
+    const { on, off } = useSocket();
     const [items, setItems] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -41,32 +43,67 @@ export default function StoreScreen() {
         }, [])
     );
 
+    // Real-time updates
+    React.useEffect(() => {
+        const handleUpdate = () => {
+            console.log('🔄 Received real-time update in Store Manager, refreshing...');
+            loadStoreData();
+        };
+
+        on('store_item_updated', handleUpdate);
+
+        return () => {
+            off('store_item_updated', handleUpdate);
+        };
+    }, [on, off]);
+
     const onRefresh = () => {
         setRefreshing(true);
         loadStoreData();
     };
 
+    const performDelete = async (itemId: string) => {
+        try {
+            console.log('Deleting store item:', itemId);
+            await api.deleteStoreItem(itemId);
+            console.log('Delete successful');
+            loadStoreData();
+            if (Platform.OS === 'web') {
+                alert('Item deleted successfully');
+            } else {
+                Alert.alert('Success', 'Item deleted successfully');
+            }
+        } catch (error: any) {
+            console.error('Error deleting item:', error);
+            const errorMessage = `Failed to delete item: ${error.message || 'Unknown error'}`;
+            if (Platform.OS === 'web') {
+                alert(errorMessage);
+            } else {
+                Alert.alert('Error', errorMessage);
+            }
+        }
+    };
+
     const handleDelete = async (itemId: string) => {
-        Alert.alert(
-            'Delete Item',
-            'Are you sure you want to delete this item?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.deleteStoreItem(itemId);
-                            loadStoreData();
-                        } catch (error) {
-                            console.error('Error deleting item:', error);
-                            alert('Failed to delete item');
-                        }
+        if (Platform.OS === 'web') {
+            const confirmed = window.confirm('Are you sure you want to delete this item?');
+            if (confirmed) {
+                performDelete(itemId);
+            }
+        } else {
+            Alert.alert(
+                'Delete Item',
+                'Are you sure you want to delete this item?',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: () => performDelete(itemId)
                     }
-                }
-            ]
-        );
+                ]
+            );
+        }
     };
 
     if (isLoading && !items.length) {
@@ -118,7 +155,10 @@ export default function StoreScreen() {
                                     <Edit2 size={20} color={theme.colors.actionPrimary} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
-                                    onPress={() => handleDelete(item._id || item.id)}
+                                    onPress={() => {
+                                        console.log('🗑️ Delete button clicked for item:', item._id || item.id);
+                                        handleDelete(item._id || item.id);
+                                    }}
                                     style={styles.actionButton}
                                 >
                                     <Trash2 size={20} color={theme.colors.signalAlert} />

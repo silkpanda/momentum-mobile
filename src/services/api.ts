@@ -1,28 +1,15 @@
 // src/services/api.ts
 import { storage } from '../utils/storage';
 
-import { Platform } from 'react-native';
-
 // =============================================================================
 // NETWORK CONFIGURATION
 // =============================================================================
-// FOR PHYSICAL DEVICES:
-// You MUST replace 'localhost' below with your computer's local IP address.
-// You can find this by running 'ipconfig' (Windows) or 'ifconfig' (Mac/Linux).
-// Example: const LAN_IP = '192.168.1.15';
-const LAN_IP = '192.168.86.33';
+// The mobile app communicates with the BFF (Backend-for-Frontend) deployed on Render.
+// This provides a unified API interface for all mobile platforms.
 
 const getBaseUrl = () => {
-    // Web always uses localhost
-    if (Platform.OS === 'web') return 'http://localhost:3002/mobile-bff';
-
-    // Android Emulator special loopback
-    if (Platform.OS === 'android' && (LAN_IP as string) === 'localhost') {
-        return 'http://10.0.2.2:3002/mobile-bff';
-    }
-
-    // Physical Devices & iOS Simulator
-    return `http://${LAN_IP}:3002/mobile-bff`;
+    // Production BFF on Render
+    return 'https://momentum-mobile-bff.onrender.com/mobile-bff';
 };
 
 const API_BASE_URL = getBaseUrl();
@@ -131,6 +118,19 @@ class ApiClient {
         });
     }
 
+    async approveTask(taskId: string) {
+        return this.request(`/tasks/${taskId}/approve`, {
+            method: 'POST',
+        });
+    }
+
+    async updateTask(taskId: string, taskData: any) {
+        return this.request(`/tasks/${taskId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(taskData),
+        });
+    }
+
     // Quests
     async getQuests() {
         return this.request('/quests');
@@ -190,9 +190,13 @@ class ApiClient {
     }
 
     async deleteStoreItem(itemId: string) {
-        return this.request(`/store/${itemId}`, {
+        console.log('[API] Deleting store item:', itemId);
+        console.log('[API] DELETE URL:', `/store/${itemId}`);
+        const result = await this.request(`/store/${itemId}`, {
             method: 'DELETE',
         });
+        console.log('[API] Delete result:', result);
+        return result;
     }
 
     async purchaseItem(itemId: string, memberId: string) {

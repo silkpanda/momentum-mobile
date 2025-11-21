@@ -13,6 +13,8 @@ import { Settings, Utensils, Bell, CheckCircle, Target, Star } from 'lucide-reac
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSocket } from '../../contexts/SocketContext';
+import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, HouseholdUpdatedEvent } from '../../constants/socketEvents';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -53,6 +55,36 @@ export default function FamilyScreen() {
         loadData();
     };
 
+    // WebSocket Listeners
+    const { on, off } = useSocket();
+
+    React.useEffect(() => {
+        const handleTaskUpdate = (data: TaskUpdatedEvent) => {
+            console.log('[FamilyScreen] Task updated:', data);
+            loadData();
+        };
+
+        const handlePointsUpdate = (data: MemberPointsUpdatedEvent) => {
+            console.log('[FamilyScreen] Points updated:', data);
+            loadData();
+        };
+
+        const handleHouseholdUpdate = (data: HouseholdUpdatedEvent) => {
+            console.log('[FamilyScreen] Household updated:', data);
+            loadData();
+        };
+
+        on(SOCKET_EVENTS.TASK_UPDATED, handleTaskUpdate);
+        on(SOCKET_EVENTS.MEMBER_POINTS_UPDATED, handlePointsUpdate);
+        on(SOCKET_EVENTS.HOUSEHOLD_UPDATED, handleHouseholdUpdate);
+
+        return () => {
+            off(SOCKET_EVENTS.TASK_UPDATED, handleTaskUpdate);
+            off(SOCKET_EVENTS.MEMBER_POINTS_UPDATED, handlePointsUpdate);
+            off(SOCKET_EVENTS.HOUSEHOLD_UPDATED, handleHouseholdUpdate);
+        };
+    }, [on, off]);
+
     const handleRemindParent = () => {
         Alert.alert(
             "Sent!",
@@ -82,7 +114,7 @@ export default function FamilyScreen() {
 
     const renderMemberColumn = (member: any) => {
         const memberTasks = allTasks.filter((t: any) =>
-            t.assignedTo && t.assignedTo.includes(member.id) && !t.isCompleted
+            t.assignedTo && t.assignedTo.includes(member.id) && (t.status === 'Pending' || t.status === 'PendingApproval')
         );
 
         const isFocusMode = false;
@@ -93,6 +125,7 @@ export default function FamilyScreen() {
                 style={[styles.memberColumn, { backgroundColor: theme.colors.bgSurface }]}
                 onPress={() => navigation.navigate('MemberDetail', {
                     memberId: member.id,
+                    userId: member.userId,
                     memberName: member.firstName,
                     memberColor: member.profileColor,
                     memberPoints: member.pointsTotal || 0

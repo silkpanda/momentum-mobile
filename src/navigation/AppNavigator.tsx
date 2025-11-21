@@ -10,6 +10,7 @@ import RegisterScreen from '../screens/auth/RegisterScreen';
 import FamilyScreen from '../screens/family/FamilyScreen';
 import ParentScreen from '../screens/parent/ParentScreen';
 import MemberDetailScreen from '../screens/family/MemberDetailScreen';
+import MemberStoreScreen from '../screens/family/MemberStoreScreen';
 import { RootStackParamList } from './types';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -28,6 +29,7 @@ export default function AppNavigator() {
                     <Stack.Screen name="Family" component={FamilyScreen} />
                     <Stack.Screen name="Parent" component={ParentScreen} />
                     <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
+                    <Stack.Screen name="MemberStore" component={MemberStoreScreen} />
                 </>
             ) : (
                 <>
