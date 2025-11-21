@@ -35,7 +35,8 @@ export default function MemberDetailScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
-    const loadMemberData = async () => {
+    const loadMemberData = useCallback(async () => {
+        console.log('📥 [MemberDetail] Loading member data...');
         try {
             // Load tasks
             const tasksResponse = await api.getTasks();
@@ -56,6 +57,7 @@ export default function MemberDetailScreen() {
             if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
                 const member = familyResponse.data.household.members.find((m: any) => m.id === memberId || m._id === memberId);
                 if (member) {
+                    console.log(`✅ [MemberDetail] Updated points for ${memberName}: ${member.pointsTotal}`);
                     setMemberPoints(member.pointsTotal || 0);
                 }
             }
@@ -67,18 +69,19 @@ export default function MemberDetailScreen() {
             setIsLoading(false);
             setRefreshing(false);
         }
-    };
+    }, [memberId, memberName]);
 
     useFocusEffect(
         useCallback(() => {
+            console.log('👀 [MemberDetail] Screen focused, loading data...');
             loadMemberData();
-        }, [])
+        }, [loadMemberData])
     );
 
     // Real-time updates
     React.useEffect(() => {
-        const handleUpdate = () => {
-            console.log('🔄 Received real-time update, refreshing member data...');
+        const handleUpdate = (data: any) => {
+            console.log('🔄 [MemberDetail] Received real-time update:', data);
             loadMemberData();
         };
 

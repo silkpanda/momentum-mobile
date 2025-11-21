@@ -47,6 +47,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const loadStoredAuth = async () => {
+        console.log('[AuthContext] loadStoredAuth called');
         try {
             const [storedToken, storedUser, storedHouseholdId] = await Promise.all([
                 storage.getToken(),
@@ -55,26 +56,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             ]);
 
             if (storedToken && storedUser) {
+                console.log('[AuthContext] Found stored credentials, setting state');
                 setToken(storedToken);
                 setUser(storedUser);
                 setHouseholdId(storedHouseholdId);
 
                 // Verify token is still valid
                 try {
+                    console.log('[AuthContext] Verifying token with /auth/me');
                     const response = await api.getMe();
                     if (response.data) {
+                        console.log('[AuthContext] Token verified successfully');
                         setUser(response.data.user);
                         setHouseholdId(response.data.householdId);
                     }
-                } catch (error) {
-                    // Token invalid, clear auth
-                    await clearAuth();
+                } catch (error: any) {
+                    // Only clear auth if we get a 401 (unauthorized), not on network errors
+                    console.error('[AuthContext] Token verification failed:', error.message);
+
+                    // Check if this is an authentication error (401) vs network error
+                    if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('Invalid token'))) {
+                        console.log('[AuthContext] Auth error detected, clearing credentials');
+                        await clearAuth();
+                    } else {
+                        console.log('[AuthContext] Network error, keeping existing credentials');
+                        // Keep the stored credentials - this is likely just a network issue
+                    }
                 }
+            } else {
+                console.log('[AuthContext] No stored credentials found');
             }
         } catch (error) {
-            console.error('Error loading auth:', error);
+            console.error('[AuthContext] Error loading auth:', error);
         } finally {
             setIsLoading(false);
+            console.log('[AuthContext] loadStoredAuth complete');
         }
     };
 

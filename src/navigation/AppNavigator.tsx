@@ -3,6 +3,7 @@
 // Main App Navigator - Switches between Auth and Main Stack
 // =========================================================
 import React from 'react';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
@@ -19,7 +20,11 @@ export default function AppNavigator() {
     const { isAuthenticated, isLoading } = useAuth();
 
     if (isLoading) {
-        return null; // Or a loading spinner
+        return (
+            <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#6366f1" />
+            </View>
+        );
     }
 
     return (
@@ -40,3 +45,12 @@ export default function AppNavigator() {
         </Stack.Navigator>
     );
 }
+
+const styles = StyleSheet.create({
+    loadingContainer: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#0f172a',
+    },
+});
