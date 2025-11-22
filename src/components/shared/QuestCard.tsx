@@ -37,7 +37,7 @@ export default function QuestCard({ quest, onPress, onClaim, onComplete }: Quest
                     <View style={styles.rewardContainer}>
                         <Trophy size={16} color={theme.colors.actionPrimary} />
                         <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>
-                            {quest.rewardValue} pts
+                            {quest.pointsValue || quest.rewardValue} pts
                         </Text>
                     </View>
 

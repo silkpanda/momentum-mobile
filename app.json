@@ -6,7 +6,8 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
+    "main": "index.ts",
     "splash": {
       "image": "./assets/splash-icon.png",
       "resizeMode": "contain",

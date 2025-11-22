@@ -1,19 +1,27 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { CheckCircle, Circle } from 'lucide-react-native';
+import { CheckCircle, Circle, Pencil, Trash2 } from 'lucide-react-native';
 import { themes } from '../../theme/colors';
+import MemberAvatar from '../family/MemberAvatar';
 
 interface TaskCardProps {
     task: any;
     onPress?: () => void;
     onComplete?: () => void;
+    onEdit?: (task: any) => void;
+    onDelete?: (task: any) => void;
+    members?: any[];
 }
 
-export default function TaskCard({ task, onPress, onComplete }: TaskCardProps) {
+export default function TaskCard({ task, onPress, onComplete, onEdit, onDelete, members = [] }: TaskCardProps) {
     const theme = themes.calmLight;
     const isCompleted = task.status === 'Approved';
     const isPendingApproval = task.status === 'PendingApproval';
     const isPending = task.status === 'Pending';
+
+    const assignedMembers = members.filter(m =>
+        task.assignedTo && task.assignedTo.includes(m.id || m._id)
+    );
 
     const handleCardPress = () => {
         if (isPending && onComplete) {
@@ -62,6 +70,42 @@ export default function TaskCard({ task, onPress, onComplete }: TaskCardProps) {
                         </Text>
                     )}
                 </View>
+
+                {assignedMembers.length > 0 && (
+                    <View style={styles.assignees}>
+                        {assignedMembers.map(member => (
+                            <View key={member.id || member._id} style={styles.avatarContainer}>
+                                <MemberAvatar
+                                    name={member.firstName}
+                                    color={member.profileColor}
+                                    size={24}
+                                    showName={false}
+                                />
+                            </View>
+                        ))}
+                    </View>
+                )}
+            </View>
+
+            <View style={styles.actions}>
+                {onEdit && (
+                    <TouchableOpacity
+                        onPress={() => onEdit(task)}
+                        style={styles.actionButton}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Pencil size={20} color={theme.colors.textSecondary} />
+                    </TouchableOpacity>
+                )}
+                {onDelete && (
+                    <TouchableOpacity
+                        onPress={() => onDelete(task)}
+                        style={[styles.actionButton, { marginLeft: 8 }]}
+                        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                        <Trash2 size={20} color={theme.colors.signalDanger || '#EF4444'} />
+                    </TouchableOpacity>
+                )}
             </View>
         </TouchableOpacity>
     );
@@ -95,6 +139,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
+        flexWrap: 'wrap',
     },
     points: {
         fontSize: 14,
@@ -105,4 +150,20 @@ const styles = StyleSheet.create({
         fontWeight: '500',
         fontStyle: 'italic',
     },
+    actions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginLeft: 8,
+    },
+    actionButton: {
+        padding: 8,
+    },
+    assignees: {
+        flexDirection: 'row',
+        marginTop: 8,
+        flexWrap: 'wrap',
+    },
+    avatarContainer: {
+        marginRight: -8, // Overlap effect
+    }
 });

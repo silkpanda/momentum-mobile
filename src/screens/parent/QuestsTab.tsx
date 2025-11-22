@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
-import { Plus, Trash2, Map, Star } from 'lucide-react-native';
+import { Plus, Trash2, Map, Star, Pencil } from 'lucide-react-native';
 import CreateQuestModal from '../../components/parent/CreateQuestModal';
 
 export default function QuestsScreen() {
@@ -13,6 +13,7 @@ export default function QuestsScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+    const [editingQuest, setEditingQuest] = useState<any>(null);
     const theme = themes.calmLight;
 
     const loadQuests = async () => {
@@ -95,15 +96,26 @@ export default function QuestsScreen() {
                                 <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }} numberOfLines={1}>{item.description}</Text>
                                 <View style={styles.rewardRow}>
                                     <Star size={12} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
-                                    <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>{item.rewardValue} Points</Text>
+                                    <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>{item.pointsValue || item.rewardValue} Points</Text>
                                 </View>
                             </View>
-                            <TouchableOpacity
-                                onPress={() => handleDelete(item._id || item.id)}
-                                style={styles.deleteButton}
-                            >
-                                <Trash2 size={20} color={theme.colors.signalAlert} />
-                            </TouchableOpacity>
+                            <View style={styles.actions}>
+                                <TouchableOpacity
+                                    onPress={() => {
+                                        setEditingQuest(item);
+                                        setIsCreateModalVisible(true);
+                                    }}
+                                    style={styles.actionButton}
+                                >
+                                    <Pencil size={20} color={theme.colors.textSecondary} />
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    onPress={() => handleDelete(item._id || item.id)}
+                                    style={styles.actionButton}
+                                >
+                                    <Trash2 size={20} color={theme.colors.signalAlert} />
+                                </TouchableOpacity>
+                            </View>
                         </View>
                     </View>
                 )}
@@ -118,18 +130,26 @@ export default function QuestsScreen() {
 
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => setIsCreateModalVisible(true)}
+                onPress={() => {
+                    setEditingQuest(null);
+                    setIsCreateModalVisible(true);
+                }}
             >
                 <Plus size={24} color="#FFFFFF" />
             </TouchableOpacity>
 
             <CreateQuestModal
                 visible={isCreateModalVisible}
-                onClose={() => setIsCreateModalVisible(false)}
+                onClose={() => {
+                    setIsCreateModalVisible(false);
+                    setEditingQuest(null);
+                }}
                 onQuestCreated={() => {
                     loadQuests();
                     setIsCreateModalVisible(false);
+                    setEditingQuest(null);
                 }}
+                initialQuest={editingQuest}
             />
         </View>
     );
@@ -195,7 +215,12 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontWeight: 'bold',
     },
-    deleteButton: {
+    actions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    actionButton: {
         padding: 8,
     },
     fab: {

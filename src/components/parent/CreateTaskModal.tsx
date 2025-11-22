@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
@@ -9,9 +9,10 @@ interface CreateTaskModalProps {
     onClose: () => void;
     onTaskCreated: () => void;
     members: any[];
+    initialTask?: any; // Optional task to edit
 }
 
-export default function CreateTaskModal({ visible, onClose, onTaskCreated, members }: CreateTaskModalProps) {
+export default function CreateTaskModal({ visible, onClose, onTaskCreated, members, initialTask }: CreateTaskModalProps) {
     const theme = themes.calmLight;
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -19,16 +20,23 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
     const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
-    // Reset form when modal opens
+    // Reset or populate form when modal opens
     useEffect(() => {
         if (visible) {
-            setTitle('');
-            setDescription('');
-            setPoints('10');
-            setSelectedAssignees([]);
+            if (initialTask) {
+                setTitle(initialTask.title || '');
+                setDescription(initialTask.description || '');
+                setPoints(String(initialTask.pointsValue || '10'));
+                setSelectedAssignees(initialTask.assignedTo || []);
+            } else {
+                setTitle('');
+                setDescription('');
+                setPoints('10');
+                setSelectedAssignees([]);
+            }
             setIsSubmitting(false);
         }
-    }, [visible]);
+    }, [visible, initialTask]);
 
     const toggleAssignee = (memberId: string) => {
         if (selectedAssignees.includes(memberId)) {
@@ -38,7 +46,7 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
         }
     };
 
-    const handleCreate = async () => {
+    const handleSubmit = async () => {
         if (!title.trim()) {
             alert('Please enter a task title');
             return;
@@ -50,17 +58,24 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
 
         setIsSubmitting(true);
         try {
-            await api.createTask({
+            const taskData = {
                 title,
                 description,
                 pointsValue: parseInt(points) || 0,
                 assignedTo: selectedAssignees,
-            });
+            };
+
+            if (initialTask) {
+                await api.updateTask(initialTask._id || initialTask.id, taskData);
+            } else {
+                await api.createTask(taskData);
+            }
+
             onTaskCreated();
             onClose();
         } catch (error) {
-            console.error('Error creating task:', error);
-            alert('Failed to create task');
+            console.error('Error saving task:', error);
+            alert('Failed to save task');
         } finally {
             setIsSubmitting(false);
         }
@@ -76,7 +91,9 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
             <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
                     <View style={styles.header}>
-                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>New Task</Text>
+                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                            {initialTask ? 'Edit Task' : 'New Task'}
+                        </Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                             <X size={24} color={theme.colors.textSecondary} />
                         </TouchableOpacity>
@@ -162,14 +179,16 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
 
                     <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
                         <TouchableOpacity
-                            style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary }]}
-                            onPress={handleCreate}
+                            style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary, flex: 1 }]}
+                            onPress={handleSubmit}
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? (
                                 <ActivityIndicator color="#FFFFFF" />
                             ) : (
-                                <Text style={styles.createButtonText}>Create Task</Text>
+                                <Text style={styles.createButtonText}>
+                                    {initialTask ? 'Save Changes' : 'Create Task'}
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -248,6 +267,7 @@ const styles = StyleSheet.create({
     footer: {
         paddingTop: 16,
         borderTopWidth: 1,
+        flexDirection: 'row',
     },
     createButton: {
         padding: 16,

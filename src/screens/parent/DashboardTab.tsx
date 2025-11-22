@@ -4,7 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
-import { CheckCircle, XCircle, Clock, Users, Target, Bell } from 'lucide-react-native';
+import { CheckCircle, XCircle, Clock, Users, Target, Bell, Map as MapIcon } from 'lucide-react-native';
 import MemberAvatar from '../../components/family/MemberAvatar';
 
 import { useSocket } from '../../contexts/SocketContext';
@@ -13,6 +13,7 @@ export default function DashboardTab() {
     const { user } = useAuth();
     const { on, off } = useSocket();
     const [pendingTasks, setPendingTasks] = useState<any[]>([]);
+    const [pendingQuests, setPendingQuests] = useState<any[]>([]);
     const [members, setMembers] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -20,8 +21,9 @@ export default function DashboardTab() {
 
     const loadData = async () => {
         try {
-            const [tasksResponse, dashboardResponse] = await Promise.all([
+            const [tasksResponse, questsResponse, dashboardResponse] = await Promise.all([
                 api.getTasks(),
+                api.getQuests(),
                 api.getDashboardData()
             ]);
 
@@ -33,6 +35,17 @@ export default function DashboardTab() {
                 setPendingTasks(pendingApproval);
             } else {
                 setPendingTasks([]);
+            }
+
+            // Get pending approval quests
+            if (questsResponse.data && questsResponse.data.quests) {
+                const pendingApproval = questsResponse.data.quests.filter((quest: any) => {
+                    // Check if any claim is in 'completed' status (waiting for approval)
+                    return quest.claims && quest.claims.some((claim: any) => claim.status === 'completed');
+                });
+                setPendingQuests(pendingApproval);
+            } else {
+                setPendingQuests([]);
             }
 
             // Get family members
@@ -111,6 +124,48 @@ export default function DashboardTab() {
         );
     };
 
+    const handleApproveQuest = async (questId: string, memberId: string) => {
+        try {
+            await api.approveQuest(questId, memberId);
+            loadData();
+        } catch (error) {
+            console.error('Error approving quest:', error);
+            Alert.alert('Error', 'Failed to approve quest');
+        }
+    };
+
+    const handleRejectQuest = async (questId: string, memberId: string) => {
+        Alert.alert(
+            'Reject Quest',
+            'The member will need to complete it again.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Reject',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            // Reset the claim status back to 'claimed'
+                            const quest = pendingQuests.find(q => (q._id || q.id) === questId);
+                            if (quest) {
+                                const claim = quest.claims.find((c: any) => c.memberId === memberId);
+                                if (claim) {
+                                    claim.status = 'claimed';
+                                    claim.completedAt = null;
+                                    await api.updateQuest(questId, { claims: quest.claims });
+                                    loadData();
+                                }
+                            }
+                        } catch (error) {
+                            console.error('Error rejecting quest:', error);
+                            Alert.alert('Error', 'Failed to reject quest');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
     const toggleFocusMode = (memberId: string) => {
         Alert.alert('Focus Mode', `Focus Mode toggle for member ${memberId} - Coming soon!`);
     };
@@ -143,53 +198,106 @@ export default function DashboardTab() {
                     <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
                         Pending Approvals
                     </Text>
-                    {pendingTasks.length > 0 && (
+                    {(pendingTasks.length + pendingQuests.length) > 0 && (
                         <View style={[styles.badge, { backgroundColor: theme.colors.signalAlert }]}>
-                            <Text style={styles.badgeText}>{pendingTasks.length}</Text>
+                            <Text style={styles.badgeText}>{pendingTasks.length + pendingQuests.length}</Text>
                         </View>
                     )}
                 </View>
 
-                {pendingTasks.length === 0 ? (
+                {(pendingTasks.length === 0 && pendingQuests.length === 0) ? (
                     <View style={[styles.emptyCard, { backgroundColor: theme.colors.bgSurface }]}>
                         <CheckCircle size={32} color={theme.colors.borderSubtle} />
                         <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            All caught up! No tasks waiting for approval.
+                            All caught up! No tasks or quests waiting for approval.
                         </Text>
                     </View>
                 ) : (
-                    pendingTasks.map((task) => (
-                        <View key={task._id || task.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
-                            <View style={styles.approvalInfo}>
-                                <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
-                                    {task.title}
-                                </Text>
-                                <View style={styles.approvalMeta}>
-                                    <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
-                                        +{task.pointsValue} pts
+                    <>
+                        {/* Pending Tasks */}
+                        {pendingTasks.map((task) => (
+                            <View key={task._id || task.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
+                                <View style={styles.approvalInfo}>
+                                    <View style={styles.typeRow}>
+                                        <Target size={14} color={theme.colors.textSecondary} />
+                                        <Text style={[styles.typeLabel, { color: theme.colors.textSecondary }]}>TASK</Text>
+                                    </View>
+                                    <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
+                                        {task.title}
                                     </Text>
-                                    <View style={styles.statusBadge}>
-                                        <Clock size={12} color="#F59E0B" />
-                                        <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
+                                    <View style={styles.approvalMeta}>
+                                        <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
+                                            +{task.pointsValue} pts
+                                        </Text>
+                                        <View style={styles.statusBadge}>
+                                            <Clock size={12} color="#F59E0B" />
+                                            <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
+                                        </View>
                                     </View>
                                 </View>
+                                <View style={styles.approvalActions}>
+                                    <TouchableOpacity
+                                        style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
+                                        onPress={() => handleReject(task._id || task.id)}
+                                    >
+                                        <XCircle size={20} color={theme.colors.signalAlert} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
+                                        onPress={() => handleApprove(task._id || task.id)}
+                                    >
+                                        <CheckCircle size={20} color={theme.colors.signalSuccess} />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
-                            <View style={styles.approvalActions}>
-                                <TouchableOpacity
-                                    style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
-                                    onPress={() => handleReject(task._id || task.id)}
-                                >
-                                    <XCircle size={20} color={theme.colors.signalAlert} />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
-                                    onPress={() => handleApprove(task._id || task.id)}
-                                >
-                                    <CheckCircle size={20} color={theme.colors.signalSuccess} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    ))
+                        ))}
+
+                        {/* Pending Quests */}
+                        {pendingQuests.map((quest) => {
+                            const completedClaim = quest.claims.find((c: any) => c.status === 'completed');
+                            const memberName = members.find(m => m.id === completedClaim?.memberId)?.firstName || 'Member';
+
+                            return (
+                                <View key={quest._id || quest.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
+                                    <View style={styles.approvalInfo}>
+                                        <View style={styles.typeRow}>
+                                            <MapIcon size={14} color={theme.colors.actionPrimary} />
+                                            <Text style={[styles.typeLabel, { color: theme.colors.actionPrimary }]}>QUEST</Text>
+                                        </View>
+                                        <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
+                                            {quest.title}
+                                        </Text>
+                                        <Text style={[styles.memberName, { color: theme.colors.textSecondary }]}>
+                                            by {memberName}
+                                        </Text>
+                                        <View style={styles.approvalMeta}>
+                                            <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
+                                                +{quest.pointsValue} pts
+                                            </Text>
+                                            <View style={styles.statusBadge}>
+                                                <Clock size={12} color="#F59E0B" />
+                                                <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
+                                            </View>
+                                        </View>
+                                    </View>
+                                    <View style={styles.approvalActions}>
+                                        <TouchableOpacity
+                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
+                                            onPress={() => handleRejectQuest(quest._id || quest.id, completedClaim.memberId)}
+                                        >
+                                            <XCircle size={20} color={theme.colors.signalAlert} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
+                                            onPress={() => handleApproveQuest(quest._id || quest.id, completedClaim.memberId)}
+                                        >
+                                            <CheckCircle size={20} color={theme.colors.signalSuccess} />
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            );
+                        })}
+                    </>
                 )}
             </View>
 
@@ -307,6 +415,21 @@ const styles = StyleSheet.create({
     },
     approvalInfo: {
         flex: 1,
+    },
+    typeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        marginBottom: 4,
+    },
+    typeLabel: {
+        fontSize: 11,
+        fontWeight: '600',
+        textTransform: 'uppercase',
+    },
+    memberName: {
+        fontSize: 12,
+        marginBottom: 4,
     },
     approvalTitle: {
         fontSize: 16,

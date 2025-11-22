@@ -55,6 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 storage.getHouseholdId(),
             ]);
 
+            console.log('[AuthContext] Stored data:', {
+                hasToken: !!storedToken,
+                hasUser: !!storedUser,
+                hasHouseholdId: !!storedHouseholdId,
+            });
+
             if (storedToken && storedUser) {
                 console.log('[AuthContext] Found stored credentials, setting state');
                 setToken(storedToken);
@@ -88,9 +94,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             }
         } catch (error) {
             console.error('[AuthContext] Error loading auth:', error);
+            // Don't throw - we want the app to continue loading even if auth fails
         } finally {
             setIsLoading(false);
-            console.log('[AuthContext] loadStoredAuth complete');
+            console.log('[AuthContext] loadStoredAuth complete, isLoading set to false');
         }
     };
 

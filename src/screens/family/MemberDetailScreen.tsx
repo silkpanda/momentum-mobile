@@ -2,23 +2,23 @@
 // momentum-mobile/src/screens/family/MemberDetailScreen.tsx
 // Individual Member View - For children to check their tasks
 // =========================================================
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ArrowLeft, Star, Trophy, Settings, ShoppingBag } from 'lucide-react-native';
+import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
 import TaskCard from '../../components/shared/TaskCard';
+import QuestCard from '../../components/shared/QuestCard';
 import MemberAvatar from '../../components/family/MemberAvatar';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useSocket } from '../../contexts/SocketContext';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
-
-import { useSocket } from '../../contexts/SocketContext';
 
 export default function MemberDetailScreen() {
     const route = useRoute<MemberDetailRouteProp>();
@@ -31,9 +31,36 @@ export default function MemberDetailScreen() {
     const theme = themes.calmLight;
 
     const [tasks, setTasks] = useState<any[]>([]);
+    const [quests, setQuests] = useState<any[]>([]);
     const [memberPoints, setMemberPoints] = useState(initialPoints);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    const [lastUpdated, setLastUpdated] = useState(0);
+
+    // Listen for direct updates from other screens (like Store)
+    useEffect(() => {
+        const subscription = DeviceEventEmitter.addListener('update_member_points', (event) => {
+            if (event.memberId === memberId) {
+                console.log(`[MemberDetail] Received event update for points: ${event.points}`);
+                setMemberPoints(event.points);
+                setLastUpdated(Date.now());
+            }
+        });
+
+        return () => {
+            subscription.remove();
+        };
+    }, [memberId]);
+
+    // Update state if params change (e.g. returning from Store with new points)
+    useEffect(() => {
+        if (route.params?.memberPoints !== undefined) {
+            console.log(`[MemberDetail] Route params changed, updating points to: ${route.params.memberPoints}`);
+            setMemberPoints(route.params.memberPoints);
+            setLastUpdated(Date.now());
+        }
+    }, [route.params?.memberPoints]);
 
     const loadMemberData = useCallback(async () => {
         console.log('📥 [MemberDetail] Loading member data...');
@@ -52,24 +79,43 @@ export default function MemberDetailScreen() {
                 setTasks([]);
             }
 
+            // Load quests
+            const questsResponse = await api.getQuests();
+            if (questsResponse.data && Array.isArray(questsResponse.data.quests)) {
+                setQuests(questsResponse.data.quests);
+            } else {
+                setQuests([]);
+            }
+
             // Load fresh member data (points)
             const familyResponse = await api.getFamilyData();
             if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
+                console.log(`[MemberDetail] Searching for memberId: ${memberId} in ${familyResponse.data.household.members.length} members`);
                 const member = familyResponse.data.household.members.find((m: any) => m.id === memberId || m._id === memberId);
+
                 if (member) {
-                    console.log(`✅ [MemberDetail] Updated points for ${memberName}: ${member.pointsTotal}`);
-                    setMemberPoints(member.pointsTotal || 0);
+                    // Check if we have a recent local update (within 2 seconds)
+                    const timeSinceLastUpdate = Date.now() - lastUpdated;
+                    if (timeSinceLastUpdate < 2000) {
+                        console.log(`[MemberDetail] Skipping API point update (Grace Period Active). Local: ${memberPoints}, API: ${member.pointsTotal}`);
+                    } else {
+                        console.log(`✅ [MemberDetail] Found member ${member.firstName}. Old Points: ${memberPoints}, New Points: ${member.pointsTotal}`);
+                        setMemberPoints(member.pointsTotal || 0);
+                    }
+                } else {
+                    console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, familyResponse.data.household.members.map((m: any) => m.id || m._id));
                 }
             }
 
         } catch (error) {
             console.error('Error loading member data:', error);
             setTasks([]);
+            setQuests([]);
         } finally {
             setIsLoading(false);
             setRefreshing(false);
         }
-    }, [memberId, memberName]);
+    }, [memberId, memberName, lastUpdated, memberPoints]);
 
     useFocusEffect(
         useCallback(() => {
@@ -79,10 +125,19 @@ export default function MemberDetailScreen() {
     );
 
     // Real-time updates
-    React.useEffect(() => {
+    useEffect(() => {
         const handleUpdate = (data: any) => {
             console.log('🔄 [MemberDetail] Received real-time update:', data);
-            loadMemberData();
+
+            // Check if this is a points update for the current member
+            if (data && data.memberId === memberId && typeof data.pointsTotal === 'number') {
+                console.log(`✅ [MemberDetail] Socket update points: ${data.pointsTotal}`);
+                setMemberPoints(data.pointsTotal);
+                setLastUpdated(Date.now()); // Protect against stale fetches
+            } else {
+                // For other events (tasks, quests), reload data
+                loadMemberData();
+            }
         };
 
         on('task_updated', handleUpdate);
@@ -94,7 +149,7 @@ export default function MemberDetailScreen() {
             off('member_points_updated', handleUpdate);
             off('quest_updated', handleUpdate);
         };
-    }, [on, off]);
+    }, [on, off, memberId, loadMemberData]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -108,6 +163,26 @@ export default function MemberDetailScreen() {
         } catch (error: any) {
             console.error('Error completing task:', error);
             alert(`Failed to complete task: ${error.message || 'Unknown error'}`);
+        }
+    };
+
+    const handleClaimQuest = async (questId: string) => {
+        try {
+            await api.claimQuest(questId, memberId);
+            loadMemberData();
+        } catch (error: any) {
+            console.error('Error claiming quest:', error);
+            alert(`Failed to claim quest: ${error.message || 'Unknown error'}`);
+        }
+    };
+
+    const handleCompleteQuest = async (questId: string) => {
+        try {
+            await api.completeQuest(questId, memberId);
+            loadMemberData();
+        } catch (error: any) {
+            console.error('Error completing quest:', error);
+            alert(`Failed to complete quest: ${error.message || 'Unknown error'}`);
         }
     };
 
@@ -185,6 +260,56 @@ export default function MemberDetailScreen() {
                 ) : (
                     <View style={styles.emptyState}>
                         <Text style={{ color: theme.colors.textSecondary }}>No tasks assigned yet!</Text>
+                    </View>
+                )}
+
+                <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginTop: 24 }]}>Available Quests</Text>
+
+                {isLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
+                ) : quests.filter(q => {
+                    // Show quests that are active and not yet claimed by this member
+                    const hasClaim = q.claims && q.claims.some((c: any) => c.memberId === memberId);
+                    return q.isActive && !hasClaim;
+                }).length > 0 ? (
+                    quests.filter(q => {
+                        const hasClaim = q.claims && q.claims.some((c: any) => c.memberId === memberId);
+                        return q.isActive && !hasClaim;
+                    }).map((quest) => (
+                        <QuestCard
+                            key={quest._id || quest.id}
+                            quest={quest}
+                            onClaim={() => handleClaimQuest(quest._id || quest.id)}
+                        />
+                    ))
+                ) : (
+                    <View style={styles.emptyState}>
+                        <Text style={{ color: theme.colors.textSecondary }}>No quests available right now!</Text>
+                    </View>
+                )}
+
+                <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginTop: 24 }]}>My Active Quests</Text>
+
+                {isLoading ? (
+                    <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
+                ) : quests.filter(q => {
+                    // Show quests claimed by this member that are not yet completed
+                    const myClaim = q.claims && q.claims.find((c: any) => c.memberId === memberId);
+                    return myClaim && myClaim.status === 'claimed';
+                }).length > 0 ? (
+                    quests.filter(q => {
+                        const myClaim = q.claims && q.claims.find((c: any) => c.memberId === memberId);
+                        return myClaim && myClaim.status === 'claimed';
+                    }).map((quest) => (
+                        <QuestCard
+                            key={quest._id || quest.id}
+                            quest={quest}
+                            onComplete={() => handleCompleteQuest(quest._id || quest.id)}
+                        />
+                    ))
+                ) : (
+                    <View style={styles.emptyState}>
+                        <Text style={{ color: theme.colors.textSecondary }}>No active quests. Claim one above!</Text>
                     </View>
                 )}
             </ScrollView>

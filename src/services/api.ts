@@ -26,6 +26,9 @@ class ApiClient {
         const token = await storage.getToken();
         const headers: HeadersInit = {
             'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache',
+            'Expires': '0',
         };
 
         if (token) {
@@ -37,26 +40,58 @@ class ApiClient {
 
     async request<T = any>(
         endpoint: string,
-        options: RequestInit = {}
+        options: RequestInit = {},
+        retries = 3,
+        backoff = 1000
     ): Promise<ApiResponse<T>> {
+        const url = `${API_BASE_URL}${endpoint}`;
+        console.log(`[API] 🚀 Requesting: ${url} (Attempts left: ${retries})`);
+
         try {
             const headers = await this.getHeaders();
-            const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-                ...options,
-                headers: {
-                    ...headers,
-                    ...options.headers,
-                },
-            });
 
-            const data = await response.json();
+            // Create a controller for timeout (60s for Render cold starts)
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-            if (!response.ok) {
-                throw new Error(data.message || 'Request failed');
+            try {
+                const response = await fetch(url, {
+                    ...options,
+                    headers: {
+                        ...headers,
+                        ...options.headers,
+                    },
+                    signal: controller.signal,
+                });
+
+                clearTimeout(timeoutId);
+
+                const data = await response.json();
+                console.log(`[API] ✅ Response from ${endpoint}:`, response.status);
+
+                if (!response.ok) {
+                    throw new Error(data.message || 'Request failed');
+                }
+
+                return data;
+            } catch (fetchError: any) {
+                clearTimeout(timeoutId);
+
+                // Handle timeouts and network errors with retries
+                if (retries > 0 && (fetchError.name === 'AbortError' || fetchError.message === 'Network request failed')) {
+                    console.log(`[API] ⚠️ Request failed, retrying in ${backoff}ms...`);
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    return this.request(endpoint, options, retries - 1, backoff * 2);
+                }
+
+                if (fetchError.name === 'AbortError') {
+                    console.error(`[API] ⏱️ Timeout waiting for ${url}`);
+                    throw new Error('Request timed out. The server might be waking up (Cold Start). Please try again.');
+                }
+                throw fetchError;
             }
-
-            return data;
         } catch (error: any) {
+            console.error(`[API] ❌ Error requesting ${url}:`, error.message);
             throw new Error(error.message || 'Network error');
         }
     }
@@ -131,6 +166,12 @@ class ApiClient {
         });
     }
 
+    async deleteTask(taskId: string) {
+        return this.request(`/tasks/${taskId}`, {
+            method: 'DELETE',
+        });
+    }
+
     // Quests
     async getQuests() {
         return this.request('/quests');
@@ -165,6 +206,13 @@ class ApiClient {
 
     async completeQuest(questId: string, memberId: string) {
         return this.request(`/quests/${questId}/complete`, {
+            method: 'POST',
+            body: JSON.stringify({ memberId }),
+        });
+    }
+
+    async approveQuest(questId: string, memberId: string) {
+        return this.request(`/quests/${questId}/approve`, {
             method: 'POST',
             body: JSON.stringify({ memberId }),
         });

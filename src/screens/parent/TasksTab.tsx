@@ -1,5 +1,5 @@
 import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl } from 'react-native';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
@@ -20,6 +20,7 @@ export default function TasksScreen() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
+    const [editingTask, setEditingTask] = useState<any>(null);
     const [filter, setFilter] = useState<FilterType>('Pending');
     const theme = themes.calmLight;
 
@@ -72,14 +73,29 @@ export default function TasksScreen() {
         loadData();
     };
 
-    const handleCompleteTask = async (taskId: string) => {
-        if (!user?._id) return;
-        try {
-            await api.completeTask(taskId, user._id);
-            loadData();
-        } catch (error) {
-            console.error('Error completing task:', error);
-        }
+
+
+    const handleDeleteTask = async (task: any) => {
+        Alert.alert(
+            "Delete Task",
+            "Are you sure you want to delete this task?",
+            [
+                { text: "Cancel", style: "cancel" },
+                {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await api.deleteTask(task._id || task.id);
+                            loadData();
+                        } catch (error) {
+                            console.error('Error deleting task:', error);
+                            alert('Failed to delete task');
+                        }
+                    }
+                }
+            ]
+        );
     };
 
     const filteredTasks = tasks.filter(task => {
@@ -134,7 +150,12 @@ export default function TasksScreen() {
                 renderItem={({ item }) => (
                     <TaskCard
                         task={item}
-                        onComplete={() => handleCompleteTask(item._id || item.id)}
+                        onEdit={(task) => {
+                            setEditingTask(task);
+                            setIsCreateModalVisible(true);
+                        }}
+                        onDelete={() => handleDeleteTask(item)}
+                        members={members}
                     />
                 )}
                 keyExtractor={(item) => item._id || item.id}
@@ -149,19 +170,27 @@ export default function TasksScreen() {
 
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => setIsCreateModalVisible(true)}
+                onPress={() => {
+                    setEditingTask(null);
+                    setIsCreateModalVisible(true);
+                }}
             >
                 <Plus size={24} color="#FFFFFF" />
             </TouchableOpacity>
 
             <CreateTaskModal
                 visible={isCreateModalVisible}
-                onClose={() => setIsCreateModalVisible(false)}
+                onClose={() => {
+                    setIsCreateModalVisible(false);
+                    setEditingTask(null);
+                }}
                 onTaskCreated={() => {
                     loadData();
                     setIsCreateModalVisible(false);
+                    setEditingTask(null);
                 }}
                 members={members}
+                initialTask={editingTask}
             />
         </View>
     );

@@ -32,7 +32,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
     useEffect(() => {
         // Wait for auth to finish loading
-        if (isLoading) return;
+        if (isLoading) {
+            console.log('🔌 Waiting for auth to load...');
+            return;
+        }
 
         // Only connect if we have a token
         if (!token) {
@@ -49,49 +52,57 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         const initSocket = async () => {
             // If we already have a socket connected with the same token, don't reconnect
             if (socket?.connected && (socket.auth as any)?.token === token) {
+                console.log('🔌 Socket already connected with current token');
                 return;
             }
 
             if (socket) {
+                console.log('🔌 Disconnecting old socket...');
                 socket.disconnect();
             }
 
             console.log('🔌 Initializing socket connection...');
-            const newSocket = io('https://momentum-mobile-bff.onrender.com', {
-                transports: ['websocket', 'polling'],
-                reconnection: true,
-                reconnectionDelay: 1000,
-                reconnectionAttempts: 5,
-                auth: {
-                    token
-                }
-            });
+            try {
+                const newSocket = io('https://momentum-mobile-bff.onrender.com', {
+                    transports: ['websocket', 'polling'],
+                    reconnection: true,
+                    reconnectionDelay: 1000,
+                    reconnectionAttempts: 5,
+                    auth: {
+                        token
+                    }
+                });
 
-            newSocket.on('connect', () => {
-                console.log('🔌 Connected to WebSocket server');
-                setConnected(true);
-            });
+                newSocket.on('connect', () => {
+                    console.log('🔌 Connected to WebSocket server');
+                    setConnected(true);
+                });
 
-            newSocket.on('disconnect', () => {
-                console.log('❌ Disconnected from WebSocket server');
-                setConnected(false);
-            });
+                newSocket.on('disconnect', () => {
+                    console.log('❌ Disconnected from WebSocket server');
+                    setConnected(false);
+                });
 
-            newSocket.on('connect_error', (error) => {
-                console.error('WebSocket connection error:', error);
-                setConnected(false);
-            });
+                newSocket.on('connect_error', (error) => {
+                    console.error('WebSocket connection error:', error.message);
+                    setConnected(false);
+                });
 
-            setSocket(newSocket);
+                setSocket(newSocket);
+            } catch (error) {
+                console.error('🔌 Failed to initialize socket:', error);
+            }
         };
 
         initSocket();
 
         return () => {
             if (socket) {
+                console.log('🔌 Cleaning up socket connection...');
                 socket.disconnect();
             }
         };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [token, isLoading]);
 
     const emit = useCallback((event: string, data?: any) => {

@@ -3,9 +3,10 @@
 // Child Store View - For spending points
 // =========================================================
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity, Platform } from 'react-native';
+import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity, Platform, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ArrowLeft, Star, ShoppingBag } from 'lucide-react-native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
 import StoreItemCard from '../../components/shared/StoreItemCard';
@@ -17,7 +18,7 @@ type MemberStoreRouteProp = RouteProp<RootStackParamList, 'MemberStore'>;
 
 export default function MemberStoreScreen() {
     const route = useRoute<MemberStoreRouteProp>();
-    const navigation = useNavigation();
+    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
     const insets = useSafeAreaInsets();
     const { on, off } = useSocket();
 
@@ -113,17 +114,28 @@ export default function MemberStoreScreen() {
 
         try {
             // Use userId (FamilyMember ID) for the purchase transaction as required by the backend
-            await api.purchaseItem(item._id || item.id, userId);
+            const response = await api.purchaseItem(item._id || item.id, userId);
 
             if (Platform.OS === 'web') {
-                // alert(`You redeemed ${item.itemName}!`); // Optional: removed alert for smoother flow, or keep it
                 console.log(`Redeemed ${item.itemName}`);
             } else {
                 Alert.alert('Success!', `You redeemed ${item.itemName}!`);
             }
 
-            // Refresh data to confirm points from server
-            loadData();
+            // Update points from the server response if available
+            if (response.data && typeof response.data.newPointsTotal === 'number') {
+                console.log(`[Store] Updated points from server: ${response.data.newPointsTotal}`);
+                setCurrentPoints(response.data.newPointsTotal);
+
+                // Notify MemberDetailScreen immediately
+                DeviceEventEmitter.emit('update_member_points', {
+                    memberId,
+                    points: response.data.newPointsTotal
+                });
+            } else {
+                // Fallback to reloading data
+                loadData();
+            }
         } catch (error: any) {
             console.error('Error purchasing item:', error);
             Alert.alert('Error', 'Failed to redeem item. Please try again.');
