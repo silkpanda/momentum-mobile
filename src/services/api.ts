@@ -58,6 +58,7 @@ class ApiClient {
             const controller = new AbortController();
             const timeoutId = setTimeout(() => controller.abort(), 60000);
 
+
             try {
                 const response = await fetch(url, {
                     ...options,
@@ -70,12 +71,35 @@ class ApiClient {
 
                 clearTimeout(timeoutId);
 
+                // Check response status BEFORE parsing JSON
+                if (!response.ok) {
+                    console.log(`[API] ⚠️ Non-OK response from ${endpoint}:`, response.status);
+
+                    // Clone the response so we can try multiple parsing strategies
+                    const responseClone = response.clone();
+
+                    // Try to parse error response as JSON, but fall back to text
+                    let errorMessage = 'Request failed';
+                    try {
+                        const errorData = await response.json();
+                        errorMessage = errorData.message || errorData.error || JSON.stringify(errorData);
+                    } catch (parseError) {
+                        // If JSON parsing fails, use the cloned response to get text
+                        try {
+                            const textResponse = await responseClone.text();
+                            console.error(`[API] 📄 Non-JSON error response:`, textResponse.substring(0, 200));
+                            errorMessage = textResponse || `Request failed with status ${response.status}`;
+                        } catch (textError) {
+                            errorMessage = `Request failed with status ${response.status}`;
+                        }
+                    }
+
+                    throw new Error(errorMessage);
+                }
+
+                // Only parse JSON for successful responses
                 const data = await response.json();
                 console.log(`[API] ✅ Response from ${endpoint}:`, response.status);
-
-                if (!response.ok) {
-                    throw new Error(data.message || 'Request failed');
-                }
 
                 return data;
             } catch (fetchError: any) {
