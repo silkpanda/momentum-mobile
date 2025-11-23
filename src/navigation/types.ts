@@ -16,5 +16,6 @@ export type ParentTabParamList = {
     Store: undefined;
     Quests: undefined;
     Meals: undefined;
+    Members: undefined;
     Settings: undefined;
 };

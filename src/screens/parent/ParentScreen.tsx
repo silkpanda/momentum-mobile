@@ -14,13 +14,11 @@ import QuestsTab from './QuestsTab';
 import MealsTab from './MealsTab';
 import DashboardTab from './DashboardTab';
 import SettingsTab from './SettingsTab';
+import MembersTab from './MembersTab';
 import { ParentTabParamList } from '../../navigation/types';
-
-const Tab = createMaterialTopTabNavigator<ParentTabParamList>();
-
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// ... imports
+const Tab = createMaterialTopTabNavigator<ParentTabParamList>();
 
 export default function ParentScreen() {
     const navigation = useNavigation();
@@ -57,9 +55,11 @@ export default function ParentScreen() {
                     tabBarIndicatorStyle: { backgroundColor: theme.colors.actionPrimary },
                     tabBarLabelStyle: { fontWeight: '600', fontSize: 12 },
                     tabBarScrollEnabled: true,
+                    tabBarItemStyle: { width: 100 }, // Ensure tabs are wide enough
                 }}
             >
                 <Tab.Screen name="Dashboard" component={DashboardTab} />
+                <Tab.Screen name="Members" component={MembersTab} />
                 <Tab.Screen name="Tasks" component={TasksTab} />
                 <Tab.Screen name="Store" component={StoreTab} />
                 <Tab.Screen name="Quests" component={QuestsTab} />

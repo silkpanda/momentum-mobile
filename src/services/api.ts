@@ -163,6 +163,40 @@ class ApiClient {
         return this.request<FamilyData>('/family/page-data');
     }
 
+    // Members
+    async createMember(memberData: {
+        householdId: string;
+        firstName: string;
+        role: 'Parent' | 'Child';
+        profileColor: string;
+        displayName?: string;
+    }): Promise<ApiResponse<{ member: Member }>> {
+        return this.request<{ member: Member }>('/family/members', {
+            method: 'POST',
+            body: JSON.stringify(memberData),
+        });
+    }
+
+    async updateMember(memberId: string, memberData: {
+        householdId: string;
+        firstName?: string;
+        role?: 'Parent' | 'Child';
+        profileColor?: string;
+        displayName?: string;
+    }): Promise<ApiResponse<{ member: Member }>> {
+        return this.request<{ member: Member }>(`/family/members/${memberId}`, {
+            method: 'PUT',
+            body: JSON.stringify(memberData),
+        });
+    }
+
+    async deleteMember(memberId: string, householdId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/family/members/${memberId}`, {
+            method: 'DELETE',
+            body: JSON.stringify({ householdId }),
+        });
+    }
+
     // Tasks
     async getTasks(): Promise<ApiResponse<{ tasks: Task[] }>> {
         return this.request<{ tasks: Task[] }>('/tasks');

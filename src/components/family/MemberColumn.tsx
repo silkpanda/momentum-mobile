@@ -14,9 +14,20 @@ interface MemberColumnProps {
 export default function MemberColumn({ member, allTasks, onPress }: MemberColumnProps) {
     const theme = themes.calmLight;
 
-    const memberTasks = allTasks.filter((t: Task) =>
-        t.assignedTo && t.assignedTo.includes(member.id) && (t.status === 'Pending' || t.status === 'PendingApproval')
-    );
+    // Filter tasks assigned to this member
+    // NOTE: assignedTo can be string[] (IDs) or object[] (populated with {_id, displayName, profileColor})
+    const memberTasks = allTasks.filter((t: Task) => {
+        if (!t.assignedTo || t.assignedTo.length === 0) return false;
+        if (t.status !== 'Pending' && t.status !== 'PendingApproval') return false;
+
+        // Check if assignedTo is populated (objects) or just IDs (strings)
+        const firstItem = t.assignedTo[0];
+        if (typeof firstItem === 'string') {
+            return t.assignedTo.includes(member.id);
+        } else {
+            return t.assignedTo.some((assigned: any) => assigned._id === member.id || assigned.id === member.id);
+        }
+    });
 
     const isFocusMode = false;
 
