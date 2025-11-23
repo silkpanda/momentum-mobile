@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { X, Check, Save, Trash2 } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
 import { Member } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface EditMemberModalProps {
     visible: boolean;
@@ -27,7 +27,7 @@ const PROFILE_COLORS = [
 ];
 
 export default function EditMemberModal({ visible, member, onClose, onSuccess, householdId }: EditMemberModalProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [firstName, setFirstName] = useState('');
     const [role, setRole] = useState<'Parent' | 'Child'>('Child');
     const [selectedColor, setSelectedColor] = useState<string>(PROFILE_COLORS[0].hex);

@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
 import { X, Check, UserPlus } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface CreateMemberModalProps {
     visible: boolean;
@@ -26,7 +26,7 @@ const PROFILE_COLORS = [
 ];
 
 export default function CreateMemberModal({ visible, onClose, onSuccess, householdId, usedColors = [] }: CreateMemberModalProps) {
-    const theme = themes.calmLight; // Or use hook
+    const { currentTheme: theme } = useTheme();
     const [firstName, setFirstName] = useState('');
     const [role, setRole] = useState<'Parent' | 'Child'>('Child');
     const [selectedColor, setSelectedColor] = useState<string>(PROFILE_COLORS[0].hex);

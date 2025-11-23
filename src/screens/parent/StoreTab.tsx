@@ -2,8 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity, Platform } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { Plus, Trash2, ShoppingBag, Star, Edit2 } from 'lucide-react-native';
 import CreateStoreItemModal from '../../components/parent/CreateStoreItemModal';
 import EditStoreItemModal from '../../components/parent/EditStoreItemModal';
@@ -13,6 +13,7 @@ import { StoreItemUpdatedEvent } from '../../constants/socketEvents';
 
 export default function StoreScreen() {
     const { user } = useAuth();
+    const { currentTheme: theme } = useTheme();
     const { on, off } = useSocket();
     const [items, setItems] = useState<StoreItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -20,7 +21,6 @@ export default function StoreScreen() {
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [selectedItem, setSelectedItem] = useState<StoreItem | null>(null);
-    const theme = themes.calmLight;
 
     const loadStoreData = async () => {
         try {
@@ -111,39 +111,39 @@ export default function StoreScreen() {
     if (isLoading && !items.length) {
         return (
             <View style={[styles.container, styles.centered]}>
-                <ActivityIndicator size="large" color={themes.calmLight.colors.actionPrimary} />
+                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
             <View style={styles.header}>
-                <Text style={styles.title}>Manage Store</Text>
-                <Text style={styles.subtitle}>Add and edit rewards</Text>
+                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Manage Store</Text>
+                <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Add and edit rewards</Text>
             </View>
 
             <FlatList
                 data={items}
                 keyExtractor={(item) => item._id || item.id}
                 renderItem={({ item }) => (
-                    <View style={styles.card}>
+                    <View style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
                         <View style={styles.cardContent}>
-                            <View style={styles.iconContainer}>
-                                <ShoppingBag size={24} color={themes.calmLight.colors.textSecondary} />
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.bgCanvas }]}>
+                                <ShoppingBag size={24} color={theme.colors.textSecondary} />
                             </View>
                             <View style={styles.cardTextContainer}>
-                                <Text style={styles.cardTitle}>
+                                <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
                                     {item.itemName || 'Untitled'}
                                 </Text>
                                 {item.description && (
-                                    <Text style={styles.cardDescription} numberOfLines={2}>
+                                    <Text style={[styles.cardDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
                                         {item.description}
                                     </Text>
                                 )}
                                 <View style={styles.priceRow}>
-                                    <Star size={14} color={themes.calmLight.colors.actionPrimary} fill={themes.calmLight.colors.actionPrimary} />
-                                    <Text style={styles.priceText}>{item.cost} pts</Text>
+                                    <Star size={14} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
+                                    <Text style={[styles.priceText, { color: theme.colors.actionPrimary }]}>{item.cost} pts</Text>
                                 </View>
                             </View>
                             <View style={styles.actionButtons}>
@@ -154,7 +154,7 @@ export default function StoreScreen() {
                                     }}
                                     style={styles.actionButton}
                                 >
-                                    <Edit2 size={20} color={themes.calmLight.colors.actionPrimary} />
+                                    <Edit2 size={20} color={theme.colors.actionPrimary} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => {
@@ -163,7 +163,7 @@ export default function StoreScreen() {
                                     }}
                                     style={styles.actionButton}
                                 >
-                                    <Trash2 size={20} color={themes.calmLight.colors.signalAlert} />
+                                    <Trash2 size={20} color={theme.colors.signalAlert} />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -173,13 +173,13 @@ export default function StoreScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No items in store.</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No items in store.</Text>
                     </View>
                 }
             />
 
             <TouchableOpacity
-                style={styles.fab}
+                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
                 onPress={() => setIsCreateModalVisible(true)}
             >
                 <Plus size={24} color="#FFFFFF" />
@@ -210,7 +210,6 @@ export default function StoreScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: themes.calmLight.colors.bgCanvas,
     },
     centered: {
         justifyContent: 'center',
@@ -223,11 +222,9 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: themes.calmLight.colors.textPrimary,
     },
     subtitle: {
         fontSize: 14,
-        color: themes.calmLight.colors.textSecondary,
     },
     listContent: {
         padding: 16,
@@ -239,7 +236,6 @@ const styles = StyleSheet.create({
     },
     emptyText: {
         fontSize: 16,
-        color: themes.calmLight.colors.textSecondary,
     },
     card: {
         borderRadius: 12,
@@ -250,7 +246,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 2,
-        backgroundColor: themes.calmLight.colors.bgSurface,
     },
     cardContent: {
         flexDirection: 'row',
@@ -262,7 +257,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: themes.calmLight.colors.bgCanvas,
     },
     cardTextContainer: {
         flex: 1,
@@ -272,13 +266,11 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: '600',
         marginBottom: 4,
-        color: themes.calmLight.colors.textPrimary,
     },
     cardDescription: {
         fontSize: 14,
         lineHeight: 19,
         marginBottom: 6,
-        color: themes.calmLight.colors.textSecondary,
     },
     priceRow: {
         flexDirection: 'row',
@@ -289,7 +281,6 @@ const styles = StyleSheet.create({
     priceText: {
         fontSize: 15,
         fontWeight: 'bold',
-        color: themes.calmLight.colors.actionPrimary,
     },
     actionButtons: {
         flexDirection: 'row',
@@ -312,6 +303,5 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
-        backgroundColor: themes.calmLight.colors.actionPrimary,
     },
 });

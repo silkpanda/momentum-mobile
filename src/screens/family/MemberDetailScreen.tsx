@@ -8,7 +8,7 @@ import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navig
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
 import TaskCard from '../../components/shared/TaskCard';
 import QuestCard from '../../components/shared/QuestCard';
@@ -30,7 +30,7 @@ export default function MemberDetailScreen() {
     const { on, off } = useSocket();
 
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     const [tasks, setTasks] = useState<Task[]>([]);
     const [quests, setQuests] = useState<Quest[]>([]);

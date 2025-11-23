@@ -2,14 +2,14 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { Plus, User, Award } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
 import { Member } from '../../types';
 import CreateMemberModal from '../../components/parent/CreateMemberModal';
 import EditMemberModal from '../../components/parent/EditMemberModal';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function MembersTab() {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [members, setMembers] = useState<Member[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);

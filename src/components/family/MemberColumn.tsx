@@ -1,9 +1,9 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CheckCircle, Target, Star } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import MemberAvatar from './MemberAvatar';
 import { Member, Task } from '../../types';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MemberColumnProps {
     member: Member;
@@ -12,7 +12,7 @@ interface MemberColumnProps {
 }
 
 export default function MemberColumn({ member, allTasks, onPress }: MemberColumnProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     // Filter tasks assigned to this member
     // NOTE: assignedTo can be string[] (IDs) or object[] (populated with {_id, displayName, profileColor})

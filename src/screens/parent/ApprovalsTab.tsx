@@ -2,8 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { CheckCircle, XCircle, Clock } from 'lucide-react-native';
 import { Task } from '../../types';
 
@@ -12,7 +12,7 @@ export default function ApprovalsTab() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     const loadData = async () => {
         try {

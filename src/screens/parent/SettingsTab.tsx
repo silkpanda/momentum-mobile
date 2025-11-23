@@ -3,18 +3,19 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useFocusEffect } from '@react-navigation/native';
 import { User, Mail, Home, LogOut, Star } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
 import { Member } from '../../types';
-import { themes } from '../../theme/colors';
 import MemberAvatar from '../../components/family/MemberAvatar';
+import ThemeSwitcher from '../../components/ThemeSwitcher';
 
 export default function SettingsTab() {
     const { user, logout } = useAuth();
+    const { currentTheme: theme } = useTheme();
     const [householdData, setHouseholdData] = useState<any>(null);
     const [userProfile, setUserProfile] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const theme = themes.calmLight;
 
     const loadProfileData = async () => {
         try {
@@ -148,6 +149,14 @@ export default function SettingsTab() {
                         </Text>
                     </View>
                 </View>
+            </View>
+
+            {/* Theme Settings */}
+            <View style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
+                <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
+                    Theme
+                </Text>
+                <ThemeSwitcher />
             </View>
 
             {/* Logout Button */}

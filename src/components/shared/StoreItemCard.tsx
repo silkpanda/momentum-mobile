@@ -1,7 +1,7 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ShoppingBag, Star } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { StoreItem } from '../../types';
 
 interface StoreItemCardProps {
@@ -11,7 +11,7 @@ interface StoreItemCardProps {
 }
 
 export default function StoreItemCard({ item, userPoints, onPurchase }: StoreItemCardProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const canAfford = userPoints >= item.cost;
 
     return (

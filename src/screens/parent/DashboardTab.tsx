@@ -2,8 +2,8 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { CheckCircle, XCircle, Clock, Users, Target, Bell, Map as MapIcon } from 'lucide-react-native';
 import MemberAvatar from '../../components/family/MemberAvatar';
 import { Task, Quest, Member, QuestClaim } from '../../types';
@@ -12,13 +12,13 @@ import { useSocket } from '../../contexts/SocketContext';
 
 export default function DashboardTab() {
     const { user } = useAuth();
+    const { currentTheme: theme } = useTheme();
     const { on, off } = useSocket();
     const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
     const [pendingQuests, setPendingQuests] = useState<Quest[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const theme = themes.calmLight;
 
     const loadData = async () => {
         try {

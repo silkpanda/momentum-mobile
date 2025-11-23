@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TextInput, StyleSheet, TextInputProps } from 'react-native';
 import { LucideIcon } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface FormInputProps extends TextInputProps {
     label: string;
@@ -10,7 +10,7 @@ interface FormInputProps extends TextInputProps {
 }
 
 export default function FormInput({ label, icon: Icon, error, style, ...props }: FormInputProps) {
-    const theme = themes.calmLight; // TODO: Use context
+    const { currentTheme: theme } = useTheme();
 
     return (
         <View style={styles.container}>

@@ -8,11 +8,11 @@ import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ArrowLeft, Star, ShoppingBag } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { StoreItem, Member } from '../../types';
 import StoreItemCard from '../../components/shared/StoreItemCard';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../contexts/ThemeContext';
 import { useSocket } from '../../contexts/SocketContext';
 
 type MemberStoreRouteProp = RouteProp<RootStackParamList, 'MemberStore'>;
@@ -24,7 +24,7 @@ export default function MemberStoreScreen() {
     const { on, off } = useSocket();
 
     const { memberId, userId, memberName, memberColor, memberPoints: initialPoints } = route.params;
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     const [items, setItems] = useState<StoreItem[]>([]);
     const [currentPoints, setCurrentPoints] = useState(initialPoints);

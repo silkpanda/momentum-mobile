@@ -5,8 +5,8 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, RefreshControl, TouchableOpacity, StatusBar, Alert, useWindowDimensions } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { Bell } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -32,7 +32,7 @@ export default function FamilyScreen() {
     const [data, setData] = useState<DashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     // Detect Tablet/Landscape Mode
     const isLandscape = width > 600;

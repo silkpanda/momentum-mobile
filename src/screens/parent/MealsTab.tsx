@@ -2,12 +2,12 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { Plus, Trash2, UtensilsCrossed, MapPin, Edit2 } from 'lucide-react-native';
 import CreateRecipeModal from '../../components/meals/CreateRecipeModal';
 import CreateRestaurantModal from '../../components/meals/CreateRestaurantModal';
 import EditRecipeModal from '../../components/meals/EditRecipeModal';
 import EditRestaurantModal from '../../components/meals/EditRestaurantModal';
+import { useTheme } from '../../contexts/ThemeContext';
 
 export default function MealsTab() {
     const [meals, setMeals] = useState<any[]>([]);
@@ -19,7 +19,7 @@ export default function MealsTab() {
     const [showRestaurantModal, setShowRestaurantModal] = useState(false);
     const [editingRecipe, setEditingRecipe] = useState<any>(null);
     const [editingRestaurant, setEditingRestaurant] = useState<any>(null);
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     const loadData = async () => {
         try {

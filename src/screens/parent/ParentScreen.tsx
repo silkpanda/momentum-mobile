@@ -7,7 +7,6 @@ import { createMaterialTopTabNavigator } from '@react-navigation/material-top-ta
 import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import TasksTab from './TasksTab';
 import StoreTab from './StoreTab';
 import QuestsTab from './QuestsTab';
@@ -17,13 +16,14 @@ import SettingsTab from './SettingsTab';
 import MembersTab from './MembersTab';
 import { ParentTabParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../contexts/ThemeContext';
 
 const Tab = createMaterialTopTabNavigator<ParentTabParamList>();
 
 export default function ParentScreen() {
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.bgSurface }}>

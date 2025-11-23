@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { Mail, Lock, AlertTriangle, CheckCircle, LogIn } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import FormInput from '../../components/shared/FormInput';
 
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -32,7 +32,7 @@ export default function LoginScreen({ navigation }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     const handleLogin = async () => {
         setError(null);

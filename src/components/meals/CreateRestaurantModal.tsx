@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { X, Utensils, MapPin, Phone, DollarSign, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface CreateRestaurantModalProps {
     visible: boolean;
@@ -22,7 +22,7 @@ interface CreateRestaurantModalProps {
 }
 
 export default function CreateRestaurantModal({ visible, onClose, onRestaurantCreated }: CreateRestaurantModalProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: '',

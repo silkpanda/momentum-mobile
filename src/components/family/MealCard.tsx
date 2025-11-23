@@ -1,14 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Utensils } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MealCardProps {
     todaysMeal: { main: string; side: string } | null;
 }
 
 export default function MealCard({ todaysMeal }: MealCardProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     return (
         <View style={[styles.mealCard, { backgroundColor: theme.colors.bgSurface }]}>

@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface MemberAvatarProps {
     name: string;
@@ -10,7 +10,7 @@ interface MemberAvatarProps {
 }
 
 export default function MemberAvatar({ name, color, size = 48, showName = false }: MemberAvatarProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const initials = name
         .split(' ')
         .filter(n => n.length > 0)

@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { X, Utensils, MapPin, Phone, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface EditRestaurantModalProps {
     visible: boolean;
@@ -23,7 +23,7 @@ interface EditRestaurantModalProps {
 }
 
 export default function EditRestaurantModal({ visible, restaurant, onClose, onRestaurantUpdated }: EditRestaurantModalProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         name: restaurant?.name || '',

@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { X, Check } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface CreateTaskModalProps {
     visible: boolean;
@@ -13,7 +13,7 @@ interface CreateTaskModalProps {
 }
 
 export default function CreateTaskModal({ visible, onClose, onTaskCreated, members, initialTask }: CreateTaskModalProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [points, setPoints] = useState('10');

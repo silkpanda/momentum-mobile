@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { X, ChefHat, Clock, Users, Plus, Trash2, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface CreateRecipeModalProps {
     visible: boolean;
@@ -22,7 +22,7 @@ interface CreateRecipeModalProps {
 }
 
 export default function CreateRecipeModal({ visible, onClose, onRecipeCreated }: CreateRecipeModalProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [isLoading, setIsLoading] = useState(false);
     const [formData, setFormData] = useState({
         title: '',

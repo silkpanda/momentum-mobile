@@ -1,8 +1,8 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Settings, Bell } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import { EdgeInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface FamilyHeaderProps {
     householdName: string;
@@ -21,7 +21,7 @@ export default function FamilyHeader({
     onSettingsPress,
     onRemindParent
 }: FamilyHeaderProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     return (
         <View style={[

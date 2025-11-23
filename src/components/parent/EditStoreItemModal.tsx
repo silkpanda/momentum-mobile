@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
 import { X } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
 import { api } from '../../services/api';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface EditStoreItemModalProps {
     visible: boolean;
@@ -12,7 +12,7 @@ interface EditStoreItemModalProps {
 }
 
 export default function EditStoreItemModal({ visible, onClose, onItemUpdated, item }: EditStoreItemModalProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [price, setPrice] = useState('');

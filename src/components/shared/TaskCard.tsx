@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CheckCircle, Circle, Pencil, Trash2 } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import MemberAvatar from '../family/MemberAvatar';
 
 interface TaskCardProps {
@@ -14,7 +14,7 @@ interface TaskCardProps {
 }
 
 export default function TaskCard({ task, onPress, onComplete, onEdit, onDelete, members = [] }: TaskCardProps) {
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
     const isCompleted = task.status === 'Approved';
     const isPendingApproval = task.status === 'PendingApproval';
     const isPending = task.status === 'Pending';

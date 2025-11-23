@@ -1,18 +1,18 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Map, Trophy } from 'lucide-react-native';
-import { themes } from '../../theme/colors';
-import { Quest } from '../../types';
+import { Map, Star, CheckCircle } from 'lucide-react-native';
+import { useTheme } from '../../contexts/ThemeContext';
 
 interface QuestCardProps {
-    quest: Quest;
+    quest: any;
     onPress?: () => void;
     onClaim?: () => void;
     onComplete?: () => void;
+    showActions?: boolean;
 }
 
-export default function QuestCard({ quest, onPress, onClaim, onComplete }: QuestCardProps) {
-    const theme = themes.calmLight;
+export default function QuestCard({ quest, onPress, onClaim, onComplete, showActions = true }: QuestCardProps) {
+    const { currentTheme: theme } = useTheme();
 
     return (
         <TouchableOpacity
@@ -34,7 +34,7 @@ export default function QuestCard({ quest, onPress, onClaim, onComplete }: Quest
 
                 <View style={styles.footer}>
                     <View style={styles.rewardContainer}>
-                        <Trophy size={16} color={theme.colors.actionPrimary} />
+                        <Star size={16} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
                         <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>
                             {quest.pointsValue || quest.rewardValue} pts
                         </Text>

@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { User, Home, Mail, Lock, Check, AlertTriangle, CheckCircle } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
-import { themes } from '../../theme/colors';
+import { useTheme } from '../../contexts/ThemeContext';
 import { PROFILE_COLORS } from '../../theme/constants';
 import FormInput from '../../components/shared/FormInput';
 
@@ -39,7 +39,7 @@ export default function RegisterScreen({ navigation }: Props) {
     const [error, setError] = useState<string | null>(null);
     const [success, setSuccess] = useState(false);
 
-    const theme = themes.calmLight;
+    const { currentTheme: theme } = useTheme();
 
     const handleRegister = async () => {
         setError(null);

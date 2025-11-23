@@ -2,19 +2,19 @@ import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
+import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
-import { themes } from '../../theme/colors';
 import { Plus, Trash2, Map, Star, Pencil } from 'lucide-react-native';
 import CreateQuestModal from '../../components/parent/CreateQuestModal';
 
 export default function QuestsScreen() {
     const { user } = useAuth();
+    const { currentTheme: theme } = useTheme();
     const [quests, setQuests] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
     const [editingQuest, setEditingQuest] = useState<any>(null);
-    const theme = themes.calmLight;
 
     const loadQuests = async () => {
         try {
@@ -69,34 +69,34 @@ export default function QuestsScreen() {
 
     if (isLoading && !quests.length) {
         return (
-            <View style={[styles.container, styles.centered]}>
-                <ActivityIndicator size="large" color={themes.calmLight.colors.actionPrimary} />
+            <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.bgCanvas }]}>
+                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
             </View>
         );
     }
 
     return (
-        <View style={styles.container}>
+        <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
             <View style={styles.header}>
-                <Text style={styles.title}>Manage Quests</Text>
-                <Text style={styles.subtitle}>Create adventures for your family</Text>
+                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Manage Quests</Text>
+                <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Create adventures for your family</Text>
             </View>
 
             <FlatList
                 data={quests}
                 keyExtractor={(item) => item._id || item.id}
                 renderItem={({ item }) => (
-                    <View style={styles.card}>
+                    <View style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
                         <View style={styles.cardContent}>
-                            <View style={styles.iconContainer}>
-                                <Map size={24} color={themes.calmLight.colors.textSecondary} />
+                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.bgCanvas }]}>
+                                <Map size={24} color={theme.colors.textSecondary} />
                             </View>
                             <View style={styles.cardTextContainer}>
-                                <Text style={styles.cardTitle}>{item.title}</Text>
-                                <Text style={styles.cardDescription} numberOfLines={1}>{item.description}</Text>
+                                <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>{item.title}</Text>
+                                <Text style={[styles.cardDescription, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.description}</Text>
                                 <View style={styles.rewardRow}>
-                                    <Star size={12} color={themes.calmLight.colors.actionPrimary} fill={themes.calmLight.colors.actionPrimary} />
-                                    <Text style={styles.rewardText}>{item.pointsValue || item.rewardValue} Points</Text>
+                                    <Star size={12} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
+                                    <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>{item.pointsValue || item.rewardValue} Points</Text>
                                 </View>
                             </View>
                             <View style={styles.actions}>
@@ -107,13 +107,13 @@ export default function QuestsScreen() {
                                     }}
                                     style={styles.actionButton}
                                 >
-                                    <Pencil size={20} color={themes.calmLight.colors.textSecondary} />
+                                    <Pencil size={20} color={theme.colors.textSecondary} />
                                 </TouchableOpacity>
                                 <TouchableOpacity
                                     onPress={() => handleDelete(item._id || item.id)}
                                     style={styles.actionButton}
                                 >
-                                    <Trash2 size={20} color={themes.calmLight.colors.signalAlert} />
+                                    <Trash2 size={20} color={theme.colors.signalAlert} />
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -123,13 +123,13 @@ export default function QuestsScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Text style={styles.emptyText}>No quests created yet.</Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No quests created yet.</Text>
                     </View>
                 }
             />
 
             <TouchableOpacity
-                style={styles.fab}
+                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
                 onPress={() => {
                     setEditingQuest(null);
                     setIsCreateModalVisible(true);
@@ -158,7 +158,6 @@ export default function QuestsScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: themes.calmLight.colors.bgCanvas,
     },
     centered: {
         justifyContent: 'center',
@@ -171,10 +170,9 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: themes.calmLight.colors.textPrimary,
     },
     subtitle: {
-        color: themes.calmLight.colors.textSecondary,
+        fontSize: 14,
     },
     listContent: {
         padding: 16,
@@ -185,7 +183,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     emptyText: {
-        color: themes.calmLight.colors.textSecondary,
+        fontSize: 14,
     },
     card: {
         borderRadius: 12,
@@ -196,7 +194,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 4,
         elevation: 2,
-        backgroundColor: themes.calmLight.colors.bgSurface,
     },
     cardContent: {
         flexDirection: 'row',
@@ -208,7 +205,6 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: themes.calmLight.colors.bgCanvas,
     },
     cardTextContainer: {
         flex: 1,
@@ -218,10 +214,8 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 2,
-        color: themes.calmLight.colors.textPrimary,
     },
     cardDescription: {
-        color: themes.calmLight.colors.textSecondary,
         fontSize: 12,
     },
     rewardRow: {
@@ -233,7 +227,6 @@ const styles = StyleSheet.create({
     rewardText: {
         fontSize: 12,
         fontWeight: 'bold',
-        color: themes.calmLight.colors.actionPrimary,
     },
     actions: {
         flexDirection: 'row',
@@ -257,6 +250,5 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
-        backgroundColor: themes.calmLight.colors.actionPrimary,
     },
 });
