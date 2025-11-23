@@ -3,7 +3,11 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator
 import { useFocusEffect } from '@react-navigation/native';
 import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
-import { Plus, Trash2, UtensilsCrossed, MapPin } from 'lucide-react-native';
+import { Plus, Trash2, UtensilsCrossed, MapPin, Edit2 } from 'lucide-react-native';
+import CreateRecipeModal from '../../components/meals/CreateRecipeModal';
+import CreateRestaurantModal from '../../components/meals/CreateRestaurantModal';
+import EditRecipeModal from '../../components/meals/EditRecipeModal';
+import EditRestaurantModal from '../../components/meals/EditRestaurantModal';
 
 export default function MealsTab() {
     const [meals, setMeals] = useState<any[]>([]);
@@ -11,6 +15,10 @@ export default function MealsTab() {
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [activeTab, setActiveTab] = useState<'meals' | 'restaurants'>('meals');
+    const [showRecipeModal, setShowRecipeModal] = useState(false);
+    const [showRestaurantModal, setShowRestaurantModal] = useState(false);
+    const [editingRecipe, setEditingRecipe] = useState<any>(null);
+    const [editingRestaurant, setEditingRestaurant] = useState<any>(null);
     const theme = themes.calmLight;
 
     const loadData = async () => {
@@ -174,12 +182,26 @@ export default function MealsTab() {
                                         </Text>
                                     )}
                                 </View>
-                                <TouchableOpacity
-                                    onPress={() => handleDelete(item._id || item.id)}
-                                    style={styles.deleteButton}
-                                >
-                                    <Trash2 size={20} color={theme.colors.signalAlert} />
-                                </TouchableOpacity>
+                                <View style={styles.cardActions}>
+                                    <TouchableOpacity
+                                        onPress={() => {
+                                            if (activeTab === 'meals') {
+                                                setEditingRecipe(item);
+                                            } else {
+                                                setEditingRestaurant(item);
+                                            }
+                                        }}
+                                        style={styles.actionButton}
+                                    >
+                                        <Edit2 size={18} color={theme.colors.actionPrimary} />
+                                    </TouchableOpacity>
+                                    <TouchableOpacity
+                                        onPress={() => handleDelete(item._id || item.id)}
+                                        style={styles.actionButton}
+                                    >
+                                        <Trash2 size={18} color={theme.colors.signalAlert} />
+                                    </TouchableOpacity>
+                                </View>
                             </View>
                         </View>
                     ))
@@ -188,10 +210,52 @@ export default function MealsTab() {
 
             <TouchableOpacity
                 style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => alert(`Create ${activeTab === 'meals' ? 'Meal' : 'Restaurant'} - Coming Soon`)}
+                onPress={() => {
+                    if (activeTab === 'meals') {
+                        setShowRecipeModal(true);
+                    } else {
+                        setShowRestaurantModal(true);
+                    }
+                }}
             >
                 <Plus size={24} color="#FFFFFF" />
             </TouchableOpacity>
+
+            {/* Create Modals */}
+            <CreateRecipeModal
+                visible={showRecipeModal}
+                onClose={() => setShowRecipeModal(false)}
+                onRecipeCreated={(recipe) => {
+                    setMeals(prev => [...prev, recipe]);
+                }}
+            />
+            <CreateRestaurantModal
+                visible={showRestaurantModal}
+                onClose={() => setShowRestaurantModal(false)}
+                onRestaurantCreated={(restaurant) => {
+                    setRestaurants(prev => [...prev, restaurant]);
+                }}
+            />
+
+            {/* Edit Modals */}
+            <EditRecipeModal
+                visible={!!editingRecipe}
+                recipe={editingRecipe}
+                onClose={() => setEditingRecipe(null)}
+                onRecipeUpdated={(recipe) => {
+                    setMeals(prev => prev.map(m => (m._id || m.id) === (recipe._id || recipe.id) ? recipe : m));
+                    setEditingRecipe(null);
+                }}
+            />
+            <EditRestaurantModal
+                visible={!!editingRestaurant}
+                restaurant={editingRestaurant}
+                onClose={() => setEditingRestaurant(null)}
+                onRestaurantUpdated={(restaurant) => {
+                    setRestaurants(prev => prev.map(r => (r._id || r.id) === (restaurant._id || restaurant.id) ? restaurant : r));
+                    setEditingRestaurant(null);
+                }}
+            />
         </View>
     );
 }
@@ -262,6 +326,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '600',
         marginBottom: 2,
+    },
+    cardActions: {
+        flexDirection: 'row',
+        gap: 8,
+    },
+    actionButton: {
+        padding: 8,
     },
     deleteButton: {
         padding: 8,

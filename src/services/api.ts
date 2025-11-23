@@ -280,25 +280,25 @@ class ApiClient {
     }
 
     async getMeals() {
-        return this.request('/meals/meals');
+        return this.request('/meals/recipes');
     }
 
     async createMeal(mealData: any) {
-        return this.request('/meals/meals', {
+        return this.request('/meals/recipes', {
             method: 'POST',
             body: JSON.stringify(mealData),
         });
     }
 
     async updateMeal(mealId: string, mealData: any) {
-        return this.request(`/meals/meals/${mealId}`, {
+        return this.request(`/meals/recipes/${mealId}`, {
             method: 'PUT',
             body: JSON.stringify(mealData),
         });
     }
 
     async deleteMeal(mealId: string) {
-        return this.request(`/meals/meals/${mealId}`, {
+        return this.request(`/meals/recipes/${mealId}`, {
             method: 'DELETE',
         });
     }

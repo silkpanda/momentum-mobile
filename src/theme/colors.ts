@@ -6,6 +6,7 @@ export const themes = {
         colors: {
             textPrimary: '#111827',
             textSecondary: '#4B5563',
+            textTertiary: '#9CA3AF',
             actionPrimary: '#4F46E5',
             actionHover: '#4338CA',
             signalSuccess: '#16A34A',
@@ -21,6 +22,7 @@ export const themes = {
         colors: {
             textPrimary: '#F9FAFB',
             textSecondary: '#D1D5DB',
+            textTertiary: '#6B7280',
             actionPrimary: '#818CF8',
             actionHover: '#6366F1',
             signalSuccess: '#34D399',
