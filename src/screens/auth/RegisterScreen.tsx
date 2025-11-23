@@ -34,6 +34,8 @@ export default function RegisterScreen({ navigation }: Props) {
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [selectedColor, setSelectedColor] = useState(PROFILE_COLORS[0].hex);
+    const [hasInviteCode, setHasInviteCode] = useState(false);
+    const [inviteCode, setInviteCode] = useState('');
 
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
@@ -44,8 +46,18 @@ export default function RegisterScreen({ navigation }: Props) {
     const handleRegister = async () => {
         setError(null);
         // Validation
-        if (!firstName || !lastName || !householdName || !userDisplayName || !email || !password) {
+        if (!firstName || !lastName || !userDisplayName || !email || !password) {
             setError('Please fill in all fields.');
+            return;
+        }
+
+        if (!hasInviteCode && !householdName) {
+            setError('Please enter a household name.');
+            return;
+        }
+
+        if (hasInviteCode && !inviteCode) {
+            setError('Please enter an invite code.');
             return;
         }
 
@@ -56,16 +68,23 @@ export default function RegisterScreen({ navigation }: Props) {
 
         setIsLoading(true);
         try {
-            await register({
+            const payload: any = {
                 firstName,
                 lastName,
-                householdName,
                 userDisplayName,
                 email,
                 password,
                 userProfileColor: selectedColor,
-                role: 'Parent', // Default to Parent for household creation
-            });
+                role: 'Parent',
+            };
+
+            if (hasInviteCode) {
+                payload.inviteCode = inviteCode;
+            } else {
+                payload.householdName = householdName;
+            }
+
+            await register(payload);
             setSuccess(true);
             // Navigation handled by auth state
         } catch (err: any) {
@@ -87,10 +106,10 @@ export default function RegisterScreen({ navigation }: Props) {
                 {/* Header */}
                 <View style={styles.header}>
                     <Text style={[styles.title, { color: theme.colors.actionPrimary }]}>
-                        Create Account
+                        {hasInviteCode ? 'Join a Household' : 'Create Account'}
                     </Text>
                     <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
-                        Join your family on Momentum
+                        {hasInviteCode ? 'Enter your invite code to join' : 'Join your family on Momentum'}
                     </Text>
                 </View>
 
@@ -135,14 +154,53 @@ export default function RegisterScreen({ navigation }: Props) {
                         </View>
                     </View>
 
-                    <FormInput
-                        label="Household Name"
-                        placeholder="e.g., 'The Smith Family'"
-                        value={householdName}
-                        onChangeText={setHouseholdName}
-                        editable={!isLoading}
-                        icon={Home}
-                    />
+                    {/* Invite Code Toggle */}
+                    <View style={[styles.toggleContainer, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle }]}>
+                        <Text style={[styles.toggleLabel, { color: theme.colors.textPrimary }]}>
+                            Joining an existing household?
+                        </Text>
+                        <TouchableOpacity
+                            style={[
+                                styles.toggleSwitch,
+                                { backgroundColor: hasInviteCode ? theme.colors.actionPrimary : theme.colors.borderSubtle }
+                            ]}
+                            onPress={() => {
+                                setHasInviteCode(!hasInviteCode);
+                                if (!hasInviteCode) {
+                                    setHouseholdName('');
+                                } else {
+                                    setInviteCode('');
+                                }
+                            }}
+                            disabled={isLoading}
+                        >
+                            <View style={[
+                                styles.toggleThumb,
+                                hasInviteCode && styles.toggleThumbActive
+                            ]} />
+                        </TouchableOpacity>
+                    </View>
+
+                    {hasInviteCode ? (
+                        <FormInput
+                            label="Invite Code"
+                            placeholder="e.g., A1B2C3"
+                            value={inviteCode}
+                            onChangeText={setInviteCode}
+                            autoCapitalize="characters"
+                            editable={!isLoading}
+                            icon={Home}
+                        />
+                    ) : (
+                        <FormInput
+                            label="Household Name"
+                            placeholder="e.g., 'The Smith Family'"
+                            value={householdName}
+                            onChangeText={setHouseholdName}
+                            editable={!isLoading}
+                            icon={Home}
+                        />
+                    )}
 
                     <FormInput
                         label="Your Display Name"
@@ -210,7 +268,12 @@ export default function RegisterScreen({ navigation }: Props) {
                         {isLoading ? (
                             <ActivityIndicator color="#FFFFFF" />
                         ) : (
-                            <Text style={styles.buttonText}>{success ? 'Signing Up...' : 'Create Account'}</Text>
+                            <Text style={styles.buttonText}>
+                                {success
+                                    ? (hasInviteCode ? 'Joining...' : 'Signing Up...')
+                                    : (hasInviteCode ? 'Join Household' : 'Create Account')
+                                }
+                            </Text>
                         )}
                     </TouchableOpacity>
 
@@ -334,5 +397,35 @@ const styles = StyleSheet.create({
     linkText: {
         fontSize: 14,
         fontWeight: '500',
+    },
+    toggleContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginBottom: 16,
+    },
+    toggleLabel: {
+        fontSize: 14,
+        fontWeight: '500',
+        flex: 1,
+    },
+    toggleSwitch: {
+        width: 44,
+        height: 24,
+        borderRadius: 12,
+        padding: 2,
+        justifyContent: 'center',
+    },
+    toggleThumb: {
+        width: 20,
+        height: 20,
+        borderRadius: 10,
+        backgroundColor: '#FFFFFF',
+    },
+    toggleThumbActive: {
+        alignSelf: 'flex-end',
     },
 });

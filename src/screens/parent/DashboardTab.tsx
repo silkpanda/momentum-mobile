@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
+import { logger } from '../../utils/logger';
 import { CheckCircle, XCircle, Clock, Users, Target, Bell, Map as MapIcon } from 'lucide-react-native';
 import MemberAvatar from '../../components/family/MemberAvatar';
 import { Task, Quest, Member, QuestClaim } from '../../types';
@@ -94,10 +95,19 @@ export default function DashboardTab() {
                 setPendingQuests([]);
             }
 
+
             // Get family members
             if (dashboardResponse.data && dashboardResponse.data.household) {
                 setHouseholdId(dashboardResponse.data.household.id || dashboardResponse.data.household._id!);
                 if (dashboardResponse.data.household.members) {
+                    logger.info('Dashboard members loaded:', {
+                        count: dashboardResponse.data.household.members.length,
+                        members: dashboardResponse.data.household.members.map((m: Member) => ({
+                            name: m.firstName,
+                            id: m.id || m._id,
+                            focusedTaskId: m.focusedTaskId
+                        }))
+                    });
                     setMembers(dashboardResponse.data.household.members);
                 } else {
                     setMembers([]);
@@ -190,6 +200,28 @@ export default function DashboardTab() {
             ]
         );
     };
+
+    // Load data when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            loadData();
+
+            // Set up WebSocket listeners for real-time updates
+            const handleTaskUpdate = () => loadData();
+            const handleQuestUpdate = () => loadData();
+            const handleMemberUpdate = () => loadData();
+
+            on('taskUpdated', handleTaskUpdate);
+            on('questUpdated', handleQuestUpdate);
+            on('memberUpdated', handleMemberUpdate);
+
+            return () => {
+                off('taskUpdated', handleTaskUpdate);
+                off('questUpdated', handleQuestUpdate);
+                off('memberUpdated', handleMemberUpdate);
+            };
+        }, [on, off])
+    );
 
     if (isLoading) {
         return (
@@ -344,16 +376,36 @@ export default function DashboardTab() {
                     <View style={styles.membersGrid}>
                         {members.map((member) => {
                             const focusedTask = member.focusedTaskId
-                                ? pendingTasks.find(t => (t._id || t.id) === member.focusedTaskId) // Check pending first
-                                || { title: 'Active Task' } // Fallback if task not in pending list (might be in active list which we don't have full access to here easily without fetching all tasks)
+                                ? allTasks.find(t => (t._id || t.id) === member.focusedTaskId)
                                 : null;
 
-                            // Actually we should fetch all tasks to get the title properly, but for now let's just show "Active Task" or try to find it
-                            // In a real app we'd have a map of all tasks.
+                            const isInFocusMode = !!member.focusedTaskId;
 
                             return (
-                                <View key={member.id} style={[styles.memberCard, { backgroundColor: theme.colors.bgSurface }]}>
-                                    <MemberAvatar name={member.firstName} color={member.profileColor} size={48} />
+                                <View
+                                    key={member.id}
+                                    style={[
+                                        styles.memberCard,
+                                        { backgroundColor: theme.colors.bgSurface },
+                                        isInFocusMode && {
+                                            borderWidth: 4,
+                                            borderColor: theme.colors.actionPrimary,
+                                            backgroundColor: theme.colors.actionPrimary + '10'
+                                        }
+                                    ]}
+                                >
+                                    {/* Focus Mode Banner - ULTRA PROMINENT */}
+                                    {isInFocusMode && (
+                                        <View style={[styles.focusModeBanner, { backgroundColor: theme.colors.actionPrimary }]}>
+                                            <Target size={16} color="#FFFFFF" />
+                                            <Text style={styles.focusModeBannerText}>🎯 FOCUS MODE</Text>
+                                        </View>
+                                    )}
+
+
+                                    <View style={isInFocusMode && { marginTop: 24 }}>
+                                        <MemberAvatar name={member.firstName} color={member.profileColor} size={48} />
+                                    </View>
                                     <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
                                         {member.firstName}
                                     </Text>
@@ -361,25 +413,33 @@ export default function DashboardTab() {
                                         {member.pointsTotal || 0} pts
                                     </Text>
 
-                                    {member.focusedTaskId ? (
+                                    {isInFocusMode ? (
                                         <View style={styles.focusActiveContainer}>
-                                            <View style={[styles.focusBadge, { backgroundColor: theme.colors.actionPrimary + '20' }]}>
-                                                <Target size={12} color={theme.colors.actionPrimary} />
-                                                <Text style={[styles.focusBadgeText, { color: theme.colors.actionPrimary }]} numberOfLines={1}>
-                                                    Focus Mode On
-                                                </Text>
-                                            </View>
+                                            {/* Show the focused task title */}
+                                            {focusedTask && (
+                                                <View style={[styles.focusedTaskBadge, { backgroundColor: theme.colors.bgCanvas }]}>
+                                                    <Text style={[styles.focusedTaskTitle, { color: theme.colors.textPrimary }]} numberOfLines={2}>
+                                                        {focusedTask.title}
+                                                    </Text>
+                                                </View>
+                                            )}
                                             <TouchableOpacity
-                                                style={[styles.clearFocusButton, { borderColor: theme.colors.borderSubtle }]}
+                                                style={[styles.clearFocusButton, {
+                                                    backgroundColor: theme.colors.signalAlert,
+                                                    borderWidth: 0
+                                                }]}
                                                 onPress={() => handleClearFocusTask(member)}
                                             >
-                                                <XCircle size={14} color={theme.colors.textSecondary} />
-                                                <Text style={[styles.clearFocusText, { color: theme.colors.textSecondary }]}>Clear</Text>
+                                                <XCircle size={16} color="#FFFFFF" />
+                                                <Text style={[styles.clearFocusText, { color: '#FFFFFF' }]}>Clear Focus</Text>
                                             </TouchableOpacity>
                                         </View>
                                     ) : (
                                         <TouchableOpacity
-                                            style={[styles.focusButton, { borderColor: theme.colors.actionPrimary }]}
+                                            style={[styles.focusButton, {
+                                                borderColor: theme.colors.actionPrimary,
+                                                backgroundColor: theme.colors.actionPrimary + '10'
+                                            }]}
                                             onPress={() => openTaskSelection(member)}
                                         >
                                             <Target size={16} color={theme.colors.actionPrimary} />
@@ -540,6 +600,7 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.05,
         shadowRadius: 2,
         elevation: 1,
+        overflow: 'hidden', // Ensure banner doesn't overflow
     },
     memberName: {
         fontSize: 16,
@@ -596,5 +657,35 @@ const styles = StyleSheet.create({
     clearFocusText: {
         fontSize: 11,
         fontWeight: '500',
+    },
+    focusModeBanner: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 6,
+        borderTopLeftRadius: 12,
+        borderTopRightRadius: 12,
+        gap: 6,
+    },
+    focusModeBannerText: {
+        fontSize: 11,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        letterSpacing: 0.5,
+    },
+    focusedTaskBadge: {
+        width: '100%',
+        padding: 8,
+        borderRadius: 8,
+        marginTop: 4,
+    },
+    focusedTaskTitle: {
+        fontSize: 12,
+        fontWeight: '600',
+        textAlign: 'center',
     },
 });

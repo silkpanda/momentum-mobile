@@ -6,19 +6,21 @@
  * Shows only ONE task at a time with large, clear UI.
  * 
  * Features:
+ * - ULTRA PROMINENT visual design with gradient background
  * - Large task display
  * - No distractions (hides task list)
  * - Clear action buttons
  * - Progress indicator
- * - Easy exit
+ * - Animated focus indicator
  */
 
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Dimensions } from 'react-native';
-import { CheckCircle, XCircle, Target, Bell } from 'lucide-react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Dimensions, Animated } from 'react-native';
+import { CheckCircle, Target, Bell, Zap } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { textStyles } from '../../theme/typography';
 import { Task } from '../../types';
+import { LinearGradient } from 'expo-linear-gradient';
 
 const { width, height } = Dimensions.get('window');
 
@@ -41,25 +43,52 @@ export default function FocusModeView({
 }: FocusModeViewProps) {
     const { currentTheme: theme } = useTheme();
 
+    // Pulsing animation for focus indicator
+    const pulseAnim = useRef(new Animated.Value(1)).current;
+
+    useEffect(() => {
+        const pulse = Animated.loop(
+            Animated.sequence([
+                Animated.timing(pulseAnim, {
+                    toValue: 1.2,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+                Animated.timing(pulseAnim, {
+                    toValue: 1,
+                    duration: 1000,
+                    useNativeDriver: true,
+                }),
+            ])
+        );
+        pulse.start();
+        return () => pulse.stop();
+    }, []);
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
-            {/* Header */}
-            <View style={[styles.header, { backgroundColor: theme.colors.bgSurface, borderBottomColor: theme.colors.borderSubtle }]}>
-                <View style={styles.headerLeft}>
-                    <Target size={24} color={theme.colors.actionPrimary} />
-                    <Text style={[textStyles.h2, { color: theme.colors.textPrimary }]}>
-                        Focus Mode
+            {/* Ultra-prominent Focus Mode Banner */}
+            <LinearGradient
+                colors={[theme.colors.actionPrimary, theme.colors.actionPrimary + 'DD']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 0 }}
+                style={styles.focusBanner}
+            >
+                <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                    <Target size={32} color="#FFFFFF" />
+                </Animated.View>
+                <View style={styles.bannerTextContainer}>
+                    <Text style={styles.focusBannerTitle}>🎯 FOCUS MODE ACTIVE</Text>
+                    <Text style={styles.focusBannerSubtitle}>
+                        Complete this task to unlock everything else
                     </Text>
                 </View>
-                <TouchableOpacity onPress={onExit} style={styles.exitButton}>
-                    <XCircle size={24} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
-            </View>
+            </LinearGradient>
 
             {/* Progress Indicator */}
             <View style={styles.progressSection}>
-                <Text style={[textStyles.caption, { color: theme.colors.textSecondary }]}>
-                    Task {currentIndex + 1} of {totalTasks}
+                <Text style={[textStyles.caption, { color: theme.colors.textSecondary, textAlign: 'center' }]}>
+                    Task {currentIndex} of {totalTasks}
                 </Text>
                 <View style={[styles.progressBar, { backgroundColor: theme.colors.borderSubtle }]}>
                     <View
@@ -67,62 +96,76 @@ export default function FocusModeView({
                             styles.progressFill,
                             {
                                 backgroundColor: theme.colors.actionPrimary,
-                                width: `${((currentIndex + 1) / totalTasks) * 100}%`
+                                width: `${(currentIndex / totalTasks) * 100}%`
                             }
                         ]}
                     />
                 </View>
             </View>
 
-            {/* Main Task Card */}
+            {/* Main Task Card - HUGE and centered */}
             <View style={styles.taskCardContainer}>
-                <View style={[styles.taskCard, { backgroundColor: theme.colors.bgSurface }]}>
-                    {/* Task Title */}
-                    <Text style={[textStyles.displayMedium, { color: theme.colors.textPrimary, textAlign: 'center', marginBottom: 24 }]}>
+                <View style={[styles.taskCard, {
+                    backgroundColor: theme.colors.bgSurface,
+                    borderColor: theme.colors.actionPrimary,
+                    borderWidth: 3
+                }]}>
+                    {/* Zap Icon for Energy */}
+                    <View style={[styles.zapBadge, { backgroundColor: theme.colors.actionPrimary }]}>
+                        <Zap size={28} color="#FFFFFF" fill="#FFFFFF" />
+                    </View>
+
+                    {/* Task Title - MASSIVE */}
+                    <Text style={[styles.taskTitle, { color: theme.colors.textPrimary }]}>
                         {task.title}
                     </Text>
 
                     {/* Task Description */}
                     {task.description && (
-                        <Text style={[textStyles.bodyLarge, { color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 32 }]}>
+                        <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
                             {task.description}
                         </Text>
                     )}
 
-                    {/* Points Badge */}
-                    <View style={[styles.pointsBadge, { backgroundColor: theme.colors.actionPrimary + '20' }]}>
-                        <Text style={[textStyles.h1, { color: theme.colors.actionPrimary }]}>
+                    {/* Points Badge - HUGE */}
+                    <View style={[styles.pointsBadge, { backgroundColor: theme.colors.actionPrimary }]}>
+                        <Text style={styles.pointsValue}>
                             +{task.value}
                         </Text>
-                        <Text style={[textStyles.label, { color: theme.colors.actionPrimary }]}>
-                            points
+                        <Text style={styles.pointsLabel}>
+                            POINTS
                         </Text>
                     </View>
                 </View>
             </View>
 
-            {/* Action Buttons */}
+            {/* Action Buttons - MASSIVE */}
             <View style={styles.actionsContainer}>
-                {/* Complete Button */}
+                {/* Complete Button - GIANT */}
                 <TouchableOpacity
                     style={[styles.primaryButton, { backgroundColor: theme.colors.signalSuccess }]}
                     onPress={onComplete}
+                    activeOpacity={0.8}
                 >
-                    <CheckCircle size={24} color="#FFFFFF" />
-                    <Text style={[textStyles.button, { color: '#FFFFFF', fontSize: 18 }]}>
-                        Mark Complete
+                    <CheckCircle size={32} color="#FFFFFF" />
+                    <Text style={styles.primaryButtonText}>
+                        I FINISHED THIS!
                     </Text>
                 </TouchableOpacity>
 
                 {/* Ask for Help Button */}
                 {onRequestHelp && (
                     <TouchableOpacity
-                        style={[styles.secondaryButton, { borderColor: theme.colors.borderSubtle }]}
+                        style={[styles.secondaryButton, {
+                            borderColor: theme.colors.textSecondary,
+                            backgroundColor: theme.colors.bgSurface
+                        }]}
                         onPress={onRequestHelp}
+                        activeOpacity={0.8}
                     >
-                        <Bell size={20} color={theme.colors.textSecondary} />
-                        <Text style={[textStyles.label, { color: theme.colors.textSecondary }]}>
-                            Ask Parent for Help
+                        <Bell size={24} color={theme.colors.textSecondary} />
+                        <Text style={[styles.secondaryButtonText, { color: theme.colors.textSecondary }]}>
+                            I Need Help
                         </Text>
                     </TouchableOpacity>
                 )}
@@ -130,8 +173,8 @@ export default function FocusModeView({
 
             {/* Motivational Message */}
             <View style={styles.motivationSection}>
-                <Text style={[textStyles.body, { color: theme.colors.textTertiary, textAlign: 'center' }]}>
-                    🎯 One task at a time. You've got this!
+                <Text style={[styles.motivationText, { color: theme.colors.textTertiary }]}>
+                    💪 You can do this! One step at a time.
                 </Text>
             </View>
         </View>
@@ -142,90 +185,160 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    header: {
+    focusBanner: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 16,
-        borderBottomWidth: 1,
+        paddingHorizontal: 24,
+        paddingVertical: 20,
+        gap: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 8,
     },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+    bannerTextContainer: {
+        flex: 1,
     },
-    exitButton: {
-        padding: 4,
+    focusBannerTitle: {
+        fontSize: 20,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        letterSpacing: 1,
+    },
+    focusBannerSubtitle: {
+        fontSize: 13,
+        color: '#FFFFFF',
+        opacity: 0.9,
+        marginTop: 2,
     },
     progressSection: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 20,
     },
     progressBar: {
-        height: 8,
-        borderRadius: 4,
-        marginTop: 8,
+        height: 12,
+        borderRadius: 6,
+        marginTop: 12,
         overflow: 'hidden',
     },
     progressFill: {
         height: '100%',
-        borderRadius: 4,
+        borderRadius: 6,
     },
     taskCardContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: 24,
+        paddingVertical: 20,
     },
     taskCard: {
         width: '100%',
-        maxWidth: 500,
-        padding: 32,
-        borderRadius: 24,
+        maxWidth: 600,
+        padding: 40,
+        borderRadius: 32,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.15,
-        shadowRadius: 16,
-        elevation: 8,
+        shadowOffset: { width: 0, height: 12 },
+        shadowOpacity: 0.25,
+        shadowRadius: 24,
+        elevation: 12,
+        alignItems: 'center',
+    },
+    zapBadge: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    taskTitle: {
+        fontSize: 32,
+        fontWeight: '900',
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 40,
+    },
+    taskDescription: {
+        fontSize: 18,
+        textAlign: 'center',
+        marginBottom: 32,
+        lineHeight: 26,
     },
     pointsBadge: {
-        alignSelf: 'center',
-        paddingHorizontal: 32,
-        paddingVertical: 16,
-        borderRadius: 16,
+        paddingHorizontal: 48,
+        paddingVertical: 24,
+        borderRadius: 24,
         alignItems: 'center',
         gap: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    pointsValue: {
+        fontSize: 48,
+        fontWeight: '900',
+        color: '#FFFFFF',
+    },
+    pointsLabel: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: 2,
     },
     actionsContainer: {
-        paddingHorizontal: 20,
-        paddingBottom: 16,
-        gap: 12,
+        paddingHorizontal: 24,
+        paddingBottom: 24,
+        gap: 16,
     },
     primaryButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 18,
-        borderRadius: 16,
-        gap: 12,
+        paddingVertical: 24,
+        borderRadius: 20,
+        gap: 16,
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 4,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
+    },
+    primaryButtonText: {
+        fontSize: 22,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        letterSpacing: 1,
     },
     secondaryButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        paddingVertical: 14,
-        borderRadius: 12,
+        paddingVertical: 18,
+        borderRadius: 16,
         borderWidth: 2,
-        gap: 8,
+        gap: 12,
+    },
+    secondaryButtonText: {
+        fontSize: 18,
+        fontWeight: '700',
     },
     motivationSection: {
-        paddingHorizontal: 20,
-        paddingVertical: 16,
+        paddingHorizontal: 24,
+        paddingBottom: 32,
+        alignItems: 'center',
+    },
+    motivationText: {
+        fontSize: 16,
+        textAlign: 'center',
+        fontWeight: '600',
     },
 });

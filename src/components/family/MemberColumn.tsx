@@ -1,9 +1,10 @@
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { CheckCircle, Target, Star } from 'lucide-react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import { CheckCircle, Target, Star, Zap } from 'lucide-react-native';
 import MemberAvatar from './MemberAvatar';
 import { Member, Task } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface MemberColumnProps {
     member: Member;
@@ -29,15 +30,42 @@ export default function MemberColumn({ member, allTasks, onPress }: MemberColumn
         }
     });
 
-    const isFocusMode = false;
+    // Check if member is in focus mode
+    const isFocusMode = !!member.focusedTaskId;
+    const focusedTask = isFocusMode
+        ? allTasks.find(t => (t._id || t.id) === member.focusedTaskId)
+        : null;
 
     return (
         <TouchableOpacity
-            style={[styles.memberColumn, { backgroundColor: theme.colors.bgSurface }]}
+            style={[
+                styles.memberColumn,
+                { backgroundColor: theme.colors.bgSurface },
+                isFocusMode && {
+                    borderWidth: 6,
+                    borderColor: theme.colors.actionPrimary,
+                    backgroundColor: theme.colors.actionPrimary + '15',
+                    transform: [{ scale: 1.05 }], // Make it slightly larger
+                }
+            ]}
             onPress={() => onPress(member)}
             activeOpacity={0.9}
         >
-            <View style={styles.columnHeader}>
+            {/* ULTRA PROMINENT FOCUS MODE BANNER */}
+            {isFocusMode && (
+                <LinearGradient
+                    colors={[theme.colors.actionPrimary, theme.colors.actionPrimary + 'DD']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={styles.focusModeBanner}
+                >
+                    <Target size={20} color="#FFFFFF" />
+                    <Text style={styles.focusModeBannerText}>🎯 FOCUS MODE ACTIVE</Text>
+                    <Zap size={18} color="#FFFFFF" fill="#FFFFFF" />
+                </LinearGradient>
+            )}
+
+            <View style={[styles.columnHeader, isFocusMode && { marginTop: 16 }]}>
                 <MemberAvatar
                     name={`${member.firstName} ${member.lastName || ''}`.trim()}
                     color={member.profileColor}
@@ -57,18 +85,31 @@ export default function MemberColumn({ member, allTasks, onPress }: MemberColumn
             </View>
 
             <View style={styles.tasksContainer}>
-                {isFocusMode && memberTasks.length > 0 ? (
-                    <View style={[styles.focusCard, { borderColor: member.profileColor }]}>
-                        <View style={styles.focusHeader}>
-                            <Target size={16} color={member.profileColor} />
-                            <Text style={[styles.focusLabel, { color: member.profileColor }]}>FOCUS MODE</Text>
+                {isFocusMode && focusedTask ? (
+                    <View style={[styles.focusCard, {
+                        borderColor: theme.colors.actionPrimary,
+                        backgroundColor: theme.colors.bgCanvas,
+                        borderWidth: 4
+                    }]}>
+                        <View style={[styles.zapBadge, { backgroundColor: theme.colors.actionPrimary }]}>
+                            <Zap size={24} color="#FFFFFF" fill="#FFFFFF" />
                         </View>
                         <Text style={[styles.focusTaskTitle, { color: theme.colors.textPrimary }]}>
-                            {memberTasks[0].title}
+                            {focusedTask.title}
                         </Text>
-                        <Text style={[styles.focusPoints, { color: theme.colors.actionPrimary }]}>
-                            +{memberTasks[0].value} pts
-                        </Text>
+                        {focusedTask.description && (
+                            <Text style={[styles.focusTaskDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                                {focusedTask.description}
+                            </Text>
+                        )}
+                        <View style={[styles.focusPointsBadge, { backgroundColor: theme.colors.actionPrimary }]}>
+                            <Text style={styles.focusPointsValue}>
+                                +{focusedTask.value}
+                            </Text>
+                            <Text style={styles.focusPointsLabel}>
+                                POINTS
+                            </Text>
+                        </View>
                     </View>
                 ) : (
                     <>
@@ -105,10 +146,33 @@ const styles = StyleSheet.create({
         borderRadius: 24,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
+        shadowOpacity: 0.1,
         shadowRadius: 12,
-        elevation: 3,
+        elevation: 6,
         minHeight: 220,
+        overflow: 'hidden',
+    },
+    focusModeBanner: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 10,
+        gap: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.3,
+        shadowRadius: 4,
+        elevation: 4,
+    },
+    focusModeBannerText: {
+        fontSize: 13,
+        fontWeight: '900',
+        color: '#FFFFFF',
+        letterSpacing: 1,
     },
     columnHeader: {
         flexDirection: 'row',
@@ -171,31 +235,61 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
     focusCard: {
-        borderWidth: 2,
-        borderRadius: 16,
-        padding: 16,
-        backgroundColor: 'rgba(255, 255, 255, 0.5)',
+        borderRadius: 20,
+        padding: 20,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    focusHeader: {
-        flexDirection: 'row',
+    zapBadge: {
+        width: 56,
+        height: 56,
+        borderRadius: 28,
+        justifyContent: 'center',
         alignItems: 'center',
-        gap: 6,
-        marginBottom: 12,
-    },
-    focusLabel: {
-        fontSize: 10,
-        fontWeight: '800',
-        letterSpacing: 1,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+        elevation: 5,
     },
     focusTaskTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        fontSize: 20,
+        fontWeight: '900',
         textAlign: 'center',
         marginBottom: 8,
+        lineHeight: 26,
     },
-    focusPoints: {
-        fontSize: 14,
+    focusTaskDescription: {
+        fontSize: 13,
+        textAlign: 'center',
+        marginBottom: 16,
+        lineHeight: 18,
+    },
+    focusPointsBadge: {
+        paddingHorizontal: 24,
+        paddingVertical: 12,
+        borderRadius: 16,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    focusPointsValue: {
+        fontSize: 28,
+        fontWeight: '900',
+        color: '#FFFFFF',
+    },
+    focusPointsLabel: {
+        fontSize: 11,
         fontWeight: '700',
+        color: '#FFFFFF',
+        letterSpacing: 1.5,
     },
 });

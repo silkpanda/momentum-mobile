@@ -24,6 +24,7 @@ interface RegisterData {
     householdName: string;
     userDisplayName: string;
     userProfileColor: string;
+    inviteCode?: string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);

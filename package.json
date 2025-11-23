@@ -19,6 +19,7 @@
     "babel-preset-expo": "~54.0.0",
     "expo": "~54.0.25",
     "expo-font": "^14.0.9",
+    "expo-linear-gradient": "~15.0.7",
     "expo-status-bar": "~3.0.8",
     "lucide-react-native": "^0.554.0",
     "momentum-shared": "file:../momentum-shared",
