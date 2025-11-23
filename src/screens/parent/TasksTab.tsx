@@ -7,6 +7,8 @@ import { themes } from '../../theme/colors';
 import TaskCard from '../../components/shared/TaskCard';
 import { Plus } from 'lucide-react-native';
 import CreateTaskModal from '../../components/parent/CreateTaskModal';
+import { Task, Member, DashboardData } from '../../types';
+import { TaskUpdatedEvent } from '../../constants/socketEvents';
 
 type FilterType = 'ALL' | 'Pending' | 'Approved';
 
@@ -15,12 +17,12 @@ import { useSocket } from '../../contexts/SocketContext';
 export default function TasksScreen() {
     const { user } = useAuth();
     const { on, off } = useSocket();
-    const [tasks, setTasks] = useState<any[]>([]);
-    const [members, setMembers] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-    const [editingTask, setEditingTask] = useState<any>(null);
+    const [editingTask, setEditingTask] = useState<Task | null>(null);
     const [filter, setFilter] = useState<FilterType>('Pending');
     const theme = themes.calmLight;
 
@@ -37,8 +39,8 @@ export default function TasksScreen() {
                 setTasks([]);
             }
 
-            if ((dashboardResponse as any).household && (dashboardResponse as any).household.members) {
-                setMembers((dashboardResponse as any).household.members);
+            if (dashboardResponse.data && dashboardResponse.data.household && dashboardResponse.data.household.members) {
+                setMembers(dashboardResponse.data.household.members);
             }
         } catch (error) {
             console.error('Error loading tasks data:', error);
@@ -56,8 +58,8 @@ export default function TasksScreen() {
 
     // Real-time updates
     React.useEffect(() => {
-        const handleUpdate = () => {
-            console.log('🔄 Received real-time update, refreshing tasks...');
+        const handleUpdate = (data: TaskUpdatedEvent) => {
+            console.log('🔄 Received real-time update, refreshing tasks...', data);
             loadData();
         };
 
@@ -73,9 +75,7 @@ export default function TasksScreen() {
         loadData();
     };
 
-
-
-    const handleDeleteTask = async (task: any) => {
+    const handleDeleteTask = async (task: Task) => {
         Alert.alert(
             "Delete Task",
             "Are you sure you want to delete this task?",
@@ -111,14 +111,14 @@ export default function TasksScreen() {
         <TouchableOpacity
             style={[
                 styles.filterButton,
-                filter === type && { backgroundColor: theme.colors.actionPrimary },
-                filter !== type && { backgroundColor: theme.colors.bgSurface, borderWidth: 1, borderColor: theme.colors.borderSubtle }
+                filter === type && styles.filterButtonActive,
+                filter !== type && styles.filterButtonInactive
             ]}
             onPress={() => setFilter(type)}
         >
             <Text style={[
                 styles.filterText,
-                filter === type ? { color: '#FFFFFF' } : { color: theme.colors.textSecondary }
+                filter === type ? styles.filterTextActive : styles.filterTextInactive
             ]}>
                 {label}
             </Text>
@@ -127,16 +127,16 @@ export default function TasksScreen() {
 
     if (isLoading && !tasks.length) {
         return (
-            <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.bgCanvas }]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
+            <View style={[styles.container, styles.centered]}>
+                <ActivityIndicator size="large" color={themes.calmLight.colors.actionPrimary} />
             </View>
         );
     }
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+        <View style={styles.container}>
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Tasks</Text>
+                <Text style={styles.title}>Tasks</Text>
             </View>
 
             <View style={styles.filterContainer}>
@@ -163,13 +163,13 @@ export default function TasksScreen() {
                 refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
                 ListEmptyComponent={
                     <View style={styles.emptyState}>
-                        <Text style={{ color: theme.colors.textSecondary }}>No tasks found</Text>
+                        <Text style={styles.emptyText}>No tasks found</Text>
                     </View>
                 }
             />
 
             <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
+                style={styles.fab}
                 onPress={() => {
                     setEditingTask(null);
                     setIsCreateModalVisible(true);
@@ -199,6 +199,7 @@ export default function TasksScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        backgroundColor: themes.calmLight.colors.bgCanvas,
     },
     centered: {
         justifyContent: 'center',
@@ -211,6 +212,7 @@ const styles = StyleSheet.create({
     title: {
         fontSize: 24,
         fontWeight: 'bold',
+        color: themes.calmLight.colors.textPrimary,
     },
     filterContainer: {
         flexDirection: 'row',
@@ -223,9 +225,23 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
         borderRadius: 16,
     },
+    filterButtonActive: {
+        backgroundColor: themes.calmLight.colors.actionPrimary,
+    },
+    filterButtonInactive: {
+        backgroundColor: themes.calmLight.colors.bgSurface,
+        borderWidth: 1,
+        borderColor: themes.calmLight.colors.borderSubtle,
+    },
     filterText: {
         fontSize: 12,
         fontWeight: '600',
+    },
+    filterTextActive: {
+        color: '#FFFFFF',
+    },
+    filterTextInactive: {
+        color: themes.calmLight.colors.textSecondary,
     },
     listContent: {
         padding: 16,
@@ -234,6 +250,9 @@ const styles = StyleSheet.create({
     emptyState: {
         padding: 32,
         alignItems: 'center',
+    },
+    emptyText: {
+        color: themes.calmLight.colors.textSecondary,
     },
     fab: {
         position: 'absolute',
@@ -249,5 +268,6 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
         shadowRadius: 4,
+        backgroundColor: themes.calmLight.colors.actionPrimary,
     },
 });

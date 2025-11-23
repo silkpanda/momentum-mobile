@@ -16,7 +16,16 @@ import { themes } from '../../theme/colors';
 import { PROFILE_COLORS } from '../../theme/constants';
 import FormInput from '../../components/shared/FormInput';
 
-export default function RegisterScreen({ navigation }: any) {
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../navigation/types';
+
+type RegisterScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Register'>;
+
+interface Props {
+    navigation: RegisterScreenNavigationProp;
+}
+
+export default function RegisterScreen({ navigation }: Props) {
     const { register } = useAuth();
     const [firstName, setFirstName] = useState('');
     const [lastName, setLastName] = useState('');

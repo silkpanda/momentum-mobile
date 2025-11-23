@@ -1,4 +1,5 @@
-// src/constants/socketEvents.ts
+import { Task, StoreItem, Member, Quest } from '../types';
+
 export const SOCKET_EVENTS = {
     TASK_UPDATED: 'task_updated',
     MEMBER_POINTS_UPDATED: 'member_points_updated',
@@ -10,7 +11,7 @@ export const SOCKET_EVENTS = {
 
 export interface TaskUpdatedEvent {
     type: 'create' | 'update' | 'delete';
-    task?: any;
+    task?: Task;
     taskId?: string;
     memberUpdate?: {
         memberId: string;
@@ -26,15 +27,21 @@ export interface MemberPointsUpdatedEvent {
 
 export interface StoreItemUpdatedEvent {
     type: 'create' | 'update' | 'delete';
-    storeItem?: any;
+    storeItem?: StoreItem;
     storeItemId?: string;
+}
+
+export interface QuestUpdatedEvent {
+    type: 'create' | 'update' | 'delete';
+    quest?: Quest;
+    questId?: string;
 }
 
 export interface HouseholdUpdatedEvent {
     type: 'update' | 'member_add' | 'member_update' | 'member_remove';
     householdId: string;
     householdName?: string;
-    member?: any;
-    memberProfile?: any;
+    member?: Member;
+    memberProfile?: Member;
     memberProfileId?: string;
 }

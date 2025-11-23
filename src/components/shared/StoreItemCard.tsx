@@ -2,16 +2,17 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { ShoppingBag, Star } from 'lucide-react-native';
 import { themes } from '../../theme/colors';
+import { StoreItem } from '../../types';
 
 interface StoreItemCardProps {
-    item: any;
+    item: StoreItem;
     userPoints: number;
     onPurchase: () => void;
 }
 
 export default function StoreItemCard({ item, userPoints, onPurchase }: StoreItemCardProps) {
     const theme = themes.calmLight;
-    const canAfford = userPoints >= item.price;
+    const canAfford = userPoints >= item.cost;
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgSurface }]}>
@@ -22,7 +23,7 @@ export default function StoreItemCard({ item, userPoints, onPurchase }: StoreIte
 
             <View style={styles.content}>
                 <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-                    {item.title}
+                    {item.itemName}
                 </Text>
                 <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
                     {item.description}
@@ -32,7 +33,7 @@ export default function StoreItemCard({ item, userPoints, onPurchase }: StoreIte
                     <View style={styles.priceContainer}>
                         <Star size={16} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
                         <Text style={[styles.priceText, { color: theme.colors.actionPrimary }]}>
-                            {item.price}
+                            {item.cost}
                         </Text>
                     </View>
 

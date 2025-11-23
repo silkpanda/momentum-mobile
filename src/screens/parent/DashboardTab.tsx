@@ -6,15 +6,16 @@ import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
 import { CheckCircle, XCircle, Clock, Users, Target, Bell, Map as MapIcon } from 'lucide-react-native';
 import MemberAvatar from '../../components/family/MemberAvatar';
+import { Task, Quest, Member, QuestClaim } from '../../types';
 
 import { useSocket } from '../../contexts/SocketContext';
 
 export default function DashboardTab() {
     const { user } = useAuth();
     const { on, off } = useSocket();
-    const [pendingTasks, setPendingTasks] = useState<any[]>([]);
-    const [pendingQuests, setPendingQuests] = useState<any[]>([]);
-    const [members, setMembers] = useState<any[]>([]);
+    const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
+    const [pendingQuests, setPendingQuests] = useState<Quest[]>([]);
+    const [members, setMembers] = useState<Member[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const theme = themes.calmLight;
@@ -30,7 +31,7 @@ export default function DashboardTab() {
             // Get pending approval tasks
             if (tasksResponse.data && tasksResponse.data.tasks) {
                 const pendingApproval = tasksResponse.data.tasks.filter(
-                    (task: any) => task.status === 'PendingApproval'
+                    (task: Task) => task.status === 'PendingApproval'
                 );
                 setPendingTasks(pendingApproval);
             } else {
@@ -39,9 +40,9 @@ export default function DashboardTab() {
 
             // Get pending approval quests
             if (questsResponse.data && questsResponse.data.quests) {
-                const pendingApproval = questsResponse.data.quests.filter((quest: any) => {
+                const pendingApproval = questsResponse.data.quests.filter((quest: Quest) => {
                     // Check if any claim is in 'completed' status (waiting for approval)
-                    return quest.claims && quest.claims.some((claim: any) => claim.status === 'completed');
+                    return quest.claims && quest.claims.some((claim: QuestClaim) => claim.status === 'completed');
                 });
                 setPendingQuests(pendingApproval);
             } else {
@@ -49,8 +50,8 @@ export default function DashboardTab() {
             }
 
             // Get family members
-            if ((dashboardResponse as any).household && (dashboardResponse as any).household.members) {
-                setMembers((dashboardResponse as any).household.members);
+            if (dashboardResponse.data && dashboardResponse.data.household && dashboardResponse.data.household.members) {
+                setMembers(dashboardResponse.data.household.members);
             } else {
                 setMembers([]);
             }
@@ -148,10 +149,10 @@ export default function DashboardTab() {
                             // Reset the claim status back to 'claimed'
                             const quest = pendingQuests.find(q => (q._id || q.id) === questId);
                             if (quest) {
-                                const claim = quest.claims.find((c: any) => c.memberId === memberId);
+                                const claim = quest.claims.find((c: QuestClaim) => c.memberId === memberId);
                                 if (claim) {
                                     claim.status = 'claimed';
-                                    claim.completedAt = null;
+                                    claim.completedAt = undefined;
                                     await api.updateQuest(questId, { claims: quest.claims });
                                     loadData();
                                 }
@@ -227,7 +228,7 @@ export default function DashboardTab() {
                                     </Text>
                                     <View style={styles.approvalMeta}>
                                         <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
-                                            +{task.pointsValue} pts
+                                            +{task.value} pts
                                         </Text>
                                         <View style={styles.statusBadge}>
                                             <Clock size={12} color="#F59E0B" />
@@ -254,8 +255,10 @@ export default function DashboardTab() {
 
                         {/* Pending Quests */}
                         {pendingQuests.map((quest) => {
-                            const completedClaim = quest.claims.find((c: any) => c.status === 'completed');
-                            const memberName = members.find(m => m.id === completedClaim?.memberId)?.firstName || 'Member';
+                            const completedClaim = quest.claims.find((c: QuestClaim) => c.status === 'completed');
+                            if (!completedClaim) return null;
+
+                            const memberName = members.find(m => m.id === completedClaim.memberId)?.firstName || 'Member';
 
                             return (
                                 <View key={quest._id || quest.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
@@ -267,7 +270,7 @@ export default function DashboardTab() {
                                         <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
                                             {quest.title}
                                         </Text>
-                                        <Text style={[styles.memberName, { color: theme.colors.textSecondary }]}>
+                                        <Text style={[styles.approvalMemberName, { color: theme.colors.textSecondary }]}>
                                             by {memberName}
                                         </Text>
                                         <View style={styles.approvalMeta}>
@@ -427,7 +430,7 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textTransform: 'uppercase',
     },
-    memberName: {
+    approvalMemberName: {
         fontSize: 12,
         marginBottom: 4,
     },

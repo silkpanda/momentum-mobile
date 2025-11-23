@@ -15,6 +15,7 @@ import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSocket } from '../../contexts/SocketContext';
 import { SOCKET_EVENTS, TaskUpdatedEvent, MemberPointsUpdatedEvent, HouseholdUpdatedEvent } from '../../constants/socketEvents';
+import { DashboardData, Member, Task } from '../../types';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -24,7 +25,7 @@ export default function FamilyScreen() {
     const insets = useSafeAreaInsets();
     const { width } = useWindowDimensions();
 
-    const [data, setData] = useState<any>(null);
+    const [data, setData] = useState<DashboardData | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const theme = themes.calmLight;
@@ -35,7 +36,9 @@ export default function FamilyScreen() {
     const loadData = async () => {
         try {
             const response = await api.getDashboardData();
-            setData(response);
+            if (response.data) {
+                setData(response.data);
+            }
         } catch (error) {
             console.error('Error loading family view:', error);
         } finally {
@@ -112,8 +115,8 @@ export default function FamilyScreen() {
         side: 'Guacamole & Chips',
     };
 
-    const renderMemberColumn = (member: any) => {
-        const memberTasks = allTasks.filter((t: any) =>
+    const renderMemberColumn = (member: Member) => {
+        const memberTasks = allTasks.filter((t: Task) =>
             t.assignedTo && t.assignedTo.includes(member.id) && (t.status === 'Pending' || t.status === 'PendingApproval')
         );
 
@@ -167,7 +170,7 @@ export default function FamilyScreen() {
                         </View>
                     ) : (
                         <>
-                            {memberTasks.slice(0, 3).map((task: any) => (
+                            {memberTasks.slice(0, 3).map((task: Task) => (
                                 <View key={task._id || task.id} style={styles.taskItem}>
                                     <View style={[styles.taskBullet, { borderColor: member.profileColor }]} />
                                     <Text style={[styles.taskTitle, { color: theme.colors.textPrimary }]} numberOfLines={1}>
@@ -229,7 +232,7 @@ export default function FamilyScreen() {
                                 showsHorizontalScrollIndicator={false}
                                 contentContainerStyle={styles.columnsContainer}
                             >
-                                {members.map((member: any) => renderMemberColumn(member))}
+                                {members.map((member: Member) => renderMemberColumn(member))}
                             </ScrollView>
                         </View>
                     </View>
@@ -262,7 +265,7 @@ export default function FamilyScreen() {
                 <View style={styles.sectionContainer}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.textSecondary }]}>WHO IS CHECKING IN?</Text>
                     <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.columnsContainer}>
-                        {members.map((member: any) => renderMemberColumn(member))}
+                        {members.map((member: Member) => renderMemberColumn(member))}
                     </ScrollView>
                 </View>
             </ScrollView>

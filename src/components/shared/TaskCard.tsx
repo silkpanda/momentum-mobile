@@ -103,7 +103,7 @@ export default function TaskCard({ task, onPress, onComplete, onEdit, onDelete, 
                         style={[styles.actionButton, { marginLeft: 8 }]}
                         hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                     >
-                        <Trash2 size={20} color={theme.colors.signalDanger || '#EF4444'} />
+                        <Trash2 size={20} color={theme.colors.signalAlert || '#EF4444'} />
                     </TouchableOpacity>
                 )}
             </View>

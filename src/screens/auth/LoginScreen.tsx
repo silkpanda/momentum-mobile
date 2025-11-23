@@ -15,7 +15,16 @@ import { useAuth } from '../../contexts/AuthContext';
 import { themes } from '../../theme/colors';
 import FormInput from '../../components/shared/FormInput';
 
-export default function LoginScreen({ navigation }: any) {
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../navigation/types';
+
+type LoginScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Login'>;
+
+interface Props {
+    navigation: LoginScreenNavigationProp;
+}
+
+export default function LoginScreen({ navigation }: Props) {
     const { login } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');

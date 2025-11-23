@@ -2,9 +2,10 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { Map, Trophy } from 'lucide-react-native';
 import { themes } from '../../theme/colors';
+import { Quest } from '../../types';
 
 interface QuestCardProps {
-    quest: any;
+    quest: Quest;
     onPress?: () => void;
     onClaim?: () => void;
     onComplete?: () => void;
@@ -12,8 +13,6 @@ interface QuestCardProps {
 
 export default function QuestCard({ quest, onPress, onClaim, onComplete }: QuestCardProps) {
     const theme = themes.calmLight;
-    const isCompleted = quest.status === 'COMPLETED';
-    const isActive = quest.status === 'ACTIVE';
 
     return (
         <TouchableOpacity

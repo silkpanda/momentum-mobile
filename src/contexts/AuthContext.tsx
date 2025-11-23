@@ -1,15 +1,7 @@
-// src/contexts/AuthContext.tsx
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
 import { api } from '../services/api';
 import { storage } from '../utils/storage';
-
-interface User {
-    _id: string;
-    firstName: string;
-    lastName: string;
-    email: string;
-    role: 'Parent' | 'Child';
-}
+import { User, LoginResponse, RegisterResponse } from '../types';
 
 interface AuthContextType {
     user: User | null;
@@ -136,7 +128,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             if (response.token && response.data) {
                 const newToken = response.token;
                 const newUser = response.data.parent;
-                const newHouseholdId = response.data.household._id;
+                const newHouseholdId = response.data.household._id || response.data.household.id;
 
                 // Store auth data
                 await Promise.all([

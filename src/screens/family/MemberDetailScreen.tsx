@@ -16,6 +16,8 @@ import MemberAvatar from '../../components/family/MemberAvatar';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSocket } from '../../contexts/SocketContext';
+import { Task, Quest, Member, QuestClaim } from '../../types';
+import { MemberPointsUpdatedEvent, TaskUpdatedEvent, QuestUpdatedEvent } from '../../constants/socketEvents';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -30,8 +32,8 @@ export default function MemberDetailScreen() {
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const theme = themes.calmLight;
 
-    const [tasks, setTasks] = useState<any[]>([]);
-    const [quests, setQuests] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
+    const [quests, setQuests] = useState<Quest[]>([]);
     const [memberPoints, setMemberPoints] = useState(initialPoints);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -68,7 +70,7 @@ export default function MemberDetailScreen() {
             // Load tasks
             const tasksResponse = await api.getTasks();
             if (tasksResponse.data && Array.isArray(tasksResponse.data.tasks)) {
-                const memberTasks = tasksResponse.data.tasks.filter((t: any) => {
+                const memberTasks = tasksResponse.data.tasks.filter((t: Task) => {
                     const isAssigned = t.assignedTo && Array.isArray(t.assignedTo) &&
                         t.assignedTo.some((assigneeId: string) => assigneeId === memberId);
                     const isPending = t.status === 'Pending' || t.status === 'PendingApproval';
@@ -91,7 +93,7 @@ export default function MemberDetailScreen() {
             const familyResponse = await api.getFamilyData();
             if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
                 console.log(`[MemberDetail] Searching for memberId: ${memberId} in ${familyResponse.data.household.members.length} members`);
-                const member = familyResponse.data.household.members.find((m: any) => m.id === memberId || m._id === memberId);
+                const member = familyResponse.data.household.members.find((m: Member) => m.id === memberId || m._id === memberId);
 
                 if (member) {
                     // Check if we have a recent local update (within 2 seconds)
@@ -103,7 +105,7 @@ export default function MemberDetailScreen() {
                         setMemberPoints(member.pointsTotal || 0);
                     }
                 } else {
-                    console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, familyResponse.data.household.members.map((m: any) => m.id || m._id));
+                    console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, familyResponse.data.household.members.map((m: Member) => m.id || m._id));
                 }
             }
 
@@ -126,11 +128,11 @@ export default function MemberDetailScreen() {
 
     // Real-time updates
     useEffect(() => {
-        const handleUpdate = (data: any) => {
+        const handleUpdate = (data: MemberPointsUpdatedEvent | TaskUpdatedEvent | QuestUpdatedEvent) => {
             console.log('🔄 [MemberDetail] Received real-time update:', data);
 
             // Check if this is a points update for the current member
-            if (data && data.memberId === memberId && typeof data.pointsTotal === 'number') {
+            if ('pointsTotal' in data && 'memberId' in data && data.memberId === memberId) {
                 console.log(`✅ [MemberDetail] Socket update points: ${data.pointsTotal}`);
                 setMemberPoints(data.pointsTotal);
                 setLastUpdated(Date.now()); // Protect against stale fetches
@@ -267,13 +269,13 @@ export default function MemberDetailScreen() {
 
                 {isLoading ? (
                     <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
-                ) : quests.filter(q => {
+                ) : quests.filter((q: Quest) => {
                     // Show quests that are active and not yet claimed by this member
-                    const hasClaim = q.claims && q.claims.some((c: any) => c.memberId === memberId);
+                    const hasClaim = q.claims && q.claims.some((c: QuestClaim) => c.memberId === memberId);
                     return q.isActive && !hasClaim;
                 }).length > 0 ? (
-                    quests.filter(q => {
-                        const hasClaim = q.claims && q.claims.some((c: any) => c.memberId === memberId);
+                    quests.filter((q: Quest) => {
+                        const hasClaim = q.claims && q.claims.some((c: QuestClaim) => c.memberId === memberId);
                         return q.isActive && !hasClaim;
                     }).map((quest) => (
                         <QuestCard
@@ -292,13 +294,13 @@ export default function MemberDetailScreen() {
 
                 {isLoading ? (
                     <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
-                ) : quests.filter(q => {
+                ) : quests.filter((q: Quest) => {
                     // Show quests claimed by this member that are not yet completed
-                    const myClaim = q.claims && q.claims.find((c: any) => c.memberId === memberId);
+                    const myClaim = q.claims && q.claims.find((c: QuestClaim) => c.memberId === memberId);
                     return myClaim && myClaim.status === 'claimed';
                 }).length > 0 ? (
-                    quests.filter(q => {
-                        const myClaim = q.claims && q.claims.find((c: any) => c.memberId === memberId);
+                    quests.filter((q: Quest) => {
+                        const myClaim = q.claims && q.claims.find((c: QuestClaim) => c.memberId === memberId);
                         return myClaim && myClaim.status === 'claimed';
                     }).map((quest) => (
                         <QuestCard

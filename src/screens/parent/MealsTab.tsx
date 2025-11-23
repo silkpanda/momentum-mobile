@@ -28,8 +28,8 @@ export default function MealsTab() {
                 api.getRestaurants()
             ]);
 
-            if (mealsResponse.data && mealsResponse.data.meals) {
-                setMeals(mealsResponse.data.meals);
+            if (mealsResponse.data && mealsResponse.data.recipes) {
+                setMeals(mealsResponse.data.recipes);
             } else {
                 setMeals([]);
             }

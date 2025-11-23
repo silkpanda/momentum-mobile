@@ -9,6 +9,7 @@ import { ArrowLeft, Star, ShoppingBag } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
+import { StoreItem, Member } from '../../types';
 import StoreItemCard from '../../components/shared/StoreItemCard';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -25,7 +26,7 @@ export default function MemberStoreScreen() {
     const { memberId, userId, memberName, memberColor, memberPoints: initialPoints } = route.params;
     const theme = themes.calmLight;
 
-    const [items, setItems] = useState<any[]>([]);
+    const [items, setItems] = useState<StoreItem[]>([]);
     const [currentPoints, setCurrentPoints] = useState(initialPoints);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -43,7 +44,7 @@ export default function MemberStoreScreen() {
 
             // Update points from family data
             if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
-                const member = familyResponse.data.household.members.find((m: any) => m.id === memberId || m._id === memberId);
+                const member = familyResponse.data.household.members.find((m: Member) => m.id === memberId || m._id === memberId);
                 if (member) {
                     setCurrentPoints(member.pointsTotal || 0);
                 }
@@ -81,7 +82,7 @@ export default function MemberStoreScreen() {
         loadData();
     };
 
-    const handlePurchase = async (item: any) => {
+    const handlePurchase = async (item: StoreItem) => {
         if (currentPoints < item.cost) {
             Alert.alert('Not enough points', "You need more points to redeem this reward!");
             return;
@@ -107,7 +108,7 @@ export default function MemberStoreScreen() {
         }
     };
 
-    const performPurchase = async (item: any) => {
+    const performPurchase = async (item: StoreItem) => {
         // Optimistic Update: Immediately deduct points
         const previousPoints = currentPoints;
         setCurrentPoints(prev => prev - item.cost);
@@ -182,12 +183,7 @@ export default function MemberStoreScreen() {
                     keyExtractor={(item) => item._id || item.id}
                     renderItem={({ item }) => (
                         <StoreItemCard
-                            item={{
-                                ...item,
-                                title: item.itemName, // Map for component
-                                price: item.cost,     // Map for component
-                                description: item.description
-                            }}
+                            item={item}
                             userPoints={currentPoints}
                             onPurchase={() => handlePurchase(item)}
                         />

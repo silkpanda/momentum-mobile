@@ -1,11 +1,22 @@
-// src/services/api.ts
-import { storage } from '../utils/storage';
-
-// =============================================================================
-// NETWORK CONFIGURATION
-// =============================================================================
 // The mobile app communicates with the BFF (Backend-for-Frontend) deployed on Render.
 // This provides a unified API interface for all mobile platforms.
+
+import { storage } from '../utils/storage';
+import {
+    ApiResponse,
+    User,
+    AuthResponse,
+    LoginResponse,
+    RegisterResponse,
+    MeResponse,
+    DashboardData,
+    FamilyData,
+    Task,
+    Quest,
+    StoreItem,
+    Restaurant,
+    Meal
+} from '../types';
 
 const getBaseUrl = () => {
     // Production BFF on Render
@@ -13,13 +24,6 @@ const getBaseUrl = () => {
 };
 
 const API_BASE_URL = getBaseUrl();
-
-interface ApiResponse<T = any> {
-    status: string;
-    data?: T;
-    message?: string;
-    token?: string;
-}
 
 class ApiClient {
     private async getHeaders(): Promise<HeadersInit> {
@@ -97,8 +101,8 @@ class ApiClient {
     }
 
     // Auth endpoints
-    async login(email: string, password: string) {
-        return this.request('/auth/login', {
+    async login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
+        return this.request<LoginResponse>('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
@@ -113,189 +117,189 @@ class ApiClient {
         householdName: string;
         userDisplayName: string;
         userProfileColor: string;
-    }) {
-        return this.request('/auth/signup', {
+    }): Promise<ApiResponse<RegisterResponse>> {
+        return this.request<RegisterResponse>('/auth/signup', {
             method: 'POST',
             body: JSON.stringify(userData),
         });
     }
 
-    async getMe() {
-        return this.request('/auth/me');
+    async getMe(): Promise<ApiResponse<MeResponse>> {
+        return this.request<MeResponse>('/auth/me');
     }
 
     // Dashboard
-    async getDashboardData() {
-        return this.request('/dashboard/page-data');
+    async getDashboardData(): Promise<ApiResponse<DashboardData>> {
+        return this.request<DashboardData>('/dashboard/page-data');
     }
 
     // Family
-    async getFamilyData() {
-        return this.request('/family/page-data');
+    async getFamilyData(): Promise<ApiResponse<FamilyData>> {
+        return this.request<FamilyData>('/family/page-data');
     }
 
     // Tasks
-    async getTasks() {
-        return this.request('/tasks');
+    async getTasks(): Promise<ApiResponse<{ tasks: Task[] }>> {
+        return this.request<{ tasks: Task[] }>('/tasks');
     }
 
-    async createTask(taskData: any) {
-        return this.request('/tasks', {
+    async createTask(taskData: Partial<Task>): Promise<ApiResponse<Task>> {
+        return this.request<Task>('/tasks', {
             method: 'POST',
             body: JSON.stringify(taskData),
         });
     }
 
-    async completeTask(taskId: string, memberId: string) {
-        return this.request(`/tasks/${taskId}/complete`, {
+    async completeTask(taskId: string, memberId: string): Promise<ApiResponse<Task>> {
+        return this.request<Task>(`/tasks/${taskId}/complete`, {
             method: 'POST',
             body: JSON.stringify({ memberId }),
         });
     }
 
-    async approveTask(taskId: string) {
-        return this.request(`/tasks/${taskId}/approve`, {
+    async approveTask(taskId: string): Promise<ApiResponse<Task>> {
+        return this.request<Task>(`/tasks/${taskId}/approve`, {
             method: 'POST',
         });
     }
 
-    async updateTask(taskId: string, taskData: any) {
-        return this.request(`/tasks/${taskId}`, {
+    async updateTask(taskId: string, taskData: Partial<Task>): Promise<ApiResponse<Task>> {
+        return this.request<Task>(`/tasks/${taskId}`, {
             method: 'PATCH',
             body: JSON.stringify(taskData),
         });
     }
 
-    async deleteTask(taskId: string) {
-        return this.request(`/tasks/${taskId}`, {
+    async deleteTask(taskId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/tasks/${taskId}`, {
             method: 'DELETE',
         });
     }
 
     // Quests
-    async getQuests() {
-        return this.request('/quests');
+    async getQuests(): Promise<ApiResponse<{ quests: Quest[] }>> {
+        return this.request<{ quests: Quest[] }>('/quests');
     }
 
-    async createQuest(questData: any) {
-        return this.request('/quests', {
+    async createQuest(questData: Partial<Quest>): Promise<ApiResponse<Quest>> {
+        return this.request<Quest>('/quests', {
             method: 'POST',
             body: JSON.stringify(questData),
         });
     }
 
-    async updateQuest(questId: string, questData: any) {
-        return this.request(`/quests/${questId}`, {
+    async updateQuest(questId: string, questData: Partial<Quest>): Promise<ApiResponse<Quest>> {
+        return this.request<Quest>(`/quests/${questId}`, {
             method: 'PUT',
             body: JSON.stringify(questData),
         });
     }
 
-    async deleteQuest(questId: string) {
-        return this.request(`/quests/${questId}`, {
+    async deleteQuest(questId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/quests/${questId}`, {
             method: 'DELETE',
         });
     }
 
-    async claimQuest(questId: string, memberId: string) {
-        return this.request(`/quests/${questId}/claim`, {
+    async claimQuest(questId: string, memberId: string): Promise<ApiResponse<Quest>> {
+        return this.request<Quest>(`/quests/${questId}/claim`, {
             method: 'POST',
             body: JSON.stringify({ memberId }),
         });
     }
 
-    async completeQuest(questId: string, memberId: string) {
-        return this.request(`/quests/${questId}/complete`, {
+    async completeQuest(questId: string, memberId: string): Promise<ApiResponse<Quest>> {
+        return this.request<Quest>(`/quests/${questId}/complete`, {
             method: 'POST',
             body: JSON.stringify({ memberId }),
         });
     }
 
-    async approveQuest(questId: string, memberId: string) {
-        return this.request(`/quests/${questId}/approve`, {
+    async approveQuest(questId: string, memberId: string): Promise<ApiResponse<Quest>> {
+        return this.request<Quest>(`/quests/${questId}/approve`, {
             method: 'POST',
             body: JSON.stringify({ memberId }),
         });
     }
 
     // Store
-    async getStoreItems() {
-        return this.request('/store');
+    async getStoreItems(): Promise<ApiResponse<{ storeItems: StoreItem[] }>> {
+        return this.request<{ storeItems: StoreItem[] }>('/store');
     }
 
-    async createStoreItem(itemData: any) {
-        return this.request('/store', {
+    async createStoreItem(itemData: Partial<StoreItem>): Promise<ApiResponse<StoreItem>> {
+        return this.request<StoreItem>('/store', {
             method: 'POST',
             body: JSON.stringify(itemData),
         });
     }
 
-    async updateStoreItem(itemId: string, itemData: any) {
-        return this.request(`/store/${itemId}`, {
+    async updateStoreItem(itemId: string, itemData: Partial<StoreItem>): Promise<ApiResponse<StoreItem>> {
+        return this.request<StoreItem>(`/store/${itemId}`, {
             method: 'PATCH',
             body: JSON.stringify(itemData),
         });
     }
 
-    async deleteStoreItem(itemId: string) {
-        const result = await this.request(`/store/${itemId}`, {
+    async deleteStoreItem(itemId: string): Promise<ApiResponse<void>> {
+        const result = await this.request<void>(`/store/${itemId}`, {
             method: 'DELETE',
         });
         return result;
     }
 
-    async purchaseItem(itemId: string, memberId: string) {
-        return this.request(`/store/${itemId}/purchase`, {
+    async purchaseItem(itemId: string, memberId: string): Promise<ApiResponse<{ newPointsTotal: number }>> {
+        return this.request<{ newPointsTotal: number }>(`/store/${itemId}/purchase`, {
             method: 'POST',
             body: JSON.stringify({ memberId }),
         });
     }
 
     // Meals & Restaurants
-    async getRestaurants() {
-        return this.request('/meals/restaurants');
+    async getRestaurants(): Promise<ApiResponse<{ restaurants: Restaurant[] }>> {
+        return this.request<{ restaurants: Restaurant[] }>('/meals/restaurants');
     }
 
-    async createRestaurant(restaurantData: any) {
-        return this.request('/meals/restaurants', {
+    async createRestaurant(restaurantData: Partial<Restaurant>): Promise<ApiResponse<{ restaurant: Restaurant }>> {
+        return this.request<{ restaurant: Restaurant }>('/meals/restaurants', {
             method: 'POST',
             body: JSON.stringify(restaurantData),
         });
     }
 
-    async updateRestaurant(restaurantId: string, restaurantData: any) {
-        return this.request(`/meals/restaurants/${restaurantId}`, {
+    async updateRestaurant(restaurantId: string, restaurantData: Partial<Restaurant>): Promise<ApiResponse<{ restaurant: Restaurant }>> {
+        return this.request<{ restaurant: Restaurant }>(`/meals/restaurants/${restaurantId}`, {
             method: 'PUT',
             body: JSON.stringify(restaurantData),
         });
     }
 
-    async deleteRestaurant(restaurantId: string) {
-        return this.request(`/meals/restaurants/${restaurantId}`, {
+    async deleteRestaurant(restaurantId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/meals/restaurants/${restaurantId}`, {
             method: 'DELETE',
         });
     }
 
-    async getMeals() {
-        return this.request('/meals/recipes');
+    async getMeals(): Promise<ApiResponse<{ recipes: Meal[] }>> {
+        return this.request<{ recipes: Meal[] }>('/meals/recipes');
     }
 
-    async createMeal(mealData: any) {
-        return this.request('/meals/recipes', {
+    async createMeal(mealData: Partial<Meal>): Promise<ApiResponse<{ recipe: Meal }>> {
+        return this.request<{ recipe: Meal }>('/meals/recipes', {
             method: 'POST',
             body: JSON.stringify(mealData),
         });
     }
 
-    async updateMeal(mealId: string, mealData: any) {
-        return this.request(`/meals/recipes/${mealId}`, {
+    async updateMeal(mealId: string, mealData: Partial<Meal>): Promise<ApiResponse<{ recipe: Meal }>> {
+        return this.request<{ recipe: Meal }>(`/meals/recipes/${mealId}`, {
             method: 'PUT',
             body: JSON.stringify(mealData),
         });
     }
 
-    async deleteMeal(mealId: string) {
-        return this.request(`/meals/recipes/${mealId}`, {
+    async deleteMeal(mealId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/meals/recipes/${mealId}`, {
             method: 'DELETE',
         });
     }

@@ -5,10 +5,11 @@ import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
 import { themes } from '../../theme/colors';
 import { CheckCircle, XCircle, Clock } from 'lucide-react-native';
+import { Task } from '../../types';
 
 export default function ApprovalsTab() {
     const { user } = useAuth();
-    const [tasks, setTasks] = useState<any[]>([]);
+    const [tasks, setTasks] = useState<Task[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const theme = themes.calmLight;
@@ -20,7 +21,7 @@ export default function ApprovalsTab() {
             if (tasksResponse.data && tasksResponse.data.tasks) {
                 // Filter for tasks that are pending approval
                 const pendingApproval = tasksResponse.data.tasks.filter(
-                    (task: any) => task.status === 'PendingApproval'
+                    (task: Task) => task.status === 'PendingApproval'
                 );
                 setTasks(pendingApproval);
             } else {
@@ -114,7 +115,7 @@ export default function ApprovalsTab() {
                                 <View style={styles.metaRow}>
                                     <View style={styles.pointsBadge}>
                                         <Text style={[styles.pointsText, { color: theme.colors.actionPrimary }]}>
-                                            +{item.pointsValue} pts
+                                            +{item.value} pts
                                         </Text>
                                     </View>
                                     <View style={styles.statusBadge}>

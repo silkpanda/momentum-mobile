@@ -4,6 +4,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { User, Mail, Home, LogOut, Star } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { api } from '../../services/api';
+import { Member } from '../../types';
 import { themes } from '../../theme/colors';
 import MemberAvatar from '../../components/family/MemberAvatar';
 
@@ -21,8 +22,8 @@ export default function SettingsTab() {
             if (response.data && response.data.household) {
                 setHouseholdData(response.data.household);
                 // Find current user's profile in the household
-                const profile = response.data.household.memberProfiles?.find(
-                    (m: any) => m.familyMemberId === user?._id
+                const profile = response.data.household.members?.find(
+                    (m: Member) => m.userId === user?._id
                 );
                 setUserProfile(profile);
             }
