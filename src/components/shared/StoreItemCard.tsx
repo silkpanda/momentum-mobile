@@ -2,17 +2,25 @@ import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { ShoppingBag, Star } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-import { StoreItem } from '../../types';
+import {
+    getStoreItemCardState,
+    getRedeemButtonLabel,
+    type StoreItemCardProps
+} from 'momentum-shared';
 
-interface StoreItemCardProps {
-    item: StoreItem;
-    userPoints: number;
-    onPurchase: () => void;
+// Adapter interface if needed, or just use StoreItemCardProps
+// The current usage passes onPurchase, so we'll accept that and map it
+interface Props extends Omit<StoreItemCardProps, 'onRedeem'> {
+    onPurchase?: () => void;
+    onRedeem?: () => void;
 }
 
-export default function StoreItemCard({ item, userPoints, onPurchase }: StoreItemCardProps) {
+export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem }: Props) {
     const { currentTheme: theme } = useTheme();
-    const canAfford = userPoints >= item.cost;
+    const { canAfford, hasStock } = getStoreItemCardState(item, userPoints);
+    const buttonLabel = getRedeemButtonLabel({ canAfford, hasStock, isAvailable: hasStock });
+
+    const handlePress = onRedeem || onPurchase;
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgSurface }]}>
@@ -40,17 +48,17 @@ export default function StoreItemCard({ item, userPoints, onPurchase }: StoreIte
                     <TouchableOpacity
                         style={[
                             styles.button,
-                            { backgroundColor: canAfford ? theme.colors.actionPrimary : theme.colors.bgCanvas },
-                            !canAfford && { borderWidth: 1, borderColor: theme.colors.borderSubtle }
+                            { backgroundColor: canAfford && hasStock ? theme.colors.actionPrimary : theme.colors.bgCanvas },
+                            (!canAfford || !hasStock) && { borderWidth: 1, borderColor: theme.colors.borderSubtle }
                         ]}
-                        onPress={onPurchase}
-                        disabled={!canAfford}
+                        onPress={handlePress}
+                        disabled={!canAfford || !hasStock}
                     >
                         <Text style={[
                             styles.buttonText,
-                            { color: canAfford ? '#FFFFFF' : theme.colors.textSecondary }
+                            { color: canAfford && hasStock ? '#FFFFFF' : theme.colors.textSecondary }
                         ]}>
-                            {canAfford ? 'Redeem' : 'Need Points'}
+                            {buttonLabel}
                         </Text>
                     </TouchableOpacity>
                 </View>

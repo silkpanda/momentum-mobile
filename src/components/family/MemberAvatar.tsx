@@ -1,23 +1,29 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+    getInitials,
+    getAvatarStyles,
+    validateColor,
+    getContrastingTextColor,
+    type MemberAvatarProps,
+} from 'momentum-shared';
 
-interface MemberAvatarProps {
-    name: string;
-    color?: string;
-    size?: number;
-    showName?: boolean;
-}
-
-export default function MemberAvatar({ name, color, size = 48, showName = false }: MemberAvatarProps) {
+export default function MemberAvatar({
+    name,
+    color,
+    size = 48,
+    showName = false,
+    fontSize,
+    style,
+}: MemberAvatarProps) {
     const { currentTheme: theme } = useTheme();
-    const initials = name
-        .split(' ')
-        .filter(n => n.length > 0)
-        .map((n) => n[0])
-        .join('')
-        .toUpperCase()
-        .slice(0, 2);
+
+    // Use shared logic
+    const validColor = validateColor(color || theme.colors.actionPrimary);
+    const avatarStyles = getAvatarStyles(validColor, size);
+    const textColor = getContrastingTextColor(validColor);
+    const initials = getInitials(name);
 
     return (
         <View style={styles.container}>
@@ -25,19 +31,20 @@ export default function MemberAvatar({ name, color, size = 48, showName = false 
                 style={[
                     styles.avatar,
                     {
-                        width: size,
-                        height: size,
-                        borderRadius: size / 2,
-                        backgroundColor: color || theme.colors.actionPrimary,
+                        width: avatarStyles.width,
+                        height: avatarStyles.height,
+                        borderRadius: avatarStyles.borderRadius,
+                        backgroundColor: avatarStyles.backgroundColor,
                     },
+                    style,
                 ]}
             >
                 <Text
                     style={[
                         styles.initials,
                         {
-                            fontSize: size * 0.4,
-                            color: '#FFFFFF',
+                            fontSize: fontSize || avatarStyles.fontSize,
+                            color: textColor,
                         },
                     ]}
                 >

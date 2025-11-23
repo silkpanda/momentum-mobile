@@ -19,6 +19,7 @@ export interface Member {
     profileColor: string;
     pointsTotal: number;
     walletBalance?: number; // Sometimes distinct from total points
+    focusedTaskId?: string; // ADHD Feature: When set, child sees only this task in Focus Mode
 }
 
 export interface Task {

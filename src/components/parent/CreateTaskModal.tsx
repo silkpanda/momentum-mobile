@@ -3,6 +3,13 @@ import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView,
 import { X, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+    validateForm,
+    getInitialFormData,
+    sanitizeFormData,
+    type FormField,
+    type FormData
+} from 'momentum-shared';
 
 interface CreateTaskModalProps {
     visible: boolean;
@@ -12,11 +19,18 @@ interface CreateTaskModalProps {
     initialTask?: any; // Optional task to edit
 }
 
+const TASK_FORM_FIELDS: FormField[] = [
+    { name: 'title', label: 'Title', type: 'text', required: true, min: 3 },
+    { name: 'description', label: 'Description', type: 'textarea', required: false },
+    { name: 'pointsValue', label: 'Points Value', type: 'number', required: true, min: 1, defaultValue: 10 },
+];
+
 export default function CreateTaskModal({ visible, onClose, onTaskCreated, members, initialTask }: CreateTaskModalProps) {
     const { currentTheme: theme } = useTheme();
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [points, setPoints] = useState('10');
+
+    // Form State
+    const [formData, setFormData] = useState<FormData>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [selectedAssignees, setSelectedAssignees] = useState<string[]>([]);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -24,19 +38,32 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
     useEffect(() => {
         if (visible) {
             if (initialTask) {
-                setTitle(initialTask.title || '');
-                setDescription(initialTask.description || '');
-                setPoints(String(initialTask.pointsValue || '10'));
+                setFormData({
+                    title: initialTask.title || '',
+                    description: initialTask.description || '',
+                    pointsValue: initialTask.pointsValue || 10,
+                });
                 setSelectedAssignees(initialTask.assignedTo || []);
             } else {
-                setTitle('');
-                setDescription('');
-                setPoints('10');
+                setFormData(getInitialFormData(TASK_FORM_FIELDS));
                 setSelectedAssignees([]);
             }
+            setErrors({});
             setIsSubmitting(false);
         }
     }, [visible, initialTask]);
+
+    const handleChange = (name: string, value: any) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        // Clear error when user types
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
 
     const toggleAssignee = (memberId: string) => {
         if (selectedAssignees.includes(memberId)) {
@@ -47,21 +74,27 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
     };
 
     const handleSubmit = async () => {
-        if (!title.trim()) {
-            alert('Please enter a task title');
+        // 1. Validate Form Fields
+        const validation = validateForm(formData, TASK_FORM_FIELDS);
+
+        // 2. Custom Validation (Assignees)
+        if (selectedAssignees.length === 0) {
+            Alert.alert('Validation Error', 'Please select at least one assignee');
             return;
         }
-        if (selectedAssignees.length === 0) {
-            alert('Please select at least one assignee');
+
+        if (!validation.isValid) {
+            setErrors(validation.errors);
             return;
         }
 
         setIsSubmitting(true);
         try {
+            // 3. Sanitize Data
+            const sanitizedData = sanitizeFormData(formData, TASK_FORM_FIELDS);
+
             const taskData = {
-                title,
-                description,
-                pointsValue: parseInt(points) || 0,
+                ...sanitizedData,
                 assignedTo: selectedAssignees,
             };
 
@@ -75,7 +108,7 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
             onClose();
         } catch (error) {
             console.error('Error saving task:', error);
-            alert('Failed to save task');
+            Alert.alert('Error', 'Failed to save task');
         } finally {
             setIsSubmitting(false);
         }
@@ -100,21 +133,26 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
                     </View>
 
                     <ScrollView style={styles.form}>
+                        {/* Title Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
                             <TextInput
                                 style={[styles.input, {
                                     backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
+                                    borderColor: errors.title ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
                                 placeholder="e.g. Clean your room"
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={title}
-                                onChangeText={setTitle}
+                                value={formData.title}
+                                onChangeText={(text) => handleChange('title', text)}
                             />
+                            {errors.title && (
+                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.title}</Text>
+                            )}
                         </View>
 
+                        {/* Description Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
                             <TextInput
@@ -125,27 +163,32 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
                                 }]}
                                 placeholder="Add details..."
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={description}
-                                onChangeText={setDescription}
+                                value={formData.description}
+                                onChangeText={(text) => handleChange('description', text)}
                                 multiline
                                 numberOfLines={3}
                             />
                         </View>
 
+                        {/* Points Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Points Value</Text>
                             <TextInput
                                 style={[styles.input, {
                                     backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
+                                    borderColor: errors.pointsValue ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
-                                value={points}
-                                onChangeText={setPoints}
+                                value={String(formData.pointsValue)}
+                                onChangeText={(text) => handleChange('pointsValue', text)}
                                 keyboardType="numeric"
                             />
+                            {errors.pointsValue && (
+                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.pointsValue}</Text>
+                            )}
                         </View>
 
+                        {/* Assignees Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Assign To</Text>
                             <View style={styles.assigneesContainer}>
@@ -246,6 +289,11 @@ const styles = StyleSheet.create({
     textArea: {
         height: 100,
         textAlignVertical: 'top',
+    },
+    errorText: {
+        fontSize: 12,
+        marginTop: 4,
+        marginLeft: 4,
     },
     assigneesContainer: {
         flexDirection: 'row',

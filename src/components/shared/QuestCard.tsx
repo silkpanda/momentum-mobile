@@ -1,18 +1,31 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Map, Star, CheckCircle } from 'lucide-react-native';
+import { Map, Star, CheckCircle, Clock, Compass } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
-
-interface QuestCardProps {
-    quest: any;
-    onPress?: () => void;
-    onClaim?: () => void;
-    onComplete?: () => void;
-    showActions?: boolean;
-}
+import {
+    getQuestCardState,
+    formatQuestPoints,
+    type QuestCardProps
+} from 'momentum-shared';
 
 export default function QuestCard({ quest, onPress, onClaim, onComplete, showActions = true }: QuestCardProps) {
     const { currentTheme: theme } = useTheme();
+    const {
+        isAvailable,
+        isActive,
+        isCompleted,
+        isPendingApproval,
+        statusColor,
+        statusLabel,
+        actionLabel
+    } = getQuestCardState(quest);
+
+    const renderIcon = () => {
+        if (isCompleted) return <CheckCircle size={24} color={statusColor} />;
+        if (isActive) return <Compass size={24} color={statusColor} />;
+        if (isPendingApproval) return <Clock size={24} color={statusColor} />;
+        return <Map size={24} color={statusColor} />;
+    };
 
     return (
         <TouchableOpacity
@@ -21,7 +34,7 @@ export default function QuestCard({ quest, onPress, onClaim, onComplete, showAct
             activeOpacity={0.9}
         >
             <View style={[styles.iconContainer, { backgroundColor: theme.colors.bgCanvas }]}>
-                <Map size={24} color={theme.colors.actionPrimary} />
+                {renderIcon()}
             </View>
 
             <View style={styles.content}>
@@ -36,26 +49,36 @@ export default function QuestCard({ quest, onPress, onClaim, onComplete, showAct
                     <View style={styles.rewardContainer}>
                         <Star size={16} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
                         <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>
-                            {quest.pointsValue || quest.rewardValue} pts
+                            {formatQuestPoints(quest.pointsValue || quest.rewardValue || 0)}
                         </Text>
                     </View>
 
-                    {onClaim && (
-                        <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: theme.colors.actionPrimary }]}
-                            onPress={onClaim}
-                        >
-                            <Text style={styles.actionButtonText}>Start Quest</Text>
-                        </TouchableOpacity>
-                    )}
+                    {showActions && (
+                        <>
+                            {isAvailable && onClaim && (
+                                <TouchableOpacity
+                                    style={[styles.actionButton, { backgroundColor: theme.colors.actionPrimary }]}
+                                    onPress={onClaim}
+                                >
+                                    <Text style={styles.actionButtonText}>{actionLabel || 'Start Quest'}</Text>
+                                </TouchableOpacity>
+                            )}
 
-                    {onComplete && (
-                        <TouchableOpacity
-                            style={[styles.actionButton, { backgroundColor: theme.colors.signalSuccess }]}
-                            onPress={onComplete}
-                        >
-                            <Text style={styles.actionButtonText}>Complete</Text>
-                        </TouchableOpacity>
+                            {isActive && onComplete && (
+                                <TouchableOpacity
+                                    style={[styles.actionButton, { backgroundColor: theme.colors.signalSuccess }]}
+                                    onPress={onComplete}
+                                >
+                                    <Text style={styles.actionButtonText}>{actionLabel || 'Complete'}</Text>
+                                </TouchableOpacity>
+                            )}
+
+                            {isPendingApproval && (
+                                <View style={[styles.statusBadge, { backgroundColor: statusColor + '20' }]}>
+                                    <Text style={[styles.statusText, { color: statusColor }]}>{statusLabel}</Text>
+                                </View>
+                            )}
+                        </>
                     )}
                 </View>
             </View>
@@ -119,4 +142,13 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 12,
     },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 16,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+    }
 });

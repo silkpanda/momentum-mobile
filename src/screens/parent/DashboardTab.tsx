@@ -8,6 +8,7 @@ import { CheckCircle, XCircle, Clock, Users, Target, Bell, Map as MapIcon } from
 import MemberAvatar from '../../components/family/MemberAvatar';
 import { Task, Quest, Member, QuestClaim } from '../../types';
 
+import TaskSelectionModal from '../../components/modals/TaskSelectionModal';
 import { useSocket } from '../../contexts/SocketContext';
 
 export default function DashboardTab() {
@@ -15,10 +16,50 @@ export default function DashboardTab() {
     const { currentTheme: theme } = useTheme();
     const { on, off } = useSocket();
     const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
+    const [allTasks, setAllTasks] = useState<Task[]>([]); // Store all tasks for Focus Mode selection
     const [pendingQuests, setPendingQuests] = useState<Quest[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // Focus Mode State
+    const [taskSelectionVisible, setTaskSelectionVisible] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+
+    const [householdId, setHouseholdId] = useState<string>('');
+
+    // Focus Mode Handlers
+    const handleSetFocusTask = async (taskId: string) => {
+        if (!selectedMember || !householdId) return;
+
+        try {
+            await api.setFocusTask(householdId, selectedMember.id || selectedMember._id!, taskId);
+            setTaskSelectionVisible(false);
+            setSelectedMember(null);
+            loadData();
+            Alert.alert('Focus Mode', `Focus task set for ${selectedMember.firstName}`);
+        } catch (error) {
+            console.error('Error setting focus task:', error);
+            Alert.alert('Error', 'Failed to set focus task');
+        }
+    };
+
+    const handleClearFocusTask = async (member: Member) => {
+        if (!householdId) return;
+        try {
+            await api.setFocusTask(householdId, member.id || member._id!, null);
+            loadData();
+            Alert.alert('Focus Mode', `Focus mode cleared for ${member.firstName}`);
+        } catch (error) {
+            console.error('Error clearing focus task:', error);
+            Alert.alert('Error', 'Failed to clear focus mode');
+        }
+    };
+
+    const openTaskSelection = (member: Member) => {
+        setSelectedMember(member);
+        setTaskSelectionVisible(true);
+    };
 
     const loadData = async () => {
         try {
@@ -28,13 +69,17 @@ export default function DashboardTab() {
                 api.getDashboardData()
             ]);
 
-            // Get pending approval tasks
+            // Store all tasks
             if (tasksResponse.data && tasksResponse.data.tasks) {
+                setAllTasks(tasksResponse.data.tasks);
+
+                // Get pending approval tasks
                 const pendingApproval = tasksResponse.data.tasks.filter(
                     (task: Task) => task.status === 'PendingApproval'
                 );
                 setPendingTasks(pendingApproval);
             } else {
+                setAllTasks([]);
                 setPendingTasks([]);
             }
 
@@ -50,10 +95,13 @@ export default function DashboardTab() {
             }
 
             // Get family members
-            if (dashboardResponse.data && dashboardResponse.data.household && dashboardResponse.data.household.members) {
-                setMembers(dashboardResponse.data.household.members);
-            } else {
-                setMembers([]);
+            if (dashboardResponse.data && dashboardResponse.data.household) {
+                setHouseholdId(dashboardResponse.data.household.id || dashboardResponse.data.household._id!);
+                if (dashboardResponse.data.household.members) {
+                    setMembers(dashboardResponse.data.household.members);
+                } else {
+                    setMembers([]);
+                }
             }
         } catch (error) {
             console.error('Error loading dashboard:', error);
@@ -62,30 +110,6 @@ export default function DashboardTab() {
             setRefreshing(false);
         }
     };
-
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [])
-    );
-
-    // Real-time updates
-    React.useEffect(() => {
-        const handleUpdate = () => {
-            console.log('🔄 Received real-time update, refreshing dashboard...');
-            loadData();
-        };
-
-        on('task_updated', handleUpdate);
-        on('member_points_updated', handleUpdate);
-        on('quest_updated', handleUpdate);
-
-        return () => {
-            off('task_updated', handleUpdate);
-            off('member_points_updated', handleUpdate);
-            off('quest_updated', handleUpdate);
-        };
-    }, [on, off]);
 
     const onRefresh = () => {
         setRefreshing(true);
@@ -165,10 +189,6 @@ export default function DashboardTab() {
                 }
             ]
         );
-    };
-
-    const toggleFocusMode = (memberId: string) => {
-        Alert.alert('Focus Mode', `Focus Mode toggle for member ${memberId} - Coming soon!`);
     };
 
     if (isLoading) {
@@ -322,29 +342,66 @@ export default function DashboardTab() {
                     </View>
                 ) : (
                     <View style={styles.membersGrid}>
-                        {members.map((member) => (
-                            <View key={member.id} style={[styles.memberCard, { backgroundColor: theme.colors.bgSurface }]}>
-                                <MemberAvatar name={member.firstName} color={member.profileColor} size={48} />
-                                <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
-                                    {member.firstName}
-                                </Text>
-                                <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>
-                                    {member.pointsTotal || 0} pts
-                                </Text>
-                                <TouchableOpacity
-                                    style={[styles.focusButton, { borderColor: theme.colors.actionPrimary }]}
-                                    onPress={() => toggleFocusMode(member.id)}
-                                >
-                                    <Target size={16} color={theme.colors.actionPrimary} />
-                                    <Text style={[styles.focusButtonText, { color: theme.colors.actionPrimary }]}>
-                                        Focus Mode
+                        {members.map((member) => {
+                            const focusedTask = member.focusedTaskId
+                                ? pendingTasks.find(t => (t._id || t.id) === member.focusedTaskId) // Check pending first
+                                || { title: 'Active Task' } // Fallback if task not in pending list (might be in active list which we don't have full access to here easily without fetching all tasks)
+                                : null;
+
+                            // Actually we should fetch all tasks to get the title properly, but for now let's just show "Active Task" or try to find it
+                            // In a real app we'd have a map of all tasks.
+
+                            return (
+                                <View key={member.id} style={[styles.memberCard, { backgroundColor: theme.colors.bgSurface }]}>
+                                    <MemberAvatar name={member.firstName} color={member.profileColor} size={48} />
+                                    <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
+                                        {member.firstName}
                                     </Text>
-                                </TouchableOpacity>
-                            </View>
-                        ))}
+                                    <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>
+                                        {member.pointsTotal || 0} pts
+                                    </Text>
+
+                                    {member.focusedTaskId ? (
+                                        <View style={styles.focusActiveContainer}>
+                                            <View style={[styles.focusBadge, { backgroundColor: theme.colors.actionPrimary + '20' }]}>
+                                                <Target size={12} color={theme.colors.actionPrimary} />
+                                                <Text style={[styles.focusBadgeText, { color: theme.colors.actionPrimary }]} numberOfLines={1}>
+                                                    Focus Mode On
+                                                </Text>
+                                            </View>
+                                            <TouchableOpacity
+                                                style={[styles.clearFocusButton, { borderColor: theme.colors.borderSubtle }]}
+                                                onPress={() => handleClearFocusTask(member)}
+                                            >
+                                                <XCircle size={14} color={theme.colors.textSecondary} />
+                                                <Text style={[styles.clearFocusText, { color: theme.colors.textSecondary }]}>Clear</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    ) : (
+                                        <TouchableOpacity
+                                            style={[styles.focusButton, { borderColor: theme.colors.actionPrimary }]}
+                                            onPress={() => openTaskSelection(member)}
+                                        >
+                                            <Target size={16} color={theme.colors.actionPrimary} />
+                                            <Text style={[styles.focusButtonText, { color: theme.colors.actionPrimary }]}>
+                                                Set Focus
+                                            </Text>
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            );
+                        })}
                     </View>
                 )}
             </View>
+
+            <TaskSelectionModal
+                visible={taskSelectionVisible}
+                onClose={() => setTaskSelectionVisible(false)}
+                onSelect={handleSetFocusTask}
+                memberName={selectedMember?.firstName || ''}
+                tasks={allTasks}
+            />
         </ScrollView>
     );
 }
@@ -506,5 +563,38 @@ const styles = StyleSheet.create({
     focusButtonText: {
         fontSize: 12,
         fontWeight: '600',
+    },
+    focusActiveContainer: {
+        width: '100%',
+        alignItems: 'center',
+        gap: 8,
+    },
+    focusBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        width: '100%',
+        justifyContent: 'center',
+    },
+    focusBadgeText: {
+        fontSize: 11,
+        fontWeight: '600',
+        flex: 1,
+    },
+    clearFocusButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        borderWidth: 1,
+    },
+    clearFocusText: {
+        fontSize: 11,
+        fontWeight: '500',
     },
 });

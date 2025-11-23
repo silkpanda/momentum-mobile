@@ -13,6 +13,7 @@ import {
 import { Mail, Lock, AlertTriangle, CheckCircle, LogIn } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { textStyles } from '../../theme/typography';
 import FormInput from '../../components/shared/FormInput';
 
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -67,14 +68,14 @@ export default function LoginScreen({ navigation }: Props) {
                     <Text style={[styles.title, { color: theme.colors.actionPrimary }]}>
                         ⚡ Momentum
                     </Text>
-                    <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>
+                    <Text style={[textStyles.bodyLarge, { color: theme.colors.textSecondary }]}>
                         Family Task & Reward System
                     </Text>
                 </View>
 
                 {/* Login Form */}
                 <View style={[styles.formContainer, { backgroundColor: theme.colors.bgSurface }]}>
-                    <Text style={[styles.formTitle, { color: theme.colors.textPrimary }]}>
+                    <Text style={[textStyles.displayMedium, { color: theme.colors.textPrimary, textAlign: 'center', marginBottom: 24 }]}>
                         Welcome Back
                     </Text>
 
@@ -82,13 +83,13 @@ export default function LoginScreen({ navigation }: Props) {
                     {error && (
                         <View style={[styles.statusMessage, { backgroundColor: theme.colors.signalAlert + '20', borderColor: theme.colors.signalAlert + '50' }]}>
                             <AlertTriangle size={20} color={theme.colors.signalAlert} style={styles.statusIcon} />
-                            <Text style={[styles.statusText, { color: theme.colors.signalAlert }]}>{error}</Text>
+                            <Text style={[textStyles.label, { color: theme.colors.signalAlert, flex: 1 }]}>{error}</Text>
                         </View>
                     )}
                     {success && (
                         <View style={[styles.statusMessage, { backgroundColor: theme.colors.signalSuccess + '20', borderColor: theme.colors.signalSuccess + '50' }]}>
                             <CheckCircle size={20} color={theme.colors.signalSuccess} style={styles.statusIcon} />
-                            <Text style={[styles.statusText, { color: theme.colors.signalSuccess }]}>Login Successful!</Text>
+                            <Text style={[textStyles.label, { color: theme.colors.signalSuccess }]}>Login Successful!</Text>
                         </View>
                     )}
 
@@ -127,7 +128,7 @@ export default function LoginScreen({ navigation }: Props) {
                         ) : (
                             <View style={styles.buttonContent}>
                                 <LogIn size={20} color="#FFFFFF" style={styles.buttonIcon} />
-                                <Text style={styles.buttonText}>{success ? 'Logging In...' : 'Login'}</Text>
+                                <Text style={[textStyles.button, { color: '#FFFFFF' }]}>{success ? 'Logging In...' : 'Login'}</Text>
                             </View>
                         )}
                     </TouchableOpacity>
@@ -137,7 +138,7 @@ export default function LoginScreen({ navigation }: Props) {
                         onPress={() => navigation.navigate('Register')}
                         disabled={isLoading}
                     >
-                        <Text style={[styles.linkText, { color: theme.colors.actionPrimary }]}>
+                        <Text style={[textStyles.label, { color: theme.colors.actionPrimary }]}>
                             Don't have an account? Sign Up
                         </Text>
                     </TouchableOpacity>
@@ -165,10 +166,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginBottom: 8,
     },
-    subtitle: {
-        fontSize: 16,
-        textAlign: 'center',
-    },
     formContainer: {
         borderRadius: 16,
         padding: 24,
@@ -177,12 +174,6 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 8,
         elevation: 4,
-    },
-    formTitle: {
-        fontSize: 24,
-        fontWeight: '600',
-        marginBottom: 24,
-        textAlign: 'center',
     },
     statusMessage: {
         flexDirection: 'row',
@@ -194,11 +185,6 @@ const styles = StyleSheet.create({
     },
     statusIcon: {
         marginRight: 12,
-    },
-    statusText: {
-        fontSize: 14,
-        fontWeight: '500',
-        flex: 1,
     },
     button: {
         height: 50,
@@ -217,17 +203,9 @@ const styles = StyleSheet.create({
     buttonIcon: {
         marginRight: 8,
     },
-    buttonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: '600',
-    },
     linkButton: {
         marginTop: 16,
         alignItems: 'center',
     },
-    linkText: {
-        fontSize: 14,
-        fontWeight: '500',
-    },
 });
+

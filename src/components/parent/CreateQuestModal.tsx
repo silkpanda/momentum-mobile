@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+    validateForm,
+    getInitialFormData,
+    sanitizeFormData,
+    type FormField,
+    type FormData
+} from 'momentum-shared';
 
 interface CreateQuestModalProps {
     visible: boolean;
@@ -11,62 +18,85 @@ interface CreateQuestModalProps {
     initialQuest?: any;
 }
 
+const QUEST_FORM_FIELDS: FormField[] = [
+    { name: 'title', label: 'Title', type: 'text', required: true, min: 3 },
+    { name: 'description', label: 'Description', type: 'textarea', required: false },
+    { name: 'pointsValue', label: 'Reward (Points)', type: 'number', required: true, min: 1, defaultValue: 100 },
+    { name: 'maxClaims', label: 'Max People', type: 'number', required: false, min: 1 },
+];
+
 export default function CreateQuestModal({ visible, onClose, onQuestCreated, initialQuest }: CreateQuestModalProps) {
     const { currentTheme: theme } = useTheme();
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [reward, setReward] = useState('100');
+
+    // Form State
+    const [formData, setFormData] = useState<FormData>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [allowMultipleClaims, setAllowMultipleClaims] = useState(false);
-    const [maxClaims, setMaxClaims] = useState('');
     const [recurrence, setRecurrence] = useState<'none' | 'daily' | 'weekly' | 'monthly'>('none');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (visible) {
             if (initialQuest) {
-                setTitle(initialQuest.title || '');
-                setDescription(initialQuest.description || '');
-                setReward(String(initialQuest.pointsValue || '100'));
+                setFormData({
+                    title: initialQuest.title || '',
+                    description: initialQuest.description || '',
+                    pointsValue: initialQuest.pointsValue || 100,
+                    maxClaims: initialQuest.maxClaims || '',
+                });
 
                 // Determine if multiple claims are allowed
                 const isMultiClaim = initialQuest.questType === 'limited' || initialQuest.questType === 'unlimited';
                 setAllowMultipleClaims(isMultiClaim);
-                setMaxClaims(initialQuest.maxClaims ? String(initialQuest.maxClaims) : '');
-
                 setRecurrence(initialQuest.recurrence?.frequency || 'none');
             } else {
-                setTitle('');
-                setDescription('');
-                setReward('100');
+                setFormData(getInitialFormData(QUEST_FORM_FIELDS));
                 setAllowMultipleClaims(false);
-                setMaxClaims('');
                 setRecurrence('none');
             }
+            setErrors({});
             setIsSubmitting(false);
         }
     }, [visible, initialQuest]);
 
+    const handleChange = (name: string, value: any) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
+
     const handleSubmit = async () => {
-        if (!title.trim()) {
-            alert('Please enter a quest title');
+        // 1. Validate Form Fields
+        const validation = validateForm(formData, QUEST_FORM_FIELDS);
+
+        if (!validation.isValid) {
+            setErrors(validation.errors);
             return;
         }
 
         setIsSubmitting(true);
         try {
+            // 2. Sanitize Data
+            const sanitizedData = sanitizeFormData(formData, QUEST_FORM_FIELDS);
+
             // Determine the correct questType based on settings
             let questType: 'one-time' | 'limited' | 'unlimited' = 'one-time';
             if (allowMultipleClaims) {
-                questType = maxClaims ? 'limited' : 'unlimited';
+                questType = sanitizedData.maxClaims ? 'limited' : 'unlimited';
             }
 
             const questData: any = {
-                title,
-                description,
-                pointsValue: parseInt(reward) || 0,
+                title: sanitizedData.title,
+                description: sanitizedData.description,
+                pointsValue: sanitizedData.pointsValue,
                 questType,
-                maxClaims: maxClaims ? parseInt(maxClaims) : undefined,
-                recurrence: recurrence !== 'none' ? recurrence : undefined,
+                maxClaims: sanitizedData.maxClaims || undefined,
+                recurrence: recurrence !== 'none' ? { frequency: recurrence } : undefined,
             };
 
             if (initialQuest) {
@@ -79,7 +109,7 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
             onClose();
         } catch (error) {
             console.error('Error saving quest:', error);
-            alert('Failed to save quest');
+            Alert.alert('Error', 'Failed to save quest');
         } finally {
             setIsSubmitting(false);
         }
@@ -123,21 +153,26 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
                     </View>
 
                     <ScrollView style={styles.form}>
+                        {/* Title Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
                             <TextInput
                                 style={[styles.input, {
                                     backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
+                                    borderColor: errors.title ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
                                 placeholder="e.g. Read 5 Books"
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={title}
-                                onChangeText={setTitle}
+                                value={formData.title}
+                                onChangeText={(text) => handleChange('title', text)}
                             />
+                            {errors.title && (
+                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.title}</Text>
+                            )}
                         </View>
 
+                        {/* Description Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description</Text>
                             <TextInput
@@ -148,27 +183,32 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
                                 }]}
                                 placeholder="Add details..."
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={description}
-                                onChangeText={setDescription}
+                                value={formData.description}
+                                onChangeText={(text) => handleChange('description', text)}
                                 multiline
                                 numberOfLines={3}
                             />
                         </View>
 
+                        {/* Reward Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Reward (Points)</Text>
                             <TextInput
                                 style={[styles.input, {
                                     backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
+                                    borderColor: errors.pointsValue ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
-                                value={reward}
-                                onChangeText={setReward}
+                                value={String(formData.pointsValue)}
+                                onChangeText={(text) => handleChange('pointsValue', text)}
                                 keyboardType="numeric"
                             />
+                            {errors.pointsValue && (
+                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.pointsValue}</Text>
+                            )}
                         </View>
 
+                        {/* Claims Settings */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Who Can Claim?</Text>
                             <TouchableOpacity
@@ -204,8 +244,8 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
                                         borderColor: theme.colors.borderSubtle,
                                         color: theme.colors.textPrimary
                                     }]}
-                                    value={maxClaims}
-                                    onChangeText={setMaxClaims}
+                                    value={String(formData.maxClaims)}
+                                    onChangeText={(text) => handleChange('maxClaims', text)}
                                     keyboardType="numeric"
                                     placeholder="Leave blank for unlimited"
                                     placeholderTextColor={theme.colors.textSecondary}
@@ -216,6 +256,7 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
                             </View>
                         )}
 
+                        {/* Recurrence Settings */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Recurrence</Text>
                             <View style={styles.optionsRow}>
@@ -301,6 +342,11 @@ const styles = StyleSheet.create({
     textArea: {
         height: 100,
         textAlignVertical: 'top',
+    },
+    errorText: {
+        fontSize: 12,
+        marginTop: 4,
+        marginLeft: 4,
     },
     checkboxRow: {
         flexDirection: 'row',

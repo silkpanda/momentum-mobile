@@ -1,8 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { X } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import {
+    validateForm,
+    getInitialFormData,
+    sanitizeFormData,
+    type FormField,
+    type FormData
+} from 'momentum-shared';
 
 interface CreateStoreItemModalProps {
     visible: boolean;
@@ -10,41 +17,64 @@ interface CreateStoreItemModalProps {
     onItemCreated: () => void;
 }
 
+const STORE_ITEM_FORM_FIELDS: FormField[] = [
+    { name: 'itemName', label: 'Title', type: 'text', required: true, min: 3 },
+    { name: 'description', label: 'Description', type: 'textarea', required: false },
+    { name: 'cost', label: 'Cost (Points)', type: 'number', required: true, min: 1, defaultValue: 50 },
+];
+
 export default function CreateStoreItemModal({ visible, onClose, onItemCreated }: CreateStoreItemModalProps) {
     const { currentTheme: theme } = useTheme();
-    const [title, setTitle] = useState('');
-    const [description, setDescription] = useState('');
-    const [price, setPrice] = useState('50');
+
+    // Form State
+    const [formData, setFormData] = useState<FormData>({});
+    const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     useEffect(() => {
         if (visible) {
-            setTitle('');
-            setDescription('');
-            setPrice('50');
+            setFormData(getInitialFormData(STORE_ITEM_FORM_FIELDS));
+            setErrors({});
             setIsSubmitting(false);
         }
     }, [visible]);
 
+    const handleChange = (name: string, value: any) => {
+        setFormData(prev => ({ ...prev, [name]: value }));
+        if (errors[name]) {
+            setErrors(prev => {
+                const newErrors = { ...prev };
+                delete newErrors[name];
+                return newErrors;
+            });
+        }
+    };
+
     const handleCreate = async () => {
-        if (!title.trim()) {
-            alert('Please enter an item title');
+        // 1. Validate Form Fields
+        const validation = validateForm(formData, STORE_ITEM_FORM_FIELDS);
+
+        if (!validation.isValid) {
+            setErrors(validation.errors);
             return;
         }
 
         setIsSubmitting(true);
         try {
+            // 2. Sanitize Data
+            const sanitizedData = sanitizeFormData(formData, STORE_ITEM_FORM_FIELDS);
+
             await api.createStoreItem({
-                itemName: title,
-                description,
-                cost: parseInt(price) || 0,
+                itemName: sanitizedData.itemName,
+                description: sanitizedData.description,
+                cost: sanitizedData.cost,
                 isAvailable: true,
             });
             onItemCreated();
             onClose();
         } catch (error) {
             console.error('Error creating store item:', error);
-            alert('Failed to create item');
+            Alert.alert('Error', 'Failed to create item');
         } finally {
             setIsSubmitting(false);
         }
@@ -67,21 +97,26 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
                     </View>
 
                     <ScrollView style={styles.form}>
+                        {/* Title Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
                             <TextInput
                                 style={[styles.input, {
                                     backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
+                                    borderColor: errors.itemName ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
                                 placeholder="e.g. Extra Screen Time"
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={title}
-                                onChangeText={setTitle}
+                                value={formData.itemName}
+                                onChangeText={(text) => handleChange('itemName', text)}
                             />
+                            {errors.itemName && (
+                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.itemName}</Text>
+                            )}
                         </View>
 
+                        {/* Description Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
                             <TextInput
@@ -92,25 +127,29 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
                                 }]}
                                 placeholder="Add details..."
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={description}
-                                onChangeText={setDescription}
+                                value={formData.description}
+                                onChangeText={(text) => handleChange('description', text)}
                                 multiline
                                 numberOfLines={3}
                             />
                         </View>
 
+                        {/* Cost Input */}
                         <View style={styles.inputGroup}>
                             <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Cost (Points)</Text>
                             <TextInput
                                 style={[styles.input, {
                                     backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
+                                    borderColor: errors.cost ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
-                                value={price}
-                                onChangeText={setPrice}
+                                value={String(formData.cost)}
+                                onChangeText={(text) => handleChange('cost', text)}
                                 keyboardType="numeric"
                             />
+                            {errors.cost && (
+                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.cost}</Text>
+                            )}
                         </View>
                     </ScrollView>
 
@@ -181,6 +220,11 @@ const styles = StyleSheet.create({
     textArea: {
         height: 100,
         textAlignVertical: 'top',
+    },
+    errorText: {
+        fontSize: 12,
+        marginTop: 4,
+        marginLeft: 4,
     },
     footer: {
         paddingTop: 16,

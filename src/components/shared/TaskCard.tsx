@@ -3,21 +3,15 @@ import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { CheckCircle, Circle, Pencil, Trash2 } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import MemberAvatar from '../family/MemberAvatar';
-
-interface TaskCardProps {
-    task: any;
-    onPress?: () => void;
-    onComplete?: () => void;
-    onEdit?: (task: any) => void;
-    onDelete?: (task: any) => void;
-    members?: any[];
-}
+import {
+    getTaskCardState,
+    formatTaskPoints,
+    type TaskCardProps
+} from 'momentum-shared';
 
 export default function TaskCard({ task, onPress, onComplete, onEdit, onDelete, members = [] }: TaskCardProps) {
     const { currentTheme: theme } = useTheme();
-    const isCompleted = task.status === 'Approved';
-    const isPendingApproval = task.status === 'PendingApproval';
-    const isPending = task.status === 'Pending';
+    const { isCompleted, isPendingApproval, isPending, statusColor } = getTaskCardState(task);
 
     const assignedMembers = members.filter(m =>
         task.assignedTo && task.assignedTo.includes(m.id || m._id)
@@ -61,7 +55,7 @@ export default function TaskCard({ task, onPress, onComplete, onEdit, onDelete, 
                 <View style={styles.bottomRow}>
                     {task.pointsValue && (
                         <Text style={[styles.points, { color: theme.colors.actionPrimary }]}>
-                            +{task.pointsValue} pts
+                            {formatTaskPoints(task.pointsValue)}
                         </Text>
                     )}
                     {isPendingApproval && (

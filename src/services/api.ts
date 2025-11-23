@@ -6,6 +6,7 @@ import { logger } from '../utils/logger';
 import {
     ApiResponse,
     User,
+    Member,
     AuthResponse,
     LoginResponse,
     RegisterResponse,
@@ -194,6 +195,14 @@ class ApiClient {
         return this.request<void>(`/family/members/${memberId}`, {
             method: 'DELETE',
             body: JSON.stringify({ householdId }),
+        });
+    }
+
+    // Focus Mode
+    async setFocusTask(householdId: string, memberProfileId: string, taskId: string | null): Promise<ApiResponse<any>> {
+        return this.request<any>(`/households/${householdId}/members/${memberProfileId}`, {
+            method: 'PATCH',
+            body: JSON.stringify({ focusedTaskId: taskId }),
         });
     }
 

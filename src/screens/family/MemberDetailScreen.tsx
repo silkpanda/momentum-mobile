@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSocket } from '../../contexts/SocketContext';
 import { Task, Quest, Member, QuestClaim } from '../../types';
 import { MemberPointsUpdatedEvent, TaskUpdatedEvent, QuestUpdatedEvent } from '../../constants/socketEvents';
+import FocusModeView from '../../components/focus/FocusModeView';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -35,6 +36,7 @@ export default function MemberDetailScreen() {
     const [tasks, setTasks] = useState<Task[]>([]);
     const [quests, setQuests] = useState<Quest[]>([]);
     const [memberPoints, setMemberPoints] = useState(initialPoints);
+    const [memberData, setMemberData] = useState<Member | null>(null); // Store full member data for Focus Mode
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -103,8 +105,10 @@ export default function MemberDetailScreen() {
                     } else {
                         console.log(`✅ [MemberDetail] Found member ${member.firstName}. Old Points: ${memberPoints}, New Points: ${member.pointsTotal}`);
                         setMemberPoints(member.pointsTotal || 0);
+                        setMemberData(member);
                     }
                 } else {
+                    setMemberData(null);
                     console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, familyResponse.data.household.members.map((m: Member) => m.id || m._id));
                 }
             }
@@ -187,6 +191,31 @@ export default function MemberDetailScreen() {
             alert(`Failed to complete quest: ${error.message || 'Unknown error'}`);
         }
     };
+
+    // Focus Mode Check
+    if (memberData?.focusedTaskId) {
+        const focusedTask = tasks.find(t => (t._id || t.id) === memberData.focusedTaskId);
+
+        if (focusedTask) {
+            return (
+                <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                    <FocusModeView
+                        task={focusedTask}
+                        currentIndex={tasks.indexOf(focusedTask) + 1}
+                        totalTasks={tasks.length}
+                        onComplete={() => handleCompleteTask(focusedTask._id || focusedTask.id)}
+                        onRequestHelp={() => {
+                            Alert.alert(
+                                'Request Help',
+                                'A notification has been sent to your parent.',
+                                [{ text: 'OK' }]
+                            );
+                        }}
+                    />
+                </View>
+            );
+        }
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
