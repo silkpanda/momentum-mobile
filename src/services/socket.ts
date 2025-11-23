@@ -38,41 +38,10 @@ export const disconnectSocket = () => {
     }
 };
 
-// Event Types (Mirrored from Web App)
-export interface TaskUpdatedEvent {
-    type: 'create' | 'update' | 'delete';
-    task?: any;
-    taskId?: string;
-    memberUpdate?: {
-        memberId: string;
-        pointsTotal: number;
-    };
-}
-
-export interface MemberPointsUpdatedEvent {
-    memberId: string;
-    pointsTotal: number;
-    householdId: string;
-}
-
-export interface StoreItemUpdatedEvent {
-    type: 'create' | 'update' | 'delete';
-    storeItem?: any;
-    storeItemId?: string;
-}
-
-export interface HouseholdUpdatedEvent {
-    type: 'update' | 'member_add' | 'member_update' | 'member_remove';
-    householdId: string;
-    householdName?: string;
-    member?: any;
-    memberProfile?: any;
-    memberProfileId?: string;
-}
-
-export const SOCKET_EVENTS = {
-    TASK_UPDATED: 'task_updated',
-    MEMBER_POINTS_UPDATED: 'member_points_updated',
-    STORE_ITEM_UPDATED: 'store_item_updated',
-    HOUSEHOLD_UPDATED: 'household_updated',
-} as const;
+// Re-export from constants for convenience
+export { SOCKET_EVENTS } from '../constants/socketEvents';
+export type {
+    TaskUpdatedEvent,
+    MemberPointsUpdatedEvent,
+    HouseholdUpdatedEvent
+} from '../constants/socketEvents';

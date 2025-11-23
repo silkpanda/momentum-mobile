@@ -238,12 +238,9 @@ class ApiClient {
     }
 
     async deleteStoreItem(itemId: string) {
-        console.log('[API] Deleting store item:', itemId);
-        console.log('[API] DELETE URL:', `/store/${itemId}`);
         const result = await this.request(`/store/${itemId}`, {
             method: 'DELETE',
         });
-        console.log('[API] Delete result:', result);
         return result;
     }
 

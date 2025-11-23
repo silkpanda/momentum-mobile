@@ -24,6 +24,12 @@ export interface MemberPointsUpdatedEvent {
     householdId: string;
 }
 
+export interface StoreItemUpdatedEvent {
+    type: 'create' | 'update' | 'delete';
+    storeItem?: any;
+    storeItemId?: string;
+}
+
 export interface HouseholdUpdatedEvent {
     type: 'update' | 'member_add' | 'member_update' | 'member_remove';
     householdId: string;
