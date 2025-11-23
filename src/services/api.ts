@@ -2,6 +2,7 @@
 // This provides a unified API interface for all mobile platforms.
 
 import { storage } from '../utils/storage';
+import { logger } from '../utils/logger';
 import {
     ApiResponse,
     User,
@@ -49,7 +50,7 @@ class ApiClient {
         backoff = 1000
     ): Promise<ApiResponse<T>> {
         const url = `${API_BASE_URL}${endpoint}`;
-        console.log(`[API] 🚀 Requesting: ${url} (Attempts left: ${retries})`);
+        logger.debug(`Requesting: ${url} (Attempts left: ${retries})`);
 
         try {
             const headers = await this.getHeaders();
@@ -73,7 +74,7 @@ class ApiClient {
 
                 // Check response status BEFORE parsing JSON
                 if (!response.ok) {
-                    console.log(`[API] ⚠️ Non-OK response from ${endpoint}:`, response.status);
+                    logger.warn(`Non-OK response from ${endpoint}:`, response.status);
 
                     // Clone the response so we can try multiple parsing strategies
                     const responseClone = response.clone();
@@ -87,7 +88,7 @@ class ApiClient {
                         // If JSON parsing fails, use the cloned response to get text
                         try {
                             const textResponse = await responseClone.text();
-                            console.error(`[API] 📄 Non-JSON error response:`, textResponse.substring(0, 200));
+                            logger.error(`Non-JSON error response:`, textResponse.substring(0, 200));
                             errorMessage = textResponse || `Request failed with status ${response.status}`;
                         } catch (textError) {
                             errorMessage = `Request failed with status ${response.status}`;
@@ -99,7 +100,7 @@ class ApiClient {
 
                 // Only parse JSON for successful responses
                 const data = await response.json();
-                console.log(`[API] ✅ Response from ${endpoint}:`, response.status);
+                logger.info(`Response from ${endpoint}:`, response.status);
 
                 return data;
             } catch (fetchError: any) {
@@ -107,19 +108,19 @@ class ApiClient {
 
                 // Handle timeouts and network errors with retries
                 if (retries > 0 && (fetchError.name === 'AbortError' || fetchError.message === 'Network request failed')) {
-                    console.log(`[API] ⚠️ Request failed, retrying in ${backoff}ms...`);
+                    logger.warn(`Request failed, retrying in ${backoff}ms...`);
                     await new Promise(resolve => setTimeout(resolve, backoff));
                     return this.request(endpoint, options, retries - 1, backoff * 2);
                 }
 
                 if (fetchError.name === 'AbortError') {
-                    console.error(`[API] ⏱️ Timeout waiting for ${url}`);
+                    logger.error(`Timeout waiting for ${url}`);
                     throw new Error('Request timed out. The server might be waking up (Cold Start). Please try again.');
                 }
                 throw fetchError;
             }
         } catch (error: any) {
-            console.error(`[API] ❌ Error requesting ${url}:`, error.message);
+            logger.error(`Error requesting ${url}:`, error.message);
             throw new Error(error.message || 'Network error');
         }
     }

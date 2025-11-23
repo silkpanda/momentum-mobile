@@ -2,6 +2,7 @@ import React, { createContext, useState, useContext, useEffect, ReactNode } from
 import { api } from '../services/api';
 import { storage } from '../utils/storage';
 import { User, LoginResponse, RegisterResponse } from '../types';
+import { logger } from '../utils/logger';
 
 interface AuthContextType {
     user: User | null;
@@ -39,7 +40,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const loadStoredAuth = async () => {
-        console.log('[AuthContext] loadStoredAuth called');
+        logger.debug('loadStoredAuth called');
         try {
             const [storedToken, storedUser, storedHouseholdId] = await Promise.all([
                 storage.getToken(),
@@ -47,49 +48,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 storage.getHouseholdId(),
             ]);
 
-            console.log('[AuthContext] Stored data:', {
+            logger.debug('Stored data:', {
                 hasToken: !!storedToken,
                 hasUser: !!storedUser,
                 hasHouseholdId: !!storedHouseholdId,
             });
 
             if (storedToken && storedUser) {
-                console.log('[AuthContext] Found stored credentials, setting state');
+                logger.debug('Found stored credentials, setting state');
                 setToken(storedToken);
                 setUser(storedUser);
                 setHouseholdId(storedHouseholdId);
 
                 // Verify token is still valid
                 try {
-                    console.log('[AuthContext] Verifying token with /auth/me');
+                    logger.debug('Verifying token with /auth/me');
                     const response = await api.getMe();
                     if (response.data) {
-                        console.log('[AuthContext] Token verified successfully');
+                        logger.info('Token verified successfully');
                         setUser(response.data.user);
                         setHouseholdId(response.data.householdId);
                     }
                 } catch (error: any) {
                     // Only clear auth if we get a 401 (unauthorized), not on network errors
-                    console.error('[AuthContext] Token verification failed:', error.message);
+                    logger.error('Token verification failed:', error.message);
 
                     // Check if this is an authentication error (401) vs network error
                     if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('Invalid token'))) {
-                        console.log('[AuthContext] Auth error detected, clearing credentials');
+                        logger.warn('Auth error detected, clearing credentials');
                         await clearAuth();
                     } else {
-                        console.log('[AuthContext] Network error, keeping existing credentials');
+                        logger.debug('Network error, keeping existing credentials');
                         // Keep the stored credentials - this is likely just a network issue
                     }
                 }
             } else {
-                console.log('[AuthContext] No stored credentials found');
+                logger.debug('No stored credentials found');
             }
         } catch (error) {
-            console.error('[AuthContext] Error loading auth:', error);
+            logger.error('Error loading auth:', error);
             // Don't throw - we want the app to continue loading even if auth fails
         } finally {
             setIsLoading(false);
-            console.log('[AuthContext] loadStoredAuth complete, isLoading set to false');
+            logger.debug('loadStoredAuth complete, isLoading set to false');
         }
     };
 

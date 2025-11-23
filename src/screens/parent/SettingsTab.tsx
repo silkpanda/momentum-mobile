@@ -69,7 +69,7 @@ export default function SettingsTab() {
         );
     }
 
-    const fullName = `${user?.firstName} ${user?.lastName}`;
+    const fullName = `${user?.firstName} ${user?.lastName || ''}`.trim();
     const displayName = userProfile?.displayName || fullName;
     const points = userProfile?.pointsTotal || 0;
     const role = userProfile?.role || 'Member';

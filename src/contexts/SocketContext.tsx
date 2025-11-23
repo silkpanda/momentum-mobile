@@ -2,6 +2,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { useAuth } from './AuthContext';
+import { logger } from '../utils/logger';
 
 interface SocketContextType {
     socket: Socket | null;
@@ -33,14 +34,14 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     useEffect(() => {
         // Wait for auth to finish loading
         if (isLoading) {
-            console.log('🔌 Waiting for auth to load...');
+            logger.debug('Waiting for auth to load...');
             return;
         }
 
         // Only connect if we have a token
         if (!token) {
             if (socket) {
-                console.log('🔌 Disconnecting socket (no token)');
+                logger.info('Disconnecting socket (no token)');
                 socket.disconnect();
                 setSocket(null);
                 setConnected(false);
@@ -52,16 +53,16 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         const initSocket = async () => {
             // If we already have a socket connected with the same token, don't reconnect
             if (socket?.connected && (socket.auth as any)?.token === token) {
-                console.log('🔌 Socket already connected with current token');
+                logger.debug('Socket already connected with current token');
                 return;
             }
 
             if (socket) {
-                console.log('🔌 Disconnecting old socket...');
+                logger.info('Disconnecting old socket...');
                 socket.disconnect();
             }
 
-            console.log('🔌 Initializing socket connection...');
+            logger.info('Initializing socket connection...');
             try {
                 const newSocket = io('https://momentum-mobile-bff.onrender.com', {
                     transports: ['websocket', 'polling'],
@@ -74,23 +75,23 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
                 });
 
                 newSocket.on('connect', () => {
-                    console.log('🔌 Connected to WebSocket server');
+                    logger.info('Connected to WebSocket server');
                     setConnected(true);
                 });
 
                 newSocket.on('disconnect', () => {
-                    console.log('❌ Disconnected from WebSocket server');
+                    logger.info('Disconnected from WebSocket server');
                     setConnected(false);
                 });
 
                 newSocket.on('connect_error', (error) => {
-                    console.error('WebSocket connection error:', error.message);
+                    logger.error('WebSocket connection error:', error.message);
                     setConnected(false);
                 });
 
                 setSocket(newSocket);
             } catch (error) {
-                console.error('🔌 Failed to initialize socket:', error);
+                logger.error('Failed to initialize socket:', error);
             }
         };
 
@@ -98,7 +99,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
 
         return () => {
             if (socket) {
-                console.log('🔌 Cleaning up socket connection...');
+                logger.info('Cleaning up socket connection...');
                 socket.disconnect();
             }
         };
@@ -109,7 +110,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
         if (socket && connected) {
             socket.emit(event, data);
         } else {
-            console.warn('Socket not connected, cannot emit:', event);
+            logger.warn('Socket not connected, cannot emit:', event);
         }
     }, [socket, connected]);
 

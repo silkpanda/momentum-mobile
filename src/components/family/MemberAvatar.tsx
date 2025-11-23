@@ -13,6 +13,7 @@ export default function MemberAvatar({ name, color, size = 48, showName = false 
     const theme = themes.calmLight;
     const initials = name
         .split(' ')
+        .filter(n => n.length > 0)
         .map((n) => n[0])
         .join('')
         .toUpperCase()

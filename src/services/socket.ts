@@ -1,5 +1,6 @@
 // src/services/socket.ts
 import { io, Socket } from 'socket.io-client';
+import { logger } from '../utils/logger';
 
 // The BFF URL for WebSocket connection (root URL, not /mobile-bff)
 const SOCKET_URL = 'https://momentum-mobile-bff.onrender.com';
@@ -8,7 +9,7 @@ let socket: Socket | null = null;
 
 export const getSocket = (): Socket => {
     if (!socket) {
-        console.log('[WebSocket] Connecting to:', SOCKET_URL);
+        logger.info('Connecting to WebSocket:', SOCKET_URL);
         socket = io(SOCKET_URL, {
             transports: ['websocket'], // Force WebSocket for better performance on mobile
             reconnection: true,
@@ -17,15 +18,15 @@ export const getSocket = (): Socket => {
         });
 
         socket.on('connect', () => {
-            console.log('[WebSocket] Connected:', socket?.id);
+            logger.info('WebSocket Connected:', socket?.id);
         });
 
         socket.on('disconnect', (reason) => {
-            console.log('[WebSocket] Disconnected:', reason);
+            logger.info('WebSocket Disconnected:', reason);
         });
 
         socket.on('connect_error', (error) => {
-            console.error('[WebSocket] Connection error:', error.message);
+            logger.error('WebSocket Connection error:', error.message);
         });
     }
     return socket;

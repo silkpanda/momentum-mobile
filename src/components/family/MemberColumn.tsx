@@ -28,7 +28,7 @@ export default function MemberColumn({ member, allTasks, onPress }: MemberColumn
         >
             <View style={styles.columnHeader}>
                 <MemberAvatar
-                    name={member.firstName + ' ' + member.lastName}
+                    name={`${member.firstName} ${member.lastName || ''}`.trim()}
                     color={member.profileColor}
                     size={56}
                 />
