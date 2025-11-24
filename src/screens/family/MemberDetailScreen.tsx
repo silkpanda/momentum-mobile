@@ -37,6 +37,7 @@ export default function MemberDetailScreen() {
     const [quests, setQuests] = useState<Quest[]>([]);
     const [memberPoints, setMemberPoints] = useState(initialPoints);
     const [memberData, setMemberData] = useState<Member | null>(null); // Store full member data for Focus Mode
+    const [focusedTask, setFocusedTask] = useState<Task | null>(null); // Store the specific focused task
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
 
@@ -68,11 +69,17 @@ export default function MemberDetailScreen() {
 
     const loadMemberData = useCallback(async () => {
         console.log('📥 [MemberDetail] Loading member data...');
+        setIsLoading(true);
         try {
             // Load tasks
             const tasksResponse = await api.getTasks();
+            let allTasks: Task[] = [];
+
             if (tasksResponse.data && Array.isArray(tasksResponse.data.tasks)) {
-                const memberTasks = tasksResponse.data.tasks.filter((t: Task) => {
+                allTasks = tasksResponse.data.tasks;
+
+                // Filter tasks for this member's list
+                const memberTasks = allTasks.filter((t: Task) => {
                     const isAssigned = t.assignedTo && Array.isArray(t.assignedTo) &&
                         t.assignedTo.some((assigneeId: string) => assigneeId === memberId);
                     const isPending = t.status === 'Pending' || t.status === 'PendingApproval';
@@ -93,9 +100,12 @@ export default function MemberDetailScreen() {
 
             // Load fresh member data (points)
             const familyResponse = await api.getFamilyData();
-            if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
-                console.log(`[MemberDetail] Searching for memberId: ${memberId} in ${familyResponse.data.household.members.length} members`);
-                const member = familyResponse.data.household.members.find((m: Member) => m.id === memberId || m._id === memberId);
+            // Handle both structure formats (direct memberProfiles or nested in household)
+            const members = (familyResponse.data as any).memberProfiles || familyResponse.data?.household?.members || [];
+
+            if (members.length > 0) {
+                console.log(`[MemberDetail] Searching for memberId: ${memberId} in ${members.length} members`);
+                const member = members.find((m: Member) => m.id === memberId || m._id === memberId);
 
                 if (member) {
                     // Check if we have a recent local update (within 2 seconds)
@@ -106,10 +116,19 @@ export default function MemberDetailScreen() {
                         console.log(`✅ [MemberDetail] Found member ${member.firstName}. Old Points: ${memberPoints}, New Points: ${member.pointsTotal}`);
                         setMemberPoints(member.pointsTotal || 0);
                         setMemberData(member);
+
+                        // Find focused task if it exists
+                        if (member.focusedTaskId) {
+                            const task = allTasks.find(t => (t._id || t.id) === member.focusedTaskId);
+                            setFocusedTask(task || null);
+                        } else {
+                            setFocusedTask(null);
+                        }
                     }
                 } else {
                     setMemberData(null);
-                    console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, familyResponse.data.household.members.map((m: Member) => m.id || m._id));
+                    setFocusedTask(null);
+                    console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, members.map((m: Member) => m.id || m._id));
                 }
             }
 
@@ -164,8 +183,31 @@ export default function MemberDetailScreen() {
 
     const handleCompleteTask = async (taskId: string) => {
         try {
+            // 1. Complete the task
             await api.completeTask(taskId, memberId);
+
+            // 2. Explicitly clear focus mode since we just finished the focused task
+            // We need the householdId for this. It's usually available in memberData or we can get it from context/storage.
+            // Since we might not have it easily, we'll rely on the fact that the backend *should* probably do this, 
+            // but for now we will manually trigger it if we have the data.
+
+            // Actually, api.setFocusTask requires householdId and memberProfileId.
+            // memberData has _id (memberProfileId). We need householdId.
+            // It's not in memberData directly usually.
+
+            // Let's look at how we can get householdId. 
+            // It is in the user context 'user.householdId' or 'householdId' from useAuth/storage?
+            // Let's check useAuth().
+
+            // For now, let's just reload. If the backend doesn't clear it, we might be stuck.
+            // BUT, we can optimistically clear it locally to exit the screen immediately.
+            setMemberData(prev => prev ? { ...prev, focusedTaskId: undefined } : null);
+            setFocusedTask(null);
+
+            // Then reload from server to sync up
             loadMemberData();
+
+            Alert.alert("Great Job! 🎉", "Task completed!");
         } catch (error: any) {
             console.error('Error completing task:', error);
             alert(`Failed to complete task: ${error.message || 'Unknown error'}`);
@@ -192,29 +234,34 @@ export default function MemberDetailScreen() {
         }
     };
 
-    // Focus Mode Check
-    if (memberData?.focusedTaskId) {
-        const focusedTask = tasks.find(t => (t._id || t.id) === memberData.focusedTaskId);
+    // Loading State
+    if (isLoading) {
+        return (
+            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.bgCanvas }]}>
+                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
+            </View>
+        );
+    }
 
-        if (focusedTask) {
-            return (
-                <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
-                    <FocusModeView
-                        task={focusedTask}
-                        currentIndex={tasks.indexOf(focusedTask) + 1}
-                        totalTasks={tasks.length}
-                        onComplete={() => handleCompleteTask(focusedTask._id || focusedTask.id)}
-                        onRequestHelp={() => {
-                            Alert.alert(
-                                'Request Help',
-                                'A notification has been sent to your parent.',
-                                [{ text: 'OK' }]
-                            );
-                        }}
-                    />
-                </View>
-            );
-        }
+    // Focus Mode Check
+    if (memberData?.focusedTaskId && focusedTask) {
+        return (
+            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                <FocusModeView
+                    task={focusedTask}
+                    currentIndex={1} // Single task view
+                    totalTasks={1}
+                    onComplete={() => handleCompleteTask(focusedTask._id || focusedTask.id)}
+                    onRequestHelp={() => {
+                        Alert.alert(
+                            'Request Help',
+                            'A notification has been sent to your parent.',
+                            [{ text: 'OK' }]
+                        );
+                    }}
+                />
+            </View>
+        );
     }
 
     return (

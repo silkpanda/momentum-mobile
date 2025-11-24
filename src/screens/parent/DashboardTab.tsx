@@ -33,27 +33,59 @@ export default function DashboardTab() {
     const handleSetFocusTask = async (taskId: string) => {
         if (!selectedMember || !householdId) return;
 
+        // Robust ID check
+        const targetId = selectedMember.id || selectedMember._id;
+        if (!targetId) {
+            console.error('Selected member has no ID');
+            return;
+        }
+
+        // Optimistic update
+        setMembers(prevMembers => prevMembers.map(m => {
+            const currentId = m.id || m._id;
+            return (currentId === targetId)
+                ? { ...m, focusedTaskId: taskId }
+                : m;
+        }));
+
+        // Close modal immediately
+        setTaskSelectionVisible(false);
+        const memberName = selectedMember.firstName;
+        setSelectedMember(null);
+
         try {
-            await api.setFocusTask(householdId, selectedMember.id || selectedMember._id!, taskId);
-            setTaskSelectionVisible(false);
-            setSelectedMember(null);
+            await api.setFocusTask(householdId, targetId, taskId);
+            // Reload in background to ensure consistency
             loadData();
-            Alert.alert('Focus Mode', `Focus task set for ${selectedMember.firstName}`);
         } catch (error) {
             console.error('Error setting focus task:', error);
             Alert.alert('Error', 'Failed to set focus task');
+            loadData(); // Revert on error
         }
     };
 
     const handleClearFocusTask = async (member: Member) => {
         if (!householdId) return;
+
+        const targetId = member.id || member._id;
+        if (!targetId) return;
+
+        // Optimistic update
+        setMembers(prevMembers => prevMembers.map(m => {
+            const currentId = m.id || m._id;
+            return (currentId === targetId)
+                ? { ...m, focusedTaskId: undefined }
+                : m;
+        }));
+
         try {
-            await api.setFocusTask(householdId, member.id || member._id!, null);
+            await api.setFocusTask(householdId, targetId, null);
+            // Reload in background
             loadData();
-            Alert.alert('Focus Mode', `Focus mode cleared for ${member.firstName}`);
         } catch (error) {
             console.error('Error clearing focus task:', error);
             Alert.alert('Error', 'Failed to clear focus mode');
+            loadData(); // Revert on error
         }
     };
 
@@ -100,15 +132,22 @@ export default function DashboardTab() {
             if (dashboardResponse.data && dashboardResponse.data.household) {
                 setHouseholdId(dashboardResponse.data.household.id || dashboardResponse.data.household._id!);
                 if (dashboardResponse.data.household.members) {
+                    // Ensure all members have a valid 'id' property to prevent React key issues
+                    // and comparison errors
+                    const sanitizedMembers = dashboardResponse.data.household.members.map((m: any) => ({
+                        ...m,
+                        id: m.id || m._id // Fallback to _id if id is missing
+                    }));
+
                     logger.info('Dashboard members loaded:', {
-                        count: dashboardResponse.data.household.members.length,
-                        members: dashboardResponse.data.household.members.map((m: Member) => ({
+                        count: sanitizedMembers.length,
+                        members: sanitizedMembers.map((m: Member) => ({
                             name: m.firstName,
-                            id: m.id || m._id,
+                            id: m.id,
                             focusedTaskId: m.focusedTaskId
                         }))
                     });
-                    setMembers(dashboardResponse.data.household.members);
+                    setMembers(sanitizedMembers);
                 } else {
                     setMembers([]);
                 }
@@ -403,7 +442,7 @@ export default function DashboardTab() {
                                     )}
 
 
-                                    <View style={isInFocusMode && { marginTop: 24 }}>
+                                    <View style={isInFocusMode ? { marginTop: 24 } : undefined}>
                                         <MemberAvatar name={member.firstName} color={member.profileColor} size={48} />
                                     </View>
                                     <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
