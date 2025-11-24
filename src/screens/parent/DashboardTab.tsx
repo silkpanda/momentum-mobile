@@ -289,42 +289,58 @@ export default function DashboardTab() {
                 ) : (
                     <>
                         {/* Pending Tasks */}
-                        {pendingTasks.map((task) => (
-                            <View key={task._id || task.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
-                                <View style={styles.approvalInfo}>
-                                    <View style={styles.typeRow}>
-                                        <Target size={14} color={theme.colors.textSecondary} />
-                                        <Text style={[styles.typeLabel, { color: theme.colors.textSecondary }]}>TASK</Text>
-                                    </View>
-                                    <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
-                                        {task.title}
-                                    </Text>
-                                    <View style={styles.approvalMeta}>
-                                        <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
-                                            +{task.value} pts
+                        {pendingTasks.map((task) => {
+                            const completedByMember = members.find(m => (m.id === task.completedBy || m._id === task.completedBy));
+
+                            return (
+                                <View key={task._id || task.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
+                                    <View style={styles.approvalInfo}>
+                                        <View style={styles.typeRow}>
+                                            <Target size={14} color={theme.colors.textSecondary} />
+                                            <Text style={[styles.typeLabel, { color: theme.colors.textSecondary }]}>TASK</Text>
+                                        </View>
+                                        <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
+                                            {task.title}
                                         </Text>
-                                        <View style={styles.statusBadge}>
-                                            <Clock size={12} color="#F59E0B" />
-                                            <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
+                                        {completedByMember && (
+                                            <View style={styles.approvalMemberRow}>
+                                                <MemberAvatar
+                                                    name={completedByMember.firstName}
+                                                    color={completedByMember.profileColor}
+                                                    size={20}
+                                                />
+                                                <Text style={[styles.approvalMemberName, { color: theme.colors.textSecondary }]}>
+                                                    {completedByMember.firstName}
+                                                </Text>
+                                            </View>
+                                        )}
+                                        <View style={styles.approvalMeta}>
+                                            <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
+                                                +{task.pointsValue || task.value || 0} pts
+                                            </Text>
+                                            <View style={styles.statusBadge}>
+                                                <Clock size={12} color="#F59E0B" />
+                                                <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
+                                            </View>
                                         </View>
                                     </View>
+                                    <View style={styles.approvalActions}>
+                                        <TouchableOpacity
+                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
+                                            onPress={() => handleReject(task._id || task.id)}
+                                        >
+                                            <XCircle size={20} color={theme.colors.signalAlert} />
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
+                                            onPress={() => handleApprove(task._id || task.id)}
+                                        >
+                                            <CheckCircle size={20} color={theme.colors.signalSuccess} />
+                                        </TouchableOpacity>
+                                    </View>
                                 </View>
-                                <View style={styles.approvalActions}>
-                                    <TouchableOpacity
-                                        style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
-                                        onPress={() => handleReject(task._id || task.id)}
-                                    >
-                                        <XCircle size={20} color={theme.colors.signalAlert} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
-                                        onPress={() => handleApprove(task._id || task.id)}
-                                    >
-                                        <CheckCircle size={20} color={theme.colors.signalSuccess} />
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        ))}
+                            );
+                        })}
 
                         {/* Pending Quests */}
                         {pendingQuests.map((quest) => {
@@ -579,9 +595,14 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         textTransform: 'uppercase',
     },
+    approvalMemberRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginBottom: 4,
+    },
     approvalMemberName: {
         fontSize: 12,
-        marginBottom: 4,
     },
     approvalTitle: {
         fontSize: 16,

@@ -28,6 +28,7 @@ export interface Task {
     title: string;
     description?: string;
     value: number;
+    pointsValue?: number; // API sometimes returns this instead of value
     status: 'Pending' | 'PendingApproval' | 'Completed' | 'Approved';
     assignedTo: string[]; // Array of member IDs
     completedBy?: string | null; // Member ID
