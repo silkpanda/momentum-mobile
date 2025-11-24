@@ -40,14 +40,6 @@ export default function DashboardTab() {
             return;
         }
 
-        // Optimistic update
-        setMembers(prevMembers => prevMembers.map(m => {
-            const currentId = m.id || m._id;
-            return (currentId === targetId)
-                ? { ...m, focusedTaskId: taskId }
-                : m;
-        }));
-
         // Close modal immediately
         setTaskSelectionVisible(false);
         const memberName = selectedMember.firstName;
@@ -55,12 +47,11 @@ export default function DashboardTab() {
 
         try {
             await api.setFocusTask(householdId, targetId, taskId);
-            // Reload in background to ensure consistency
-            loadData();
+            // Reload to ensure consistency
+            await loadData();
         } catch (error) {
             console.error('Error setting focus task:', error);
             Alert.alert('Error', 'Failed to set focus task');
-            loadData(); // Revert on error
         }
     };
 
@@ -70,22 +61,13 @@ export default function DashboardTab() {
         const targetId = member.id || member._id;
         if (!targetId) return;
 
-        // Optimistic update
-        setMembers(prevMembers => prevMembers.map(m => {
-            const currentId = m.id || m._id;
-            return (currentId === targetId)
-                ? { ...m, focusedTaskId: undefined }
-                : m;
-        }));
-
         try {
             await api.setFocusTask(householdId, targetId, null);
-            // Reload in background
-            loadData();
+            // Reload to ensure consistency
+            await loadData();
         } catch (error) {
             console.error('Error clearing focus task:', error);
             Alert.alert('Error', 'Failed to clear focus mode');
-            loadData(); // Revert on error
         }
     };
 
@@ -419,34 +401,45 @@ export default function DashboardTab() {
                                 : null;
 
                             const isInFocusMode = !!member.focusedTaskId;
+                            const actionColor = theme.colors.actionPrimary || '#000000';
+
+                            // Compute styles explicitly to avoid rendering issues
+                            const cardStyle = [
+                                styles.memberCard,
+                                isInFocusMode ? {
+                                    backgroundColor: actionColor + '10',
+                                    borderWidth: 4,
+                                    borderColor: actionColor
+                                } : {
+                                    backgroundColor: theme.colors.bgSurface,
+                                    borderWidth: 0
+                                }
+                            ];
 
                             return (
                                 <View
                                     key={member.id}
-                                    style={[
-                                        styles.memberCard,
-                                        { backgroundColor: theme.colors.bgSurface },
-                                        isInFocusMode && {
-                                            borderWidth: 4,
-                                            borderColor: theme.colors.actionPrimary,
-                                            backgroundColor: theme.colors.actionPrimary + '10'
-                                        }
-                                    ]}
+                                    style={cardStyle}
                                 >
                                     {/* Focus Mode Banner - ULTRA PROMINENT */}
                                     {isInFocusMode && (
-                                        <View style={[styles.focusModeBanner, { backgroundColor: theme.colors.actionPrimary }]}>
+                                        <View style={[styles.focusModeBanner, { backgroundColor: actionColor }]}>
                                             <Target size={16} color="#FFFFFF" />
                                             <Text style={styles.focusModeBannerText}>🎯 FOCUS MODE</Text>
                                         </View>
                                     )}
 
 
-                                    <View style={isInFocusMode ? { marginTop: 24 } : undefined}>
-                                        <MemberAvatar name={member.firstName} color={member.profileColor} size={48} />
+                                    <View style={isInFocusMode ? { marginTop: 24 } : {}}>
+                                        <MemberAvatar
+                                            key={`avatar-${member.id}-${isInFocusMode}`}
+                                            name={member.firstName || 'Member'}
+                                            color={member.profileColor || '#CCCCCC'}
+                                            size={48}
+                                        />
                                     </View>
                                     <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
-                                        {member.firstName}
+                                        {member.firstName || 'Unknown'}
                                     </Text>
                                     <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>
                                         {member.pointsTotal || 0} pts
@@ -476,13 +469,13 @@ export default function DashboardTab() {
                                     ) : (
                                         <TouchableOpacity
                                             style={[styles.focusButton, {
-                                                borderColor: theme.colors.actionPrimary,
-                                                backgroundColor: theme.colors.actionPrimary + '10'
+                                                borderColor: actionColor,
+                                                backgroundColor: actionColor + '10'
                                             }]}
                                             onPress={() => openTaskSelection(member)}
                                         >
-                                            <Target size={16} color={theme.colors.actionPrimary} />
-                                            <Text style={[styles.focusButtonText, { color: theme.colors.actionPrimary }]}>
+                                            <Target size={16} color={actionColor} />
+                                            <Text style={[styles.focusButtonText, { color: actionColor }]}>
                                                 Set Focus
                                             </Text>
                                         </TouchableOpacity>
