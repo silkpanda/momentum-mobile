@@ -2,7 +2,7 @@
 // momentum-mobile/src/screens/family/MemberStoreScreen.tsx
 // Child Store View - For spending points
 // =========================================================
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity, Platform, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ArrowLeft, Star, ShoppingBag } from 'lucide-react-native';
@@ -14,6 +14,8 @@ import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useSocket } from '../../contexts/SocketContext';
+import { useData } from '../../contexts/DataContext';
+import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
 
 type MemberStoreRouteProp = RouteProp<RootStackParamList, 'MemberStore'>;
 
@@ -26,60 +28,45 @@ export default function MemberStoreScreen() {
     const { memberId, userId, memberName, memberColor, memberPoints: initialPoints } = route.params;
     const { currentTheme: theme } = useTheme();
 
-    const [items, setItems] = useState<StoreItem[]>([]);
+    const { storeItems, members, refresh, isRefreshing } = useData();
+    const { execute } = useOptimisticUpdate();
+
     const [currentPoints, setCurrentPoints] = useState(initialPoints);
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
 
-    const loadData = async () => {
-        try {
-            const [storeResponse, familyResponse] = await Promise.all([
-                api.getStoreItems(),
-                api.getFamilyData()
-            ]);
+    // Get fresh member data to keep points in sync
+    const memberData = useMemo(() =>
+        members.find(m => m.id === memberId || m._id === memberId),
+        [members, memberId]
+    );
 
-            if (storeResponse.data && storeResponse.data.storeItems) {
-                setItems(storeResponse.data.storeItems);
-            }
-
-            // Update points from family data
-            if (familyResponse.data && familyResponse.data.household && familyResponse.data.household.members) {
-                const member = familyResponse.data.household.members.find((m: Member) => m.id === memberId || m._id === memberId);
-                if (member) {
-                    setCurrentPoints(member.pointsTotal || 0);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading store data:', error);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
-        }
-    };
-
+    // Update local points state when member data changes
     useEffect(() => {
-        loadData();
-    }, []);
+        if (memberData) {
+            setCurrentPoints(memberData.pointsTotal || 0);
+        }
+    }, [memberData?.pointsTotal]);
 
     // Real-time updates
     useEffect(() => {
-        const handleUpdate = () => {
-            console.log('🔄 Received real-time update in Store, refreshing...');
-            loadData();
+        const handleUpdate = (data: any) => {
+            // Check if this is a points update for the current member
+            if (data && 'pointsTotal' in data && 'memberId' in data && data.memberId === memberId) {
+                console.log(`✅ [MemberStore] Socket update points: ${data.pointsTotal}`);
+                setCurrentPoints(data.pointsTotal);
+            }
         };
 
         on('member_points_updated', handleUpdate);
-        on('store_item_updated', handleUpdate);
+        on('store_item_updated', refresh); // Refresh store items if they change
 
         return () => {
             off('member_points_updated', handleUpdate);
-            off('store_item_updated', handleUpdate);
+            off('store_item_updated', refresh);
         };
-    }, [on, off]);
+    }, [on, off, memberId, refresh]);
 
     const onRefresh = () => {
-        setRefreshing(true);
-        loadData();
+        refresh();
     };
 
     const handlePurchase = async (item: StoreItem) => {
@@ -109,41 +96,34 @@ export default function MemberStoreScreen() {
     };
 
     const performPurchase = async (item: StoreItem) => {
-        // Optimistic Update: Immediately deduct points
         const previousPoints = currentPoints;
-        setCurrentPoints(prev => prev - item.cost);
 
-        try {
-            // Use userId (FamilyMember ID) for the purchase transaction as required by the backend
-            const response = await api.purchaseItem(item._id || item.id, userId);
+        await execute({
+            optimisticUpdate: () => {
+                // Optimistically deduct points
+                setCurrentPoints(prev => prev - item.cost);
+            },
+            apiCall: async () => {
+                const response = await api.purchaseItem(item._id || item.id, userId);
 
-            if (Platform.OS === 'web') {
-                console.log(`Redeemed ${item.itemName}`);
-            } else {
-                Alert.alert('Success!', `You redeemed ${item.itemName}!`);
-            }
+                // If successful, update points from server response
+                if (response.data && typeof response.data.newPointsTotal === 'number') {
+                    console.log(`[Store] Updated points from server: ${response.data.newPointsTotal}`);
+                    setCurrentPoints(response.data.newPointsTotal);
 
-            // Update points from the server response if available
-            if (response.data && typeof response.data.newPointsTotal === 'number') {
-                console.log(`[Store] Updated points from server: ${response.data.newPointsTotal}`);
-                setCurrentPoints(response.data.newPointsTotal);
-
-                // Notify MemberDetailScreen immediately
-                DeviceEventEmitter.emit('update_member_points', {
-                    memberId,
-                    points: response.data.newPointsTotal
-                });
-            } else {
-                // Fallback to reloading data
-                loadData();
-            }
-        } catch (error: any) {
-            console.error('Error purchasing item:', error);
-            Alert.alert('Error', 'Failed to redeem item. Please try again.');
-
-            // Revert optimistic update on failure
-            setCurrentPoints(previousPoints);
-        }
+                    // Notify MemberDetailScreen immediately
+                    DeviceEventEmitter.emit('update_member_points', {
+                        memberId,
+                        points: response.data.newPointsTotal
+                    });
+                }
+                return response;
+            },
+            rollback: () => {
+                setCurrentPoints(previousPoints);
+            },
+            successMessage: `You redeemed ${item.itemName}! 🎉`
+        });
     };
 
     return (
@@ -173,33 +153,27 @@ export default function MemberStoreScreen() {
                 <View style={{ width: 24 }} />
             </View>
 
-            {isLoading ? (
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
-                </View>
-            ) : (
-                <FlatList
-                    data={items}
-                    keyExtractor={(item) => item._id || item.id}
-                    renderItem={({ item }) => (
-                        <StoreItemCard
-                            item={item}
-                            userPoints={currentPoints}
-                            onPurchase={() => handlePurchase(item)}
-                        />
-                    )}
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-                    ListEmptyComponent={
-                        <View style={styles.emptyContainer}>
-                            <ShoppingBag size={48} color={theme.colors.borderSubtle} />
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                                No rewards available yet.
-                            </Text>
-                        </View>
-                    }
-                />
-            )}
+            <FlatList
+                data={storeItems}
+                keyExtractor={(item) => item._id || item.id}
+                renderItem={({ item }) => (
+                    <StoreItemCard
+                        item={item}
+                        userPoints={currentPoints}
+                        onPurchase={() => handlePurchase(item)}
+                    />
+                )}
+                contentContainerStyle={styles.listContent}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <ShoppingBag size={48} color={theme.colors.borderSubtle} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                            No rewards available yet.
+                        </Text>
+                    </View>
+                }
+            />
         </View>
     );
 }

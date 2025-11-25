@@ -1,155 +1,146 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { useData } from '../../contexts/DataContext';
+import { Quest } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
-import { api } from '../../services/api';
-import { Plus, Trash2, Map, Star, Pencil } from 'lucide-react-native';
+import { SkeletonList } from '../../components/SkeletonLoader';
+import { Map, Plus, Users } from 'lucide-react-native';
 import CreateQuestModal from '../../components/parent/CreateQuestModal';
 
-export default function QuestsScreen() {
-    const { user } = useAuth();
+export default function QuestsTab() {
     const { currentTheme: theme } = useTheme();
-    const [quests, setQuests] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-    const [editingQuest, setEditingQuest] = useState<any>(null);
 
-    const loadQuests = async () => {
-        try {
-            const response = await api.getQuests();
-            // Assuming API returns { status: 'success', data: { quests: [...] } }
-            if (response.data && response.data.quests) {
-                setQuests(response.data.quests);
-            } else {
-                setQuests([]);
-            }
-        } catch (error) {
-            console.error('Error loading quests:', error);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
-        }
+    // Get data from global cache
+    const { quests, isInitialLoad, isRefreshing, refresh } = useData();
+
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedQuest, setSelectedQuest] = useState<Quest | null>(null);
+
+    const handleQuestPress = (quest: Quest) => {
+        setSelectedQuest(quest);
+        setModalVisible(true);
     };
 
-    useFocusEffect(
-        useCallback(() => {
-            loadQuests();
-        }, [])
-    );
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        loadQuests();
+    const handleCreateNew = () => {
+        setSelectedQuest(null);
+        setModalVisible(true);
     };
 
-    const handleDelete = async (questId: string) => {
-        Alert.alert(
-            'Delete Quest',
-            'Are you sure you want to delete this quest?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.deleteQuest(questId);
-                            loadQuests();
-                        } catch (error) {
-                            console.error('Error deleting quest:', error);
-                            alert('Failed to delete quest');
-                        }
-                    }
-                }
-            ]
+    const handleCloseModal = () => {
+        setModalVisible(false);
+        setSelectedQuest(null);
+    };
+
+    const renderQuestItem = ({ item }: { item: Quest }) => {
+        const claimedCount = item.claims?.length || 0;
+        const completedCount = item.claims?.filter(c => c.status === 'completed' || c.status === 'approved').length || 0;
+
+        return (
+            <TouchableOpacity
+                style={[styles.questCard, { backgroundColor: theme.colors.bgSurface }]}
+                onPress={() => handleQuestPress(item)}
+            >
+                <View style={styles.questHeader}>
+                    <Map size={20} color={theme.colors.actionPrimary} />
+                    <Text style={[styles.questTitle, { color: theme.colors.textPrimary }]}>
+                        {item.title}
+                    </Text>
+                </View>
+
+                {item.description && (
+                    <Text style={[styles.questDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                        {item.description}
+                    </Text>
+                )}
+
+                <View style={styles.questFooter}>
+                    <View style={styles.questMeta}>
+                        <Text style={[styles.questPoints, { color: theme.colors.actionPrimary }]}>
+                            {item.pointsValue || 0} pts
+                        </Text>
+                        {claimedCount > 0 && (
+                            <View style={styles.claimsContainer}>
+                                <Users size={14} color={theme.colors.textSecondary} />
+                                <Text style={[styles.claimsText, { color: theme.colors.textSecondary }]}>
+                                    {completedCount}/{claimedCount} completed
+                                </Text>
+                            </View>
+                        )}
+                    </View>
+
+                    {item.isActive ? (
+                        <View style={[styles.statusBadge, { backgroundColor: '#10B981' + '20' }]}>
+                            <Text style={[styles.statusText, { color: '#10B981' }]}>Active</Text>
+                        </View>
+                    ) : (
+                        <View style={[styles.statusBadge, { backgroundColor: '#6B7280' + '20' }]}>
+                            <Text style={[styles.statusText, { color: '#6B7280' }]}>Inactive</Text>
+                        </View>
+                    )}
+                </View>
+            </TouchableOpacity>
         );
     };
 
-    if (isLoading && !quests.length) {
+    if (isInitialLoad) {
         return (
-            <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.bgCanvas }]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
+            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                <SkeletonList count={4} />
             </View>
         );
     }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+            {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Manage Quests</Text>
-                <Text style={[styles.subtitle, { color: theme.colors.textSecondary }]}>Create adventures for your family</Text>
+                <View style={styles.headerLeft}>
+                    <Map size={24} color={theme.colors.actionPrimary} />
+                    <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                        Quests
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: theme.colors.actionPrimary }]}
+                    onPress={handleCreateNew}
+                >
+                    <Plus size={20} color="#FFFFFF" />
+                    <Text style={styles.addButtonText}>New Quest</Text>
+                </TouchableOpacity>
             </View>
 
+            {/* Quests List */}
             <FlatList
                 data={quests}
-                keyExtractor={(item) => item._id || item.id}
-                renderItem={({ item }) => (
-                    <View style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
-                        <View style={styles.cardContent}>
-                            <View style={[styles.iconContainer, { backgroundColor: theme.colors.bgCanvas }]}>
-                                <Map size={24} color={theme.colors.textSecondary} />
-                            </View>
-                            <View style={styles.cardTextContainer}>
-                                <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>{item.title}</Text>
-                                <Text style={[styles.cardDescription, { color: theme.colors.textSecondary }]} numberOfLines={1}>{item.description}</Text>
-                                <View style={styles.rewardRow}>
-                                    <Star size={12} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
-                                    <Text style={[styles.rewardText, { color: theme.colors.actionPrimary }]}>{item.pointsValue || item.rewardValue} Points</Text>
-                                </View>
-                            </View>
-                            <View style={styles.actions}>
-                                <TouchableOpacity
-                                    onPress={() => {
-                                        setEditingQuest(item);
-                                        setIsCreateModalVisible(true);
-                                    }}
-                                    style={styles.actionButton}
-                                >
-                                    <Pencil size={20} color={theme.colors.textSecondary} />
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    onPress={() => handleDelete(item._id || item.id)}
-                                    style={styles.actionButton}
-                                >
-                                    <Trash2 size={20} color={theme.colors.signalAlert} />
-                                </TouchableOpacity>
-                            </View>
-                        </View>
-                    </View>
-                )}
+                renderItem={renderQuestItem}
+                keyExtractor={(item) => item.id || item._id || ''}
                 contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={refresh}
+                        tintColor={theme.colors.actionPrimary}
+                    />
+                }
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No quests created yet.</Text>
+                        <Map size={48} color={theme.colors.borderSubtle} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                            No quests yet
+                        </Text>
+                        <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+                            Create special challenges for your family
+                        </Text>
                     </View>
                 }
             />
 
-            <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => {
-                    setEditingQuest(null);
-                    setIsCreateModalVisible(true);
-                }}
-            >
-                <Plus size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-
+            {/* Combined Create/Edit Modal */}
             <CreateQuestModal
-                visible={isCreateModalVisible}
-                onClose={() => {
-                    setIsCreateModalVisible(false);
-                    setEditingQuest(null);
-                }}
-                onQuestCreated={() => {
-                    loadQuests();
-                    setIsCreateModalVisible(false);
-                    setEditingQuest(null);
-                }}
-                initialQuest={editingQuest}
+                visible={modalVisible}
+                onClose={handleCloseModal}
+                onQuestCreated={refresh}
+                initialQuest={selectedQuest}
             />
         </View>
     );
@@ -159,96 +150,100 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    centered: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         padding: 16,
-        paddingBottom: 8,
+        paddingBottom: 12,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
     },
-    subtitle: {
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    },
+    addButtonText: {
+        color: '#FFFFFF',
         fontSize: 14,
+        fontWeight: '600',
     },
     listContent: {
         padding: 16,
-        paddingTop: 0,
+        paddingTop: 8,
     },
-    emptyContainer: {
-        padding: 32,
-        alignItems: 'center',
-    },
-    emptyText: {
-        fontSize: 14,
-    },
-    card: {
+    questCard: {
+        padding: 16,
         borderRadius: 12,
         marginBottom: 12,
-        padding: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        gap: 12,
     },
-    cardContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cardTextContainer: {
-        flex: 1,
-        marginLeft: 12,
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 2,
-    },
-    cardDescription: {
-        fontSize: 12,
-    },
-    rewardRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginTop: 4,
-        gap: 4,
-    },
-    rewardText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-    },
-    actions: {
+    questHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 8,
     },
-    actionButton: {
-        padding: 8,
+    questTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        flex: 1,
     },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
+    questDescription: {
+        fontSize: 14,
+    },
+    questFooter: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
+    },
+    questMeta: {
+        flex: 1,
+        gap: 8,
+    },
+    questPoints: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    claimsContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    claimsText: {
+        fontSize: 13,
+    },
+    statusBadge: {
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 12,
+    },
+    statusText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        gap: 12,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    emptySubtext: {
+        fontSize: 14,
+        textAlign: 'center',
     },
 });

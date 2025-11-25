@@ -1,135 +1,129 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl, ActivityIndicator } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { Plus, User, Award } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { useData } from '../../contexts/DataContext';
 import { api } from '../../services/api';
 import { Member } from '../../types';
 import CreateMemberModal from '../../components/parent/CreateMemberModal';
 import EditMemberModal from '../../components/parent/EditMemberModal';
 import { useTheme } from '../../contexts/ThemeContext';
+import { SkeletonList } from '../../components/SkeletonLoader';
+import { Users, Plus } from 'lucide-react-native';
+import MemberAvatar from '../../components/family/MemberAvatar';
 
 export default function MembersTab() {
+    const navigation = useNavigation();
     const { currentTheme: theme } = useTheme();
-    const [members, setMembers] = useState<Member[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [householdId, setHouseholdId] = useState<string>('');
 
-    // Modal State
-    const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
-    const [editingMember, setEditingMember] = useState<Member | null>(null);
+    // Get data from global cache
+    const { members, householdId, isInitialLoad, isRefreshing, refresh } = useData();
 
-    const fetchData = useCallback(async () => {
-        try {
-            const response = await api.getFamilyData();
-            if (response.data?.household) {
-                setMembers(response.data.household.members || []);
-                setHouseholdId(response.data.household.id || response.data.household._id || '');
-            }
-        } catch (error) {
-            console.error('Failed to fetch members:', error);
-        } finally {
-            setLoading(false);
-            setRefreshing(false);
-        }
-    }, []);
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchData();
-        }, [fetchData])
-    );
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        fetchData();
-    };
+    const [createModalVisible, setCreateModalVisible] = useState(false);
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
     const handleMemberPress = (member: Member) => {
-        setEditingMember(member);
+        setSelectedMember(member);
+        setEditModalVisible(true);
     };
 
     const renderMemberItem = ({ item }: { item: Member }) => (
         <TouchableOpacity
-            style={[styles.memberCard, { backgroundColor: theme.colors.bgSurface, borderColor: theme.colors.borderSubtle }]}
+            style={[styles.memberCard, { backgroundColor: theme.colors.bgSurface }]}
             onPress={() => handleMemberPress(item)}
         >
+            <MemberAvatar
+                name={item.firstName}
+                color={item.profileColor}
+                size={56}
+            />
             <View style={styles.memberInfo}>
-                <View style={[styles.avatar, { backgroundColor: item.profileColor || theme.colors.textTertiary }]}>
-                    {item.role === 'Parent' ? (
-                        <User size={24} color="#FFF" />
-                    ) : (
-                        <Text style={styles.avatarText}>{item.firstName.charAt(0).toUpperCase()}</Text>
-                    )}
-                </View>
-                <View>
-                    <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>{item.firstName}</Text>
-                    <Text style={[styles.memberRole, { color: theme.colors.textSecondary }]}>{item.role}</Text>
-                </View>
-            </View>
-
-            <View style={styles.statsContainer}>
-                <View style={styles.stat}>
-                    <Text style={[styles.statValue, { color: theme.colors.actionPrimary }]}>{item.pointsTotal}</Text>
-                    <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Points</Text>
-                </View>
+                <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
+                    {item.firstName} {item.lastName}
+                </Text>
+                <Text style={[styles.memberRole, { color: theme.colors.textSecondary }]}>
+                    {item.role === 'Parent' ? 'Parent' : 'Child'}
+                </Text>
+                <Text style={[styles.memberPoints, { color: theme.colors.actionPrimary }]}>
+                    {item.pointsTotal || 0} points
+                </Text>
             </View>
         </TouchableOpacity>
     );
 
-    if (loading && !refreshing) {
+    if (isInitialLoad) {
         return (
-            <View style={[styles.container, styles.center, { backgroundColor: theme.colors.bgCanvas }]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
+            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                <SkeletonList count={4} />
             </View>
         );
     }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+            {/* Header */}
+            <View style={styles.header}>
+                <View style={styles.headerLeft}>
+                    <Users size={24} color={theme.colors.actionPrimary} />
+                    <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                        Family Members
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: theme.colors.actionPrimary }]}
+                    onPress={() => setCreateModalVisible(true)}
+                >
+                    <Plus size={20} color="#FFFFFF" />
+                    <Text style={styles.addButtonText}>Add Member</Text>
+                </TouchableOpacity>
+            </View>
+
+            {/* Members List */}
             <FlatList
                 data={members}
                 renderItem={renderMemberItem}
-                keyExtractor={(item) => item.id || item._id || Math.random().toString()}
+                keyExtractor={(item) => item.id || item._id || ''}
                 contentContainerStyle={styles.listContent}
                 refreshControl={
-                    <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.colors.actionPrimary} />
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={refresh}
+                        tintColor={theme.colors.actionPrimary}
+                    />
                 }
-                ListHeaderComponent={
-                    <View style={styles.header}>
-                        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Family Team</Text>
-                        <Text style={[styles.headerSubtitle, { color: theme.colors.textSecondary }]}>
-                            Manage your household members
+                ListEmptyComponent={
+                    <View style={styles.emptyContainer}>
+                        <Users size={48} color={theme.colors.borderSubtle} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                            No family members yet
+                        </Text>
+                        <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+                            Tap "Add Member" to get started
                         </Text>
                     </View>
                 }
             />
 
-            {/* FAB to Add Member */}
-            <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => setIsCreateModalOpen(true)}
-            >
-                <Plus size={24} color="#FFF" />
-                <Text style={styles.fabText}>Add Member</Text>
-            </TouchableOpacity>
-
             {/* Modals */}
             <CreateMemberModal
-                visible={isCreateModalOpen}
-                onClose={() => setIsCreateModalOpen(false)}
-                onSuccess={fetchData}
+                visible={createModalVisible}
+                onClose={() => setCreateModalVisible(false)}
+                onSuccess={refresh}
                 householdId={householdId}
-                usedColors={members.map(m => m.profileColor).filter(Boolean)}
             />
 
-            <EditMemberModal
-                visible={!!editingMember}
-                member={editingMember}
-                onClose={() => setEditingMember(null)}
-                onSuccess={fetchData}
-                householdId={householdId}
-            />
+            {selectedMember && (
+                <EditMemberModal
+                    visible={editModalVisible}
+                    onClose={() => {
+                        setEditModalVisible(false);
+                        setSelectedMember(null);
+                    }}
+                    onSuccess={refresh}
+                    member={selectedMember}
+                    householdId={householdId}
+                />
+            )}
         </View>
     );
 }
@@ -138,55 +132,50 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    center: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    listContent: {
-        padding: 16,
-        paddingBottom: 100, // Space for FAB
-    },
     header: {
-        marginBottom: 24,
-    },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    headerSubtitle: {
-        fontSize: 16,
-    },
-    memberCard: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 2,
+        paddingBottom: 12,
     },
-    memberInfo: {
+    headerLeft: {
         flexDirection: 'row',
         alignItems: 'center',
+        gap: 12,
     },
-    avatar: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 16,
-    },
-    avatarText: {
-        color: '#FFF',
-        fontSize: 20,
+    title: {
+        fontSize: 24,
         fontWeight: 'bold',
+    },
+    addButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+    },
+    addButtonText: {
+        color: '#FFFFFF',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    listContent: {
+        padding: 16,
+        paddingTop: 8,
+    },
+    memberCard: {
+        flexDirection: 'row',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
+        alignItems: 'center',
+        gap: 16,
+    },
+    memberInfo: {
+        flex: 1,
+        gap: 4,
     },
     memberName: {
         fontSize: 18,
@@ -195,39 +184,21 @@ const styles = StyleSheet.create({
     memberRole: {
         fontSize: 14,
     },
-    statsContainer: {
-        flexDirection: 'row',
+    memberPoints: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    emptyContainer: {
         alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        gap: 12,
     },
-    stat: {
-        alignItems: 'flex-end',
-    },
-    statValue: {
+    emptyText: {
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '600',
     },
-    statLabel: {
-        fontSize: 12,
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 30,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4.65,
-        elevation: 8,
-    },
-    fabText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-        fontSize: 16,
-        marginLeft: 8,
+    emptySubtext: {
+        fontSize: 14,
     },
 });

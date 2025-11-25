@@ -96,7 +96,7 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
                 pointsValue: sanitizedData.pointsValue,
                 questType,
                 maxClaims: sanitizedData.maxClaims || undefined,
-                recurrence: recurrence !== 'none' ? { frequency: recurrence } : undefined,
+                recurrence: recurrence,
             };
 
             if (initialQuest) {

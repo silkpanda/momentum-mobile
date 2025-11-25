@@ -1,58 +1,84 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useData } from '../../contexts/DataContext';
 import { api } from '../../services/api';
 import { logger } from '../../utils/logger';
-import { CheckCircle, XCircle, Clock, Users, Target, Bell, Map as MapIcon } from 'lucide-react-native';
-import MemberAvatar from '../../components/family/MemberAvatar';
-import { Task, Quest, Member, QuestClaim } from '../../types';
-
+import { CheckCircle, Bell, Target } from 'lucide-react-native';
+import { Member, QuestClaim } from '../../types';
+import { DashboardSkeleton } from '../../components/SkeletonLoader';
 import TaskSelectionModal from '../../components/modals/TaskSelectionModal';
-import { useSocket } from '../../contexts/SocketContext';
+import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
+import PendingTaskCard from '../../components/dashboard/PendingTaskCard';
+import PendingQuestCard from '../../components/dashboard/PendingQuestCard';
+import FamilyMemberCard from '../../components/dashboard/FamilyMemberCard';
 
 export default function DashboardTab() {
     const { user } = useAuth();
     const { currentTheme: theme } = useTheme();
-    const { on, off } = useSocket();
-    const [pendingTasks, setPendingTasks] = useState<Task[]>([]);
-    const [allTasks, setAllTasks] = useState<Task[]>([]); // Store all tasks for Focus Mode selection
-    const [pendingQuests, setPendingQuests] = useState<Quest[]>([]);
-    const [members, setMembers] = useState<Member[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const { execute: executeOptimistic } = useOptimisticUpdate();
+
+    // Get ALL data from global cache
+    const {
+        tasks: allTasks,
+        quests: allQuests,
+        members,
+        householdId,
+        isInitialLoad,
+        isRefreshing,
+        refresh,
+        updateTask,
+        updateQuest,
+        updateMember,
+    } = useData();
 
     // Focus Mode State
     const [taskSelectionVisible, setTaskSelectionVisible] = useState(false);
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-    const [householdId, setHouseholdId] = useState<string>('');
+    // Compute derived data
+    const pendingTasks = useMemo(() =>
+        allTasks.filter(task => task.status === 'PendingApproval'),
+        [allTasks]
+    );
+
+    const pendingQuests = useMemo(() =>
+        allQuests.filter(quest =>
+            quest.claims && quest.claims.some((claim: QuestClaim) => claim.status === 'completed')
+        ),
+        [allQuests]
+    );
 
     // Focus Mode Handlers
     const handleSetFocusTask = async (taskId: string) => {
         if (!selectedMember || !householdId) return;
 
-        // Robust ID check
         const targetId = selectedMember.id || selectedMember._id;
         if (!targetId) {
-            console.error('Selected member has no ID');
+            logger.error('Selected member has no ID');
             return;
         }
 
-        // Close modal immediately
         setTaskSelectionVisible(false);
-        const memberName = selectedMember.firstName;
+        const memberToUpdate = selectedMember;
         setSelectedMember(null);
 
-        try {
-            await api.setFocusTask(householdId, targetId, taskId);
-            // Reload to ensure consistency
-            await loadData();
-        } catch (error) {
-            console.error('Error setting focus task:', error);
-            Alert.alert('Error', 'Failed to set focus task');
-        }
+        const previousMember = members.find(m => (m.id === targetId || m._id === targetId));
+
+        await executeOptimistic({
+            optimisticUpdate: () => {
+                updateMember(targetId, { focusedTaskId: taskId });
+            },
+            rollback: () => {
+                if (previousMember) {
+                    updateMember(targetId, { focusedTaskId: previousMember.focusedTaskId });
+                }
+                Alert.alert('Error', 'Failed to set focus task. Please try again.');
+            },
+            apiCall: () => api.setFocusTask(householdId, targetId, taskId),
+            successMessage: `Focus task set for ${memberToUpdate.firstName}`,
+        });
     };
 
     const handleClearFocusTask = async (member: Member) => {
@@ -61,100 +87,36 @@ export default function DashboardTab() {
         const targetId = member.id || member._id;
         if (!targetId) return;
 
-        try {
-            await api.setFocusTask(householdId, targetId, null);
-            // Reload to ensure consistency
-            await loadData();
-        } catch (error) {
-            console.error('Error clearing focus task:', error);
-            Alert.alert('Error', 'Failed to clear focus mode');
-        }
+        await executeOptimistic({
+            optimisticUpdate: () => {
+                updateMember(targetId, { focusedTaskId: undefined });
+            },
+            rollback: () => {
+                updateMember(targetId, { focusedTaskId: member.focusedTaskId });
+                Alert.alert('Error', 'Failed to clear focus mode. Please try again.');
+            },
+            apiCall: () => api.setFocusTask(householdId, targetId, null),
+            successMessage: `Focus mode cleared for ${member.firstName}`,
+        });
     };
 
-    const openTaskSelection = (member: Member) => {
-        setSelectedMember(member);
-        setTaskSelectionVisible(true);
-    };
-
-    const loadData = async () => {
-        try {
-            const [tasksResponse, questsResponse, dashboardResponse] = await Promise.all([
-                api.getTasks(),
-                api.getQuests(),
-                api.getDashboardData()
-            ]);
-
-            // Store all tasks
-            if (tasksResponse.data && tasksResponse.data.tasks) {
-                setAllTasks(tasksResponse.data.tasks);
-
-                // Get pending approval tasks
-                const pendingApproval = tasksResponse.data.tasks.filter(
-                    (task: Task) => task.status === 'PendingApproval'
-                );
-                setPendingTasks(pendingApproval);
-            } else {
-                setAllTasks([]);
-                setPendingTasks([]);
-            }
-
-            // Get pending approval quests
-            if (questsResponse.data && questsResponse.data.quests) {
-                const pendingApproval = questsResponse.data.quests.filter((quest: Quest) => {
-                    // Check if any claim is in 'completed' status (waiting for approval)
-                    return quest.claims && quest.claims.some((claim: QuestClaim) => claim.status === 'completed');
-                });
-                setPendingQuests(pendingApproval);
-            } else {
-                setPendingQuests([]);
-            }
-
-
-            // Get family members
-            if (dashboardResponse.data && dashboardResponse.data.household) {
-                setHouseholdId(dashboardResponse.data.household.id || dashboardResponse.data.household._id!);
-                if (dashboardResponse.data.household.members) {
-                    // Ensure all members have a valid 'id' property to prevent React key issues
-                    // and comparison errors
-                    const sanitizedMembers = dashboardResponse.data.household.members.map((m: any) => ({
-                        ...m,
-                        id: m.id || m._id // Fallback to _id if id is missing
-                    }));
-
-                    logger.info('Dashboard members loaded:', {
-                        count: sanitizedMembers.length,
-                        members: sanitizedMembers.map((m: Member) => ({
-                            name: m.firstName,
-                            id: m.id,
-                            focusedTaskId: m.focusedTaskId
-                        }))
-                    });
-                    setMembers(sanitizedMembers);
-                } else {
-                    setMembers([]);
-                }
-            }
-        } catch (error) {
-            console.error('Error loading dashboard:', error);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
-        }
-    };
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        loadData();
-    };
-
+    // Task Approval Handlers
     const handleApprove = async (taskId: string) => {
-        try {
-            await api.approveTask(taskId);
-            loadData();
-        } catch (error) {
-            console.error('Error approving task:', error);
-            Alert.alert('Error', 'Failed to approve task');
-        }
+        const taskToUpdate = allTasks.find(t => (t._id || t.id) === taskId);
+
+        await executeOptimistic({
+            optimisticUpdate: () => {
+                updateTask(taskId, { status: 'Approved' });
+            },
+            rollback: () => {
+                if (taskToUpdate) {
+                    updateTask(taskId, { status: taskToUpdate.status });
+                }
+                Alert.alert('Error', 'Failed to approve task. Please try again.');
+            },
+            apiCall: () => api.approveTask(taskId),
+            successMessage: 'Task approved!',
+        });
     };
 
     const handleReject = async (taskId: string) => {
@@ -167,27 +129,54 @@ export default function DashboardTab() {
                     text: 'Reject',
                     style: 'destructive',
                     onPress: async () => {
-                        try {
-                            await api.updateTask(taskId, { status: 'Pending', completedBy: null });
-                            loadData();
-                        } catch (error) {
-                            console.error('Error rejecting task:', error);
-                            Alert.alert('Error', 'Failed to reject task');
-                        }
+                        const taskToUpdate = allTasks.find(t => (t._id || t.id) === taskId);
+
+                        await executeOptimistic({
+                            optimisticUpdate: () => {
+                                updateTask(taskId, { status: 'Pending', completedBy: null });
+                            },
+                            rollback: () => {
+                                if (taskToUpdate) {
+                                    updateTask(taskId, {
+                                        status: taskToUpdate.status,
+                                        completedBy: taskToUpdate.completedBy
+                                    });
+                                }
+                                Alert.alert('Error', 'Failed to reject task. Please try again.');
+                            },
+                            apiCall: () => api.updateTask(taskId, { status: 'Pending', completedBy: null }),
+                            successMessage: 'Task rejected',
+                        });
                     }
                 }
             ]
         );
     };
 
+    // Quest Approval Handlers
     const handleApproveQuest = async (questId: string, memberId: string) => {
-        try {
-            await api.approveQuest(questId, memberId);
-            loadData();
-        } catch (error) {
-            console.error('Error approving quest:', error);
-            Alert.alert('Error', 'Failed to approve quest');
-        }
+        const questToUpdate = allQuests.find(q => (q._id || q.id) === questId);
+
+        await executeOptimistic({
+            optimisticUpdate: () => {
+                if (questToUpdate) {
+                    const updatedClaims = questToUpdate.claims.map(c =>
+                        c.memberId === memberId
+                            ? { ...c, status: 'approved' as const }
+                            : c
+                    );
+                    updateQuest(questId, { claims: updatedClaims });
+                }
+            },
+            rollback: () => {
+                if (questToUpdate) {
+                    updateQuest(questId, { claims: questToUpdate.claims });
+                }
+                Alert.alert('Error', 'Failed to approve quest. Please try again.');
+            },
+            apiCall: () => api.approveQuest(questId, memberId),
+            successMessage: 'Quest approved!',
+        });
     };
 
     const handleRejectQuest = async (questId: string, memberId: string) => {
@@ -200,62 +189,46 @@ export default function DashboardTab() {
                     text: 'Reject',
                     style: 'destructive',
                     onPress: async () => {
-                        try {
-                            // Reset the claim status back to 'claimed'
-                            const quest = pendingQuests.find(q => (q._id || q.id) === questId);
-                            if (quest) {
-                                const claim = quest.claims.find((c: QuestClaim) => c.memberId === memberId);
-                                if (claim) {
-                                    claim.status = 'claimed';
-                                    claim.completedAt = undefined;
-                                    await api.updateQuest(questId, { claims: quest.claims });
-                                    loadData();
-                                }
-                            }
-                        } catch (error) {
-                            console.error('Error rejecting quest:', error);
-                            Alert.alert('Error', 'Failed to reject quest');
-                        }
+                        const quest = pendingQuests.find(q => (q._id || q.id) === questId);
+                        if (!quest) return;
+
+                        const claim = quest.claims.find((c: QuestClaim) => c.memberId === memberId);
+                        if (!claim) return;
+
+                        await executeOptimistic({
+                            optimisticUpdate: () => {
+                                const updatedClaims = quest.claims.map(c =>
+                                    c.memberId === memberId
+                                        ? { ...c, status: 'claimed' as const, completedAt: undefined }
+                                        : c
+                                );
+                                updateQuest(questId, { claims: updatedClaims });
+                            },
+                            rollback: () => {
+                                updateQuest(questId, { claims: quest.claims });
+                                Alert.alert('Error', 'Failed to reject quest. Please try again.');
+                            },
+                            apiCall: async () => {
+                                claim.status = 'claimed';
+                                claim.completedAt = undefined;
+                                return api.updateQuest(questId, { claims: quest.claims });
+                            },
+                            successMessage: 'Quest rejected',
+                        });
                     }
                 }
             ]
         );
     };
 
-    // Load data when screen comes into focus
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-
-            // Set up WebSocket listeners for real-time updates
-            const handleTaskUpdate = () => loadData();
-            const handleQuestUpdate = () => loadData();
-            const handleMemberUpdate = () => loadData();
-
-            on('taskUpdated', handleTaskUpdate);
-            on('questUpdated', handleQuestUpdate);
-            on('memberUpdated', handleMemberUpdate);
-
-            return () => {
-                off('taskUpdated', handleTaskUpdate);
-                off('questUpdated', handleQuestUpdate);
-                off('memberUpdated', handleMemberUpdate);
-            };
-        }, [on, off])
-    );
-
-    if (isLoading) {
-        return (
-            <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.bgCanvas }]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
-            </View>
-        );
+    if (isInitialLoad) {
+        return <DashboardSkeleton />;
     }
 
     return (
         <ScrollView
             style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+            refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} />}
         >
             {/* Header */}
             <View style={styles.header}>
@@ -291,54 +264,14 @@ export default function DashboardTab() {
                         {/* Pending Tasks */}
                         {pendingTasks.map((task) => {
                             const completedByMember = members.find(m => (m.id === task.completedBy || m._id === task.completedBy));
-
                             return (
-                                <View key={task._id || task.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
-                                    <View style={styles.approvalInfo}>
-                                        <View style={styles.typeRow}>
-                                            <Target size={14} color={theme.colors.textSecondary} />
-                                            <Text style={[styles.typeLabel, { color: theme.colors.textSecondary }]}>TASK</Text>
-                                        </View>
-                                        <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
-                                            {task.title}
-                                        </Text>
-                                        {completedByMember && (
-                                            <View style={styles.approvalMemberRow}>
-                                                <MemberAvatar
-                                                    name={completedByMember.firstName}
-                                                    color={completedByMember.profileColor}
-                                                    size={20}
-                                                />
-                                                <Text style={[styles.approvalMemberName, { color: theme.colors.textSecondary }]}>
-                                                    {completedByMember.firstName}
-                                                </Text>
-                                            </View>
-                                        )}
-                                        <View style={styles.approvalMeta}>
-                                            <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
-                                                +{task.pointsValue || task.value || 0} pts
-                                            </Text>
-                                            <View style={styles.statusBadge}>
-                                                <Clock size={12} color="#F59E0B" />
-                                                <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                    <View style={styles.approvalActions}>
-                                        <TouchableOpacity
-                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
-                                            onPress={() => handleReject(task._id || task.id)}
-                                        >
-                                            <XCircle size={20} color={theme.colors.signalAlert} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
-                                            onPress={() => handleApprove(task._id || task.id)}
-                                        >
-                                            <CheckCircle size={20} color={theme.colors.signalSuccess} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
+                                <PendingTaskCard
+                                    key={task._id || task.id}
+                                    task={task}
+                                    completedByMember={completedByMember}
+                                    onApprove={() => handleApprove(task._id || task.id)}
+                                    onReject={() => handleReject(task._id || task.id)}
+                                />
                             );
                         })}
 
@@ -350,43 +283,14 @@ export default function DashboardTab() {
                             const memberName = members.find(m => m.id === completedClaim.memberId)?.firstName || 'Member';
 
                             return (
-                                <View key={quest._id || quest.id} style={[styles.approvalCard, { backgroundColor: theme.colors.bgSurface }]}>
-                                    <View style={styles.approvalInfo}>
-                                        <View style={styles.typeRow}>
-                                            <MapIcon size={14} color={theme.colors.actionPrimary} />
-                                            <Text style={[styles.typeLabel, { color: theme.colors.actionPrimary }]}>QUEST</Text>
-                                        </View>
-                                        <Text style={[styles.approvalTitle, { color: theme.colors.textPrimary }]}>
-                                            {quest.title}
-                                        </Text>
-                                        <Text style={[styles.approvalMemberName, { color: theme.colors.textSecondary }]}>
-                                            by {memberName}
-                                        </Text>
-                                        <View style={styles.approvalMeta}>
-                                            <Text style={[styles.approvalPoints, { color: theme.colors.actionPrimary }]}>
-                                                +{quest.pointsValue} pts
-                                            </Text>
-                                            <View style={styles.statusBadge}>
-                                                <Clock size={12} color="#F59E0B" />
-                                                <Text style={[styles.statusText, { color: '#F59E0B' }]}>Pending</Text>
-                                            </View>
-                                        </View>
-                                    </View>
-                                    <View style={styles.approvalActions}>
-                                        <TouchableOpacity
-                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalAlert + '20' }]}
-                                            onPress={() => handleRejectQuest(quest._id || quest.id, completedClaim.memberId)}
-                                        >
-                                            <XCircle size={20} color={theme.colors.signalAlert} />
-                                        </TouchableOpacity>
-                                        <TouchableOpacity
-                                            style={[styles.iconButton, { backgroundColor: theme.colors.signalSuccess + '20' }]}
-                                            onPress={() => handleApproveQuest(quest._id || quest.id, completedClaim.memberId)}
-                                        >
-                                            <CheckCircle size={20} color={theme.colors.signalSuccess} />
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
+                                <PendingQuestCard
+                                    key={quest._id || quest.id}
+                                    quest={quest}
+                                    memberName={memberName}
+                                    memberId={completedClaim.memberId}
+                                    onApprove={() => handleApproveQuest(quest._id || quest.id, completedClaim.memberId)}
+                                    onReject={() => handleRejectQuest(quest._id || quest.id, completedClaim.memberId)}
+                                />
                             );
                         })}
                     </>
@@ -396,119 +300,41 @@ export default function DashboardTab() {
             {/* Family Members Section */}
             <View style={styles.section}>
                 <View style={styles.sectionHeader}>
-                    <Users size={20} color={theme.colors.actionPrimary} />
+                    <Target size={20} color={theme.colors.actionPrimary} />
                     <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>
                         Family Members
                     </Text>
                 </View>
 
-                {members.length === 0 ? (
-                    <View style={[styles.emptyCard, { backgroundColor: theme.colors.bgSurface }]}>
-                        <Users size={32} color={theme.colors.borderSubtle} />
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            No family members found
-                        </Text>
-                    </View>
-                ) : (
-                    <View style={styles.membersGrid}>
-                        {members.map((member) => {
-                            const focusedTask = member.focusedTaskId
-                                ? allTasks.find(t => (t._id || t.id) === member.focusedTaskId)
-                                : null;
+                <View style={styles.membersGrid}>
+                    {members.map((member) => {
+                        const focusedTask = member.focusedTaskId
+                            ? allTasks.find(t => (t.id === member.focusedTaskId || t._id === member.focusedTaskId))
+                            : undefined;
 
-                            const isInFocusMode = !!member.focusedTaskId;
-                            const actionColor = theme.colors.actionPrimary || '#000000';
-
-                            // Compute styles explicitly to avoid rendering issues
-                            const cardStyle = [
-                                styles.memberCard,
-                                isInFocusMode ? {
-                                    backgroundColor: actionColor + '10',
-                                    borderWidth: 4,
-                                    borderColor: actionColor
-                                } : {
-                                    backgroundColor: theme.colors.bgSurface,
-                                    borderWidth: 0
-                                }
-                            ];
-
-                            return (
-                                <View
-                                    key={member.id}
-                                    style={cardStyle}
-                                >
-                                    {/* Focus Mode Banner - ULTRA PROMINENT */}
-                                    {isInFocusMode && (
-                                        <View style={[styles.focusModeBanner, { backgroundColor: actionColor }]}>
-                                            <Target size={16} color="#FFFFFF" />
-                                            <Text style={styles.focusModeBannerText}>🎯 FOCUS MODE</Text>
-                                        </View>
-                                    )}
-
-
-                                    <View style={isInFocusMode ? { marginTop: 24 } : {}}>
-                                        <MemberAvatar
-                                            key={`avatar-${member.id}-${isInFocusMode}`}
-                                            name={member.firstName || 'Member'}
-                                            color={member.profileColor || '#CCCCCC'}
-                                            size={48}
-                                        />
-                                    </View>
-                                    <Text style={[styles.memberName, { color: theme.colors.textPrimary }]}>
-                                        {member.firstName || 'Unknown'}
-                                    </Text>
-                                    <Text style={[styles.memberPoints, { color: theme.colors.textSecondary }]}>
-                                        {member.pointsTotal || 0} pts
-                                    </Text>
-
-                                    {isInFocusMode ? (
-                                        <View style={styles.focusActiveContainer}>
-                                            {/* Show the focused task title */}
-                                            {focusedTask && (
-                                                <View style={[styles.focusedTaskBadge, { backgroundColor: theme.colors.bgCanvas }]}>
-                                                    <Text style={[styles.focusedTaskTitle, { color: theme.colors.textPrimary }]} numberOfLines={2}>
-                                                        {focusedTask.title}
-                                                    </Text>
-                                                </View>
-                                            )}
-                                            <TouchableOpacity
-                                                style={[styles.clearFocusButton, {
-                                                    backgroundColor: theme.colors.signalAlert,
-                                                    borderWidth: 0
-                                                }]}
-                                                onPress={() => handleClearFocusTask(member)}
-                                            >
-                                                <XCircle size={16} color="#FFFFFF" />
-                                                <Text style={[styles.clearFocusText, { color: '#FFFFFF' }]}>Clear Focus</Text>
-                                            </TouchableOpacity>
-                                        </View>
-                                    ) : (
-                                        <TouchableOpacity
-                                            style={[styles.focusButton, {
-                                                borderColor: actionColor,
-                                                backgroundColor: actionColor + '10'
-                                            }]}
-                                            onPress={() => openTaskSelection(member)}
-                                        >
-                                            <Target size={16} color={actionColor} />
-                                            <Text style={[styles.focusButtonText, { color: actionColor }]}>
-                                                Set Focus
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )}
-                                </View>
-                            );
-                        })}
-                    </View>
-                )}
+                        return (
+                            <FamilyMemberCard
+                                key={member.id || member._id}
+                                member={member}
+                                focusedTask={focusedTask}
+                                onSetFocus={() => {
+                                    setSelectedMember(member);
+                                    setTaskSelectionVisible(true);
+                                }}
+                                onClearFocus={() => handleClearFocusTask(member)}
+                            />
+                        );
+                    })}
+                </View>
             </View>
 
+            {/* Task Selection Modal */}
             <TaskSelectionModal
                 visible={taskSelectionVisible}
                 onClose={() => setTaskSelectionVisible(false)}
                 onSelect={handleSetFocusTask}
+                tasks={allTasks.filter(t => t.status === 'Pending')}
                 memberName={selectedMember?.firstName || ''}
-                tasks={allTasks}
             />
         </ScrollView>
     );
@@ -518,25 +344,21 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    centered: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     header: {
-        padding: 16,
-        paddingBottom: 8,
+        padding: 20,
+        paddingBottom: 16,
     },
     title: {
-        fontSize: 24,
+        fontSize: 28,
         fontWeight: 'bold',
+        marginBottom: 4,
     },
     subtitle: {
         fontSize: 14,
-        marginTop: 4,
     },
     section: {
-        padding: 16,
-        paddingTop: 8,
+        marginBottom: 24,
+        paddingHorizontal: 16,
     },
     sectionHeader: {
         flexDirection: 'row',
@@ -551,16 +373,16 @@ const styles = StyleSheet.create({
     },
     badge: {
         paddingHorizontal: 8,
-        paddingVertical: 2,
+        paddingVertical: 4,
         borderRadius: 12,
     },
     badgeText: {
         color: '#FFFFFF',
         fontSize: 12,
-        fontWeight: 'bold',
+        fontWeight: '600',
     },
     emptyCard: {
-        padding: 32,
+        padding: 24,
         borderRadius: 12,
         alignItems: 'center',
         gap: 12,
@@ -569,176 +391,9 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
     },
-    approvalCard: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
-        borderRadius: 12,
-        marginBottom: 8,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-    },
-    approvalInfo: {
-        flex: 1,
-    },
-    typeRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        marginBottom: 4,
-    },
-    typeLabel: {
-        fontSize: 11,
-        fontWeight: '600',
-        textTransform: 'uppercase',
-    },
-    approvalMemberRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 6,
-        marginBottom: 4,
-    },
-    approvalMemberName: {
-        fontSize: 12,
-    },
-    approvalTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 4,
-    },
-    approvalMeta: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
-    },
-    approvalPoints: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    statusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-    },
-    statusText: {
-        fontSize: 12,
-        fontWeight: '500',
-    },
-    approvalActions: {
-        flexDirection: 'row',
-        gap: 8,
-    },
-    iconButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     membersGrid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         gap: 12,
-    },
-    memberCard: {
-        width: '48%',
-        padding: 16,
-        borderRadius: 12,
-        alignItems: 'center',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        elevation: 1,
-        overflow: 'hidden', // Ensure banner doesn't overflow
-    },
-    memberName: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginTop: 8,
-    },
-    memberPoints: {
-        fontSize: 14,
-        marginTop: 2,
-        marginBottom: 12,
-    },
-    focusButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    focusButtonText: {
-        fontSize: 12,
-        fontWeight: '600',
-    },
-    focusActiveContainer: {
-        width: '100%',
-        alignItems: 'center',
-        gap: 8,
-    },
-    focusBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-        width: '100%',
-        justifyContent: 'center',
-    },
-    focusBadgeText: {
-        fontSize: 11,
-        fontWeight: '600',
-        flex: 1,
-    },
-    clearFocusButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 4,
-        paddingVertical: 4,
-        paddingHorizontal: 8,
-        borderRadius: 8,
-        borderWidth: 1,
-    },
-    clearFocusText: {
-        fontSize: 11,
-        fontWeight: '500',
-    },
-    focusModeBanner: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 6,
-        borderTopLeftRadius: 12,
-        borderTopRightRadius: 12,
-        gap: 6,
-    },
-    focusModeBannerText: {
-        fontSize: 11,
-        fontWeight: '900',
-        color: '#FFFFFF',
-        letterSpacing: 0.5,
-    },
-    focusedTaskBadge: {
-        width: '100%',
-        padding: 8,
-        borderRadius: 8,
-        marginTop: 4,
-    },
-    focusedTaskTitle: {
-        fontSize: 12,
-        fontWeight: '600',
-        textAlign: 'center',
     },
 });

@@ -2,7 +2,7 @@
 // momentum-mobile/src/screens/family/MemberDetailScreen.tsx
 // Individual Member View - For children to check their tasks
 // =========================================================
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -19,6 +19,8 @@ import { useSocket } from '../../contexts/SocketContext';
 import { Task, Quest, Member, QuestClaim } from '../../types';
 import { MemberPointsUpdatedEvent, TaskUpdatedEvent, QuestUpdatedEvent } from '../../constants/socketEvents';
 import FocusModeView from '../../components/focus/FocusModeView';
+import { useData } from '../../contexts/DataContext';
+import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -33,15 +35,56 @@ export default function MemberDetailScreen() {
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const { currentTheme: theme } = useTheme();
 
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [quests, setQuests] = useState<Quest[]>([]);
-    const [memberPoints, setMemberPoints] = useState(initialPoints);
-    const [memberData, setMemberData] = useState<Member | null>(null); // Store full member data for Focus Mode
-    const [focusedTask, setFocusedTask] = useState<Task | null>(null); // Store the specific focused task
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
+    const { tasks: allTasks, quests: allQuests, members, refresh, updateTask, updateQuest, isRefreshing } = useData();
+    const { execute } = useOptimisticUpdate();
 
-    const [lastUpdated, setLastUpdated] = useState(0);
+    // Derived State
+    const memberData = useMemo(() =>
+        members.find(m => m.id === memberId || m._id === memberId),
+        [members, memberId]
+    );
+
+    const [memberPoints, setMemberPoints] = useState(initialPoints);
+
+    // Update local points state when member data changes
+    useEffect(() => {
+        if (memberData) {
+            setMemberPoints(memberData.pointsTotal || 0);
+        }
+    }, [memberData?.pointsTotal]);
+
+    const memberTasks = useMemo(() =>
+        allTasks.filter(t => {
+            const isAssigned = t.assignedTo && Array.isArray(t.assignedTo) &&
+                t.assignedTo.some((assigneeId: string) => assigneeId === memberId);
+            const isPending = t.status === 'Pending' || t.status === 'PendingApproval';
+            return isAssigned && isPending;
+        }),
+        [allTasks, memberId]
+    );
+
+    const availableQuests = useMemo(() =>
+        allQuests.filter(q => {
+            const hasClaim = q.claims && q.claims.some((c: QuestClaim) => c.memberId === memberId);
+            return q.isActive && !hasClaim;
+        }),
+        [allQuests, memberId]
+    );
+
+    const activeQuests = useMemo(() =>
+        allQuests.filter(q => {
+            const myClaim = q.claims && q.claims.find((c: QuestClaim) => c.memberId === memberId);
+            return myClaim && myClaim.status === 'claimed';
+        }),
+        [allQuests, memberId]
+    );
+
+    const focusedTask = useMemo(() => {
+        if (memberData?.focusedTaskId) {
+            return allTasks.find(t => (t._id || t.id) === memberData.focusedTaskId) || null;
+        }
+        return null;
+    }, [memberData?.focusedTaskId, allTasks]);
 
     // Listen for direct updates from other screens (like Store)
     useEffect(() => {
@@ -49,7 +92,6 @@ export default function MemberDetailScreen() {
             if (event.memberId === memberId) {
                 console.log(`[MemberDetail] Received event update for points: ${event.points}`);
                 setMemberPoints(event.points);
-                setLastUpdated(Date.now());
             }
         });
 
@@ -63,185 +105,68 @@ export default function MemberDetailScreen() {
         if (route.params?.memberPoints !== undefined) {
             console.log(`[MemberDetail] Route params changed, updating points to: ${route.params.memberPoints}`);
             setMemberPoints(route.params.memberPoints);
-            setLastUpdated(Date.now());
         }
     }, [route.params?.memberPoints]);
 
-    const loadMemberData = useCallback(async () => {
-        console.log('📥 [MemberDetail] Loading member data...');
-        setIsLoading(true);
-        try {
-            // Load tasks
-            const tasksResponse = await api.getTasks();
-            let allTasks: Task[] = [];
-
-            if (tasksResponse.data && Array.isArray(tasksResponse.data.tasks)) {
-                allTasks = tasksResponse.data.tasks;
-
-                // Filter tasks for this member's list
-                const memberTasks = allTasks.filter((t: Task) => {
-                    const isAssigned = t.assignedTo && Array.isArray(t.assignedTo) &&
-                        t.assignedTo.some((assigneeId: string) => assigneeId === memberId);
-                    const isPending = t.status === 'Pending' || t.status === 'PendingApproval';
-                    return isAssigned && isPending;
-                });
-                setTasks(memberTasks);
-            } else {
-                setTasks([]);
-            }
-
-            // Load quests
-            const questsResponse = await api.getQuests();
-            if (questsResponse.data && Array.isArray(questsResponse.data.quests)) {
-                setQuests(questsResponse.data.quests);
-            } else {
-                setQuests([]);
-            }
-
-            // Load fresh member data (points)
-            const familyResponse = await api.getFamilyData();
-            // Handle both structure formats (direct memberProfiles or nested in household)
-            const members = (familyResponse.data as any).memberProfiles || familyResponse.data?.household?.members || [];
-
-            if (members.length > 0) {
-                console.log(`[MemberDetail] Searching for memberId: ${memberId} in ${members.length} members`);
-                const member = members.find((m: Member) => m.id === memberId || m._id === memberId);
-
-                if (member) {
-                    // Check if we have a recent local update (within 2 seconds)
-                    const timeSinceLastUpdate = Date.now() - lastUpdated;
-                    if (timeSinceLastUpdate < 2000) {
-                        console.log(`[MemberDetail] Skipping API point update (Grace Period Active). Local: ${memberPoints}, API: ${member.pointsTotal}`);
-                    } else {
-                        console.log(`✅ [MemberDetail] Found member ${member.firstName}. Old Points: ${memberPoints}, New Points: ${member.pointsTotal}`);
-                        setMemberPoints(member.pointsTotal || 0);
-                        setMemberData(member);
-
-                        // Find focused task if it exists
-                        if (member.focusedTaskId) {
-                            const task = allTasks.find(t => (t._id || t.id) === member.focusedTaskId);
-                            setFocusedTask(task || null);
-                        } else {
-                            setFocusedTask(null);
-                        }
-                    }
-                } else {
-                    setMemberData(null);
-                    setFocusedTask(null);
-                    console.warn(`⚠️ [MemberDetail] Member not found in family data. IDs available:`, members.map((m: Member) => m.id || m._id));
-                }
-            }
-
-        } catch (error) {
-            console.error('Error loading member data:', error);
-            setTasks([]);
-            setQuests([]);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
-        }
-    }, [memberId, memberName, lastUpdated, memberPoints]);
-
-    useFocusEffect(
-        useCallback(() => {
-            console.log('👀 [MemberDetail] Screen focused, loading data...');
-            loadMemberData();
-        }, [loadMemberData])
-    );
-
-    // Real-time updates
-    useEffect(() => {
-        const handleUpdate = (data: MemberPointsUpdatedEvent | TaskUpdatedEvent | QuestUpdatedEvent) => {
-            console.log('🔄 [MemberDetail] Received real-time update:', data);
-
-            // Check if this is a points update for the current member
-            if ('pointsTotal' in data && 'memberId' in data && data.memberId === memberId) {
-                console.log(`✅ [MemberDetail] Socket update points: ${data.pointsTotal}`);
-                setMemberPoints(data.pointsTotal);
-                setLastUpdated(Date.now()); // Protect against stale fetches
-            } else {
-                // For other events (tasks, quests), reload data
-                loadMemberData();
-            }
-        };
-
-        on('task_updated', handleUpdate);
-        on('member_points_updated', handleUpdate);
-        on('quest_updated', handleUpdate);
-
-        return () => {
-            off('task_updated', handleUpdate);
-            off('member_points_updated', handleUpdate);
-            off('quest_updated', handleUpdate);
-        };
-    }, [on, off, memberId, loadMemberData]);
-
     const onRefresh = () => {
-        setRefreshing(true);
-        loadMemberData();
+        refresh();
     };
 
     const handleCompleteTask = async (taskId: string) => {
-        try {
-            // 1. Complete the task
-            await api.completeTask(taskId, memberId);
-
-            // 2. Explicitly clear focus mode since we just finished the focused task
-            // We need the householdId for this. It's usually available in memberData or we can get it from context/storage.
-            // Since we might not have it easily, we'll rely on the fact that the backend *should* probably do this, 
-            // but for now we will manually trigger it if we have the data.
-
-            // Actually, api.setFocusTask requires householdId and memberProfileId.
-            // memberData has _id (memberProfileId). We need householdId.
-            // It's not in memberData directly usually.
-
-            // Let's look at how we can get householdId. 
-            // It is in the user context 'user.householdId' or 'householdId' from useAuth/storage?
-            // Let's check useAuth().
-
-            // For now, let's just reload. If the backend doesn't clear it, we might be stuck.
-            // BUT, we can optimistically clear it locally to exit the screen immediately.
-            setMemberData(prev => prev ? { ...prev, focusedTaskId: undefined } : null);
-            setFocusedTask(null);
-
-            // Then reload from server to sync up
-            loadMemberData();
-
-            Alert.alert("Great Job! 🎉", "Task completed!");
-        } catch (error: any) {
-            console.error('Error completing task:', error);
-            alert(`Failed to complete task: ${error.message || 'Unknown error'}`);
-        }
+        await execute({
+            optimisticUpdate: () => {
+                updateTask(taskId, { status: 'PendingApproval' });
+            },
+            apiCall: () => api.completeTask(taskId, memberId),
+            rollback: () => {
+                updateTask(taskId, { status: 'Pending' });
+            },
+            successMessage: 'Task completed! 🎉'
+        });
     };
 
     const handleClaimQuest = async (questId: string) => {
-        try {
-            await api.claimQuest(questId, memberId);
-            loadMemberData();
-        } catch (error: any) {
-            console.error('Error claiming quest:', error);
-            alert(`Failed to claim quest: ${error.message || 'Unknown error'}`);
-        }
+        const quest = allQuests.find(q => (q.id || q._id) === questId);
+        if (!quest) return;
+
+        const newClaim = {
+            memberId,
+            status: 'claimed',
+            claimedAt: new Date().toISOString()
+        };
+
+        await execute({
+            optimisticUpdate: () => {
+                updateQuest(questId, {
+                    claims: [...(quest.claims || []), newClaim]
+                });
+            },
+            apiCall: () => api.claimQuest(questId, memberId),
+            rollback: () => {
+                updateQuest(questId, { claims: quest.claims });
+            },
+            successMessage: 'Quest claimed! 🗺️'
+        });
     };
 
     const handleCompleteQuest = async (questId: string) => {
-        try {
-            await api.completeQuest(questId, memberId);
-            loadMemberData();
-        } catch (error: any) {
-            console.error('Error completing quest:', error);
-            alert(`Failed to complete quest: ${error.message || 'Unknown error'}`);
-        }
-    };
+        const quest = allQuests.find(q => (q.id || q._id) === questId);
+        if (!quest) return;
 
-    // Loading State
-    if (isLoading) {
-        return (
-            <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: theme.colors.bgCanvas }]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
-            </View>
-        );
-    }
+        await execute({
+            optimisticUpdate: () => {
+                const updatedClaims = quest.claims?.map(c =>
+                    c.memberId === memberId ? { ...c, status: 'completed' } : c
+                );
+                updateQuest(questId, { claims: updatedClaims });
+            },
+            apiCall: () => api.completeQuest(questId, memberId),
+            rollback: () => {
+                updateQuest(questId, { claims: quest.claims });
+            },
+            successMessage: 'Quest completed! 🏆'
+        });
+    };
 
     // Focus Mode Check
     if (memberData?.focusedTaskId && focusedTask) {
@@ -286,7 +211,7 @@ export default function MemberDetailScreen() {
             </View>
 
             <ScrollView
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
                 contentContainerStyle={styles.content}
             >
                 <View style={styles.heroSection}>
@@ -325,10 +250,8 @@ export default function MemberDetailScreen() {
 
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>My Tasks</Text>
 
-                {isLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
-                ) : tasks.length > 0 ? (
-                    tasks.map((task) => (
+                {memberTasks.length > 0 ? (
+                    memberTasks.map((task) => (
                         <TaskCard
                             key={task._id || task.id}
                             task={task}
@@ -343,17 +266,8 @@ export default function MemberDetailScreen() {
 
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginTop: 24 }]}>Available Quests</Text>
 
-                {isLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
-                ) : quests.filter((q: Quest) => {
-                    // Show quests that are active and not yet claimed by this member
-                    const hasClaim = q.claims && q.claims.some((c: QuestClaim) => c.memberId === memberId);
-                    return q.isActive && !hasClaim;
-                }).length > 0 ? (
-                    quests.filter((q: Quest) => {
-                        const hasClaim = q.claims && q.claims.some((c: QuestClaim) => c.memberId === memberId);
-                        return q.isActive && !hasClaim;
-                    }).map((quest) => (
+                {availableQuests.length > 0 ? (
+                    availableQuests.map((quest) => (
                         <QuestCard
                             key={quest._id || quest.id}
                             quest={quest}
@@ -368,17 +282,8 @@ export default function MemberDetailScreen() {
 
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginTop: 24 }]}>My Active Quests</Text>
 
-                {isLoading ? (
-                    <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />
-                ) : quests.filter((q: Quest) => {
-                    // Show quests claimed by this member that are not yet completed
-                    const myClaim = q.claims && q.claims.find((c: QuestClaim) => c.memberId === memberId);
-                    return myClaim && myClaim.status === 'claimed';
-                }).length > 0 ? (
-                    quests.filter((q: Quest) => {
-                        const myClaim = q.claims && q.claims.find((c: QuestClaim) => c.memberId === memberId);
-                        return myClaim && myClaim.status === 'claimed';
-                    }).map((quest) => (
+                {activeQuests.length > 0 ? (
+                    activeQuests.map((quest) => (
                         <QuestCard
                             key={quest._id || quest.id}
                             quest={quest}

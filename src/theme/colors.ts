@@ -4,6 +4,8 @@ export interface Theme {
     name: string;
     description: string;
     isPremium: boolean;
+    backgroundImage?: string; // Optional background image URL or gradient
+    backgroundOpacity?: number; // Opacity for background overlay (0-1)
     colors: {
         textPrimary: string;
         textSecondary: string;
@@ -143,6 +145,46 @@ export const themes: Record<string, Theme> = {
             bgCanvas: '#FFF8E7',
             bgSurface: '#FFFFFF',
             borderSubtle: '#FFE4B5',
+        },
+    },
+    neonCyberpunk: {
+        id: 'neonCyberpunk',
+        name: 'Neon Cyberpunk',
+        description: '🌃 Electric neon vibes with cyberpunk aesthetics',
+        isPremium: true,
+        backgroundImage: 'linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 50%, #0a0a0a 100%)',
+        backgroundOpacity: 0.95,
+        colors: {
+            textPrimary: '#00FFFF', // Cyan
+            textSecondary: '#FF00FF', // Magenta
+            textTertiary: '#9D00FF', // Purple
+            actionPrimary: '#FF00FF', // Hot Pink/Magenta
+            actionHover: '#FF1493', // Deep Pink
+            signalSuccess: '#00FF41', // Neon Green
+            signalAlert: '#FF073A', // Neon Red
+            bgCanvas: '#0a0a0a', // Almost black
+            bgSurface: 'rgba(26, 10, 46, 0.8)', // Dark purple with transparency
+            borderSubtle: '#FF00FF80', // Magenta with 50% opacity
+        },
+    },
+    spaceExplorer: {
+        id: 'spaceExplorer',
+        name: 'Space Explorer',
+        description: '🚀 Journey through the cosmos with stellar colors',
+        isPremium: true,
+        backgroundImage: 'linear-gradient(180deg, #000428 0%, #004e92 100%)',
+        backgroundOpacity: 0.9,
+        colors: {
+            textPrimary: '#FFFFFF', // White
+            textSecondary: '#B8C5D6', // Light blue-gray
+            textTertiary: '#7B8FA3', // Medium blue-gray
+            actionPrimary: '#00D9FF', // Bright cyan
+            actionHover: '#00B8D4', // Darker cyan
+            signalSuccess: '#00FF88', // Bright green
+            signalAlert: '#FF6B9D', // Soft pink
+            bgCanvas: '#000428', // Deep space blue
+            bgSurface: 'rgba(0, 78, 146, 0.6)', // Semi-transparent blue
+            borderSubtle: '#00D9FF40', // Cyan with 25% opacity
         },
     },
 };

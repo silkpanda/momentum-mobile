@@ -4,7 +4,7 @@
 // =========================================================
 import React from 'react';
 import { createMaterialTopTabNavigator } from '@react-navigation/material-top-tabs';
-import { View, Text, TouchableOpacity, StyleSheet, SafeAreaView } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import TasksTab from './TasksTab';
@@ -55,11 +55,22 @@ export default function ParentScreen() {
                     tabBarIndicatorStyle: { backgroundColor: theme.colors.actionPrimary },
                     tabBarLabelStyle: { fontWeight: '600', fontSize: 12 },
                     tabBarScrollEnabled: true,
-                    tabBarItemStyle: { width: 100 }, // Ensure tabs are wide enough
+                    tabBarItemStyle: { width: 100 },
                 }}
             >
-                <Tab.Screen name="Dashboard" component={DashboardTab} />
-                <Tab.Screen name="Members" component={MembersTab} />
+                {/* Preload most common tabs to eliminate loading screens */}
+                <Tab.Screen
+                    name="Dashboard"
+                    component={DashboardTab}
+                    options={{ lazy: false }} // Always mount - most visited
+                />
+                <Tab.Screen
+                    name="Members"
+                    component={MembersTab}
+                    options={{ lazy: false }} // Always mount - frequently visited
+                />
+
+                {/* Lazy load less common tabs to save memory */}
                 <Tab.Screen name="Tasks" component={TasksTab} />
                 <Tab.Screen name="Store" component={StoreTab} />
                 <Tab.Screen name="Quests" component={QuestsTab} />

@@ -1,200 +1,192 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../contexts/AuthContext';
+import React, { useState, useMemo } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
+import { useData } from '../../contexts/DataContext';
+import { Task } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
-import { api } from '../../services/api';
-import TaskCard from '../../components/shared/TaskCard';
-import { Plus } from 'lucide-react-native';
+import { SkeletonList } from '../../components/SkeletonLoader';
+import { CheckCircle, Clock, Target, Plus } from 'lucide-react-native';
+import TaskIcon from '../../components/TaskIcon';
 import CreateTaskModal from '../../components/parent/CreateTaskModal';
-import { Task, Member, DashboardData } from '../../types';
-import { TaskUpdatedEvent } from '../../constants/socketEvents';
 
-type FilterType = 'ALL' | 'Pending' | 'Approved';
+type TaskFilter = 'all' | 'pending' | 'completed' | 'approved';
 
-import { useSocket } from '../../contexts/SocketContext';
-
-export default function TasksScreen() {
-    const { user } = useAuth();
+export default function TasksTab() {
     const { currentTheme: theme } = useTheme();
-    const { on, off } = useSocket();
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [members, setMembers] = useState<Member[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
-    const [editingTask, setEditingTask] = useState<Task | null>(null);
-    const [filter, setFilter] = useState<FilterType>('Pending');
 
-    const loadData = async () => {
-        try {
-            const [tasksResponse, dashboardResponse] = await Promise.all([
-                api.getTasks(),
-                api.getDashboardData()
-            ]);
+    // Get data from global cache
+    const { tasks, members, isInitialLoad, isRefreshing, refresh } = useData();
 
-            if (tasksResponse.data && tasksResponse.data.tasks) {
-                setTasks(tasksResponse.data.tasks);
-            } else {
-                setTasks([]);
-            }
+    const [filter, setFilter] = useState<TaskFilter>('all');
+    const [modalVisible, setModalVisible] = useState(false);
+    const [selectedTask, setSelectedTask] = useState<Task | null>(null);
 
-            if (dashboardResponse.data && dashboardResponse.data.household && dashboardResponse.data.household.members) {
-                setMembers(dashboardResponse.data.household.members);
-            }
-        } catch (error) {
-            console.error('Error loading tasks data:', error);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
+    // Filter tasks based on selected filter
+    const filteredTasks = useMemo(() => {
+        switch (filter) {
+            case 'pending':
+                return tasks.filter(t => t.status === 'Pending');
+            case 'completed':
+                return tasks.filter(t => t.status === 'PendingApproval');
+            case 'approved':
+                return tasks.filter(t => t.status === 'Approved');
+            default:
+                return tasks;
         }
+    }, [tasks, filter]);
+
+    const handleTaskPress = (task: Task) => {
+        setSelectedTask(task);
+        setModalVisible(true);
     };
 
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [])
-    );
-
-    // Real-time updates
-    React.useEffect(() => {
-        const handleUpdate = (data: TaskUpdatedEvent) => {
-            console.log('🔄 Received real-time update, refreshing tasks...', data);
-            loadData();
-        };
-
-        on('task_updated', handleUpdate);
-
-        return () => {
-            off('task_updated', handleUpdate);
-        };
-    }, [on, off]);
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        loadData();
+    const handleCreateNew = () => {
+        setSelectedTask(null);
+        setModalVisible(true);
     };
 
-    const handleDeleteTask = async (task: Task) => {
-        Alert.alert(
-            "Delete Task",
-            "Are you sure you want to delete this task?",
-            [
-                { text: "Cancel", style: "cancel" },
-                {
-                    text: "Delete",
-                    style: "destructive",
-                    onPress: async () => {
-                        try {
-                            await api.deleteTask(task._id || task.id);
-                            loadData();
-                        } catch (error) {
-                            console.error('Error deleting task:', error);
-                            alert('Failed to delete task');
-                        }
-                    }
-                }
-            ]
+    const handleCloseModal = () => {
+        setModalVisible(false);
+        setSelectedTask(null);
+    };
+
+    const renderTaskItem = ({ item }: { item: Task }) => {
+        const assignedMember = item.assignedTo
+            ? members.find(m => (m.id === item.assignedTo || m._id === item.assignedTo))
+            : null;
+
+        return (
+            <TouchableOpacity
+                style={[styles.taskCard, { backgroundColor: theme.colors.bgSurface }]}
+                onPress={() => handleTaskPress(item)}
+            >
+                {item.icon && (
+                    <TaskIcon iconName={item.icon} size={32} showBackground />
+                )}
+                <View style={styles.taskInfo}>
+                    <Text style={[styles.taskTitle, { color: theme.colors.textPrimary }]}>
+                        {item.title}
+                    </Text>
+                    {item.description && (
+                        <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
+                            {item.description}
+                        </Text>
+                    )}
+                    <View style={styles.taskMeta}>
+                        <Text style={[styles.taskPoints, { color: theme.colors.actionPrimary }]}>
+                            {item.pointsValue || item.value || 0} pts
+                        </Text>
+                        {assignedMember && (
+                            <Text style={[styles.taskAssigned, { color: theme.colors.textSecondary }]}>
+                                → {assignedMember.firstName}
+                            </Text>
+                        )}
+                    </View>
+                </View>
+                <View style={[
+                    styles.statusBadge,
+                    { backgroundColor: getStatusColor(item.status) + '20' }
+                ]}>
+                    {getStatusIcon(item.status, getStatusColor(item.status))}
+                </View>
+            </TouchableOpacity>
         );
     };
 
-    const filteredTasks = tasks.filter(task => {
-        if (filter === 'ALL') return true;
-        if (filter === 'Pending') {
-            // Show both Pending and PendingApproval as "To Do"
-            return task.status === 'Pending' || task.status === 'PendingApproval';
+    const getStatusColor = (status: string) => {
+        switch (status) {
+            case 'Approved': return '#10B981';
+            case 'PendingApproval': return '#F59E0B';
+            case 'Pending': return '#6B7280';
+            default: return '#6B7280';
         }
-        return task.status === filter;
-    });
+    };
 
-    const renderFilterButton = (type: FilterType, label: string) => (
-        <TouchableOpacity
-            style={[
-                styles.filterButton,
-                filter === type && { backgroundColor: theme.colors.actionPrimary },
-                filter !== type && {
-                    backgroundColor: theme.colors.bgSurface,
-                    borderWidth: 1,
-                    borderColor: theme.colors.borderSubtle
-                }
-            ]}
-            onPress={() => setFilter(type)}
-        >
-            <Text style={[
-                styles.filterText,
-                { color: filter === type ? '#FFFFFF' : theme.colors.textSecondary }
-            ]}>
-                {label}
-            </Text>
-        </TouchableOpacity>
-    );
+    const getStatusIcon = (status: string, color: string) => {
+        switch (status) {
+            case 'Approved': return <CheckCircle size={20} color={color} />;
+            case 'PendingApproval': return <Clock size={20} color={color} />;
+            case 'Pending': return <Target size={20} color={color} />;
+            default: return <Target size={20} color={color} />;
+        }
+    };
 
-    if (isLoading && !tasks.length) {
+    if (isInitialLoad) {
         return (
-            <View style={[styles.container, styles.centered]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
+            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                <SkeletonList count={5} />
             </View>
         );
     }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+            {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Tasks</Text>
+                <View style={styles.headerLeft}>
+                    <Target size={24} color={theme.colors.actionPrimary} />
+                    <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                        Tasks
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: theme.colors.actionPrimary }]}
+                    onPress={handleCreateNew}
+                >
+                    <Plus size={20} color="#FFFFFF" />
+                </TouchableOpacity>
             </View>
 
+            {/* Filter Tabs */}
             <View style={styles.filterContainer}>
-                {renderFilterButton('Pending', 'To Do')}
-                {renderFilterButton('Approved', 'Completed')}
-                {renderFilterButton('ALL', 'All')}
+                {(['all', 'pending', 'completed', 'approved'] as TaskFilter[]).map((f) => (
+                    <TouchableOpacity
+                        key={f}
+                        style={[
+                            styles.filterTab,
+                            filter === f && { backgroundColor: theme.colors.actionPrimary }
+                        ]}
+                        onPress={() => setFilter(f)}
+                    >
+                        <Text style={[
+                            styles.filterText,
+                            { color: filter === f ? '#FFFFFF' : theme.colors.textSecondary }
+                        ]}>
+                            {f.charAt(0).toUpperCase() + f.slice(1)}
+                        </Text>
+                    </TouchableOpacity>
+                ))}
             </View>
 
+            {/* Tasks List */}
             <FlatList
                 data={filteredTasks}
-                renderItem={({ item }) => (
-                    <TaskCard
-                        task={item}
-                        onEdit={(task) => {
-                            setEditingTask(task);
-                            setIsCreateModalVisible(true);
-                        }}
-                        onDelete={() => handleDeleteTask(item)}
-                        members={members}
-                    />
-                )}
-                keyExtractor={(item) => item._id || item.id}
+                renderItem={renderTaskItem}
+                keyExtractor={(item) => item.id || item._id || ''}
                 contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={refresh}
+                        tintColor={theme.colors.actionPrimary}
+                    />
+                }
                 ListEmptyComponent={
-                    <View style={styles.emptyState}>
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No tasks found</Text>
+                    <View style={styles.emptyContainer}>
+                        <Target size={48} color={theme.colors.borderSubtle} />
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                            No tasks found
+                        </Text>
                     </View>
                 }
             />
 
-            <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => {
-                    setEditingTask(null);
-                    setIsCreateModalVisible(true);
-                }}
-            >
-                <Plus size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-
+            {/* Combined Create/Edit Modal */}
             <CreateTaskModal
-                visible={isCreateModalVisible}
-                onClose={() => {
-                    setIsCreateModalVisible(false);
-                    setEditingTask(null);
-                }}
-                onTaskCreated={() => {
-                    loadData();
-                    setIsCreateModalVisible(false);
-                    setEditingTask(null);
-                }}
+                visible={modalVisible}
+                onClose={handleCloseModal}
+                onTaskCreated={refresh}
                 members={members}
-                initialTask={editingTask}
+                initialTask={selectedTask}
             />
         </View>
     );
@@ -204,57 +196,94 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    centered: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         padding: 16,
-        paddingBottom: 8,
+        paddingBottom: 12,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
     },
+    addButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     filterContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        marginBottom: 16,
         gap: 8,
+        marginBottom: 8,
     },
-    filterButton: {
-        paddingVertical: 6,
-        paddingHorizontal: 12,
-        borderRadius: 16,
+    filterTab: {
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 20,
     },
     filterText: {
-        fontSize: 12,
+        fontSize: 14,
         fontWeight: '600',
     },
     listContent: {
         padding: 16,
-        paddingTop: 0,
+        paddingTop: 8,
     },
-    emptyState: {
-        padding: 32,
+    taskCard: {
+        flexDirection: 'row',
+        padding: 16,
+        borderRadius: 12,
+        marginBottom: 12,
         alignItems: 'center',
+        gap: 12,
     },
-    emptyText: {
+    taskInfo: {
+        flex: 1,
+        gap: 4,
+    },
+    taskTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    taskDescription: {
         fontSize: 14,
     },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
+    taskMeta: {
+        flexDirection: 'row',
         alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
+        gap: 12,
+        marginTop: 4,
+    },
+    taskPoints: {
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    taskAssigned: {
+        fontSize: 13,
+    },
+    statusBadge: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        gap: 12,
+    },
+    emptyText: {
+        fontSize: 16,
     },
 });

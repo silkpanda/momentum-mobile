@@ -7,6 +7,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
+import { DataProvider } from './src/contexts/DataContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
 
@@ -38,8 +39,10 @@ export default function App() {
           <NavigationContainer>
             <AuthProvider>
               <SocketProvider>
-                <AppNavigator />
-                <StatusBar style="auto" />
+                <DataProvider>
+                  <AppNavigator />
+                  <StatusBar style="auto" />
+                </DataProvider>
               </SocketProvider>
             </AuthProvider>
           </NavigationContainer>

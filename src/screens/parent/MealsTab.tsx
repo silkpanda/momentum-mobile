@@ -1,260 +1,194 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
-import { api } from '../../services/api';
-import { Plus, Trash2, UtensilsCrossed, MapPin, Edit2 } from 'lucide-react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } from 'react-native';
+import { useData } from '../../contexts/DataContext';
+import { useTheme } from '../../contexts/ThemeContext';
+import { SkeletonList } from '../../components/SkeletonLoader';
+import { UtensilsCrossed, Plus, ChefHat, MapPin } from 'lucide-react-native';
 import CreateRecipeModal from '../../components/meals/CreateRecipeModal';
 import CreateRestaurantModal from '../../components/meals/CreateRestaurantModal';
-import EditRecipeModal from '../../components/meals/EditRecipeModal';
-import EditRestaurantModal from '../../components/meals/EditRestaurantModal';
-import { useTheme } from '../../contexts/ThemeContext';
 
 export default function MealsTab() {
-    const [meals, setMeals] = useState<any[]>([]);
-    const [restaurants, setRestaurants] = useState<any[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [activeTab, setActiveTab] = useState<'meals' | 'restaurants'>('meals');
-    const [showRecipeModal, setShowRecipeModal] = useState(false);
-    const [showRestaurantModal, setShowRestaurantModal] = useState(false);
-    const [editingRecipe, setEditingRecipe] = useState<any>(null);
-    const [editingRestaurant, setEditingRestaurant] = useState<any>(null);
     const { currentTheme: theme } = useTheme();
 
-    const loadData = async () => {
-        try {
-            const [mealsResponse, restaurantsResponse] = await Promise.all([
-                api.getMeals(),
-                api.getRestaurants()
-            ]);
+    // Get data from global cache
+    const { meals, restaurants, isInitialLoad, isRefreshing, refresh } = useData();
 
-            if (mealsResponse.data && mealsResponse.data.recipes) {
-                setMeals(mealsResponse.data.recipes);
-            } else {
-                setMeals([]);
-            }
+    const [activeTab, setActiveTab] = useState<'recipes' | 'restaurants'>('recipes');
+    const [recipeModalVisible, setRecipeModalVisible] = useState(false);
+    const [restaurantModalVisible, setRestaurantModalVisible] = useState(false);
 
-            if (restaurantsResponse.data && restaurantsResponse.data.restaurants) {
-                setRestaurants(restaurantsResponse.data.restaurants);
-            } else {
-                setRestaurants([]);
-            }
-        } catch (error) {
-            console.error('Error loading meals data:', error);
-        } finally {
-            setIsLoading(false);
-            setRefreshing(false);
+    const handleAddClick = () => {
+        if (activeTab === 'recipes') {
+            setRecipeModalVisible(true);
+        } else {
+            setRestaurantModalVisible(true);
         }
     };
 
-    useFocusEffect(
-        useCallback(() => {
-            loadData();
-        }, [])
-    );
-
-    const onRefresh = () => {
-        setRefreshing(true);
-        loadData();
+    const handleRecipeCreated = () => {
+        refresh();
     };
 
-    const handleDeleteMeal = async (mealId: string) => {
-        Alert.alert(
-            'Delete Meal',
-            'Are you sure you want to delete this meal?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.deleteMeal(mealId);
-                            loadData();
-                        } catch (error) {
-                            console.error('Error deleting meal:', error);
-                            alert('Failed to delete meal');
-                        }
-                    }
-                }
-            ]
-        );
+    const handleRestaurantCreated = () => {
+        refresh();
     };
 
-    const handleDeleteRestaurant = async (restaurantId: string) => {
-        Alert.alert(
-            'Delete Restaurant',
-            'Are you sure you want to delete this restaurant?',
-            [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                    text: 'Delete',
-                    style: 'destructive',
-                    onPress: async () => {
-                        try {
-                            await api.deleteRestaurant(restaurantId);
-                            loadData();
-                        } catch (error) {
-                            console.error('Error deleting restaurant:', error);
-                            alert('Failed to delete restaurant');
-                        }
-                    }
-                }
-            ]
-        );
-    };
-
-    if (isLoading) {
+    if (isInitialLoad) {
         return (
-            <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.bgCanvas }]}>
-                <ActivityIndicator size="large" color={theme.colors.actionPrimary} />
+            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                <SkeletonList count={4} />
             </View>
         );
     }
 
-    const currentData = activeTab === 'meals' ? meals : restaurants;
-    const handleDelete = activeTab === 'meals' ? handleDeleteMeal : handleDeleteRestaurant;
-    const icon = activeTab === 'meals' ? UtensilsCrossed : MapPin;
-    const Icon = icon;
-
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+            {/* Header */}
             <View style={styles.header}>
-                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Meal Planner</Text>
-                <Text style={{ color: theme.colors.textSecondary }}>Manage meals and restaurants</Text>
+                <View style={styles.headerLeft}>
+                    <UtensilsCrossed size={24} color={theme.colors.actionPrimary} />
+                    <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                        Meals
+                    </Text>
+                </View>
+                <TouchableOpacity
+                    style={[styles.addButton, { backgroundColor: theme.colors.actionPrimary }]}
+                    onPress={handleAddClick}
+                >
+                    <Plus size={20} color="#FFFFFF" />
+                </TouchableOpacity>
             </View>
 
-            {/* Tab Selector */}
-            <View style={styles.tabSelector}>
+            {/* Tab Switcher */}
+            <View style={styles.tabContainer}>
                 <TouchableOpacity
                     style={[
                         styles.tab,
-                        activeTab === 'meals' && { borderBottomColor: theme.colors.actionPrimary, borderBottomWidth: 2 }
+                        activeTab === 'recipes' && { backgroundColor: theme.colors.actionPrimary }
                     ]}
-                    onPress={() => setActiveTab('meals')}
+                    onPress={() => setActiveTab('recipes')}
                 >
+                    <ChefHat size={18} color={activeTab === 'recipes' ? '#FFFFFF' : theme.colors.textSecondary} />
                     <Text style={[
                         styles.tabText,
-                        { color: activeTab === 'meals' ? theme.colors.actionPrimary : theme.colors.textSecondary }
+                        { color: activeTab === 'recipes' ? '#FFFFFF' : theme.colors.textSecondary }
                     ]}>
-                        Home Meals
+                        Recipes ({meals.length})
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
                     style={[
                         styles.tab,
-                        activeTab === 'restaurants' && { borderBottomColor: theme.colors.actionPrimary, borderBottomWidth: 2 }
+                        activeTab === 'restaurants' && { backgroundColor: theme.colors.actionPrimary }
                     ]}
                     onPress={() => setActiveTab('restaurants')}
                 >
+                    <MapPin size={18} color={activeTab === 'restaurants' ? '#FFFFFF' : theme.colors.textSecondary} />
                     <Text style={[
                         styles.tabText,
-                        { color: activeTab === 'restaurants' ? theme.colors.actionPrimary : theme.colors.textSecondary }
+                        { color: activeTab === 'restaurants' ? '#FFFFFF' : theme.colors.textSecondary }
                     ]}>
-                        Restaurants
+                        Restaurants ({restaurants.length})
                     </Text>
                 </TouchableOpacity>
             </View>
 
+            {/* Content */}
             <ScrollView
-                style={styles.list}
-                contentContainerStyle={styles.listContent}
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                contentContainerStyle={styles.content}
+                refreshControl={
+                    <RefreshControl
+                        refreshing={isRefreshing}
+                        onRefresh={refresh}
+                        tintColor={theme.colors.actionPrimary}
+                    />
+                }
             >
-                {currentData.length === 0 ? (
-                    <View style={styles.emptyContainer}>
-                        <Text style={{ color: theme.colors.textSecondary }}>
-                            No {activeTab === 'meals' ? 'meals' : 'restaurants'} added yet.
-                        </Text>
-                    </View>
-                ) : (
-                    currentData.map((item) => (
-                        <View key={item._id || item.id} style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
-                            <View style={styles.cardContent}>
-                                <View style={[styles.iconContainer, { backgroundColor: theme.colors.bgCanvas }]}>
-                                    <Icon size={24} color={theme.colors.textSecondary} />
+                {activeTab === 'recipes' ? (
+                    meals.length > 0 ? (
+                        meals.map((meal) => (
+                            <View
+                                key={meal.id || meal._id}
+                                style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
+                            >
+                                <View style={styles.itemHeader}>
+                                    <ChefHat size={20} color={theme.colors.actionPrimary} />
+                                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>
+                                        {meal.name}
+                                    </Text>
                                 </View>
-                                <View style={{ flex: 1, marginLeft: 12 }}>
-                                    <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>{item.name || item.title}</Text>
-                                    {item.description && (
-                                        <Text style={{ color: theme.colors.textSecondary, fontSize: 12 }} numberOfLines={1}>
-                                            {item.description}
-                                        </Text>
+                                {meal.description && (
+                                    <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
+                                        {meal.description}
+                                    </Text>
+                                )}
+                            </View>
+                        ))
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <ChefHat size={48} color={theme.colors.borderSubtle} />
+                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                                No recipes yet
+                            </Text>
+                            <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+                                Add your family's favorite recipes
+                            </Text>
+                        </View>
+                    )
+                ) : (
+                    restaurants.length > 0 ? (
+                        restaurants.map((restaurant) => (
+                            <View
+                                key={restaurant.id || restaurant._id}
+                                style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
+                            >
+                                <View style={styles.itemHeader}>
+                                    <MapPin size={20} color={theme.colors.actionPrimary} />
+                                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>
+                                        {restaurant.name}
+                                    </Text>
+                                </View>
+                                {restaurant.cuisine && (
+                                    <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
+                                        {restaurant.cuisine}
+                                    </Text>
+                                )}
+                                <View style={styles.itemFooter}>
+                                    {restaurant.isFavorite && (
+                                        <View style={[styles.badge, { backgroundColor: theme.colors.actionPrimary + '20' }]}>
+                                            <Text style={[styles.badgeText, { color: theme.colors.actionPrimary }]}>
+                                                Favorite
+                                            </Text>
+                                        </View>
                                     )}
                                 </View>
-                                <View style={styles.cardActions}>
-                                    <TouchableOpacity
-                                        onPress={() => {
-                                            if (activeTab === 'meals') {
-                                                setEditingRecipe(item);
-                                            } else {
-                                                setEditingRestaurant(item);
-                                            }
-                                        }}
-                                        style={styles.actionButton}
-                                    >
-                                        <Edit2 size={18} color={theme.colors.actionPrimary} />
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        onPress={() => handleDelete(item._id || item.id)}
-                                        style={styles.actionButton}
-                                    >
-                                        <Trash2 size={18} color={theme.colors.signalAlert} />
-                                    </TouchableOpacity>
-                                </View>
                             </View>
+                        ))
+                    ) : (
+                        <View style={styles.emptyContainer}>
+                            <MapPin size={48} color={theme.colors.borderSubtle} />
+                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                                No restaurants yet
+                            </Text>
+                            <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+                                Add your family's favorite places to eat
+                            </Text>
                         </View>
-                    ))
+                    )
                 )}
             </ScrollView>
 
-            <TouchableOpacity
-                style={[styles.fab, { backgroundColor: theme.colors.actionPrimary }]}
-                onPress={() => {
-                    if (activeTab === 'meals') {
-                        setShowRecipeModal(true);
-                    } else {
-                        setShowRestaurantModal(true);
-                    }
-                }}
-            >
-                <Plus size={24} color="#FFFFFF" />
-            </TouchableOpacity>
-
-            {/* Create Modals */}
+            {/* Modals */}
             <CreateRecipeModal
-                visible={showRecipeModal}
-                onClose={() => setShowRecipeModal(false)}
-                onRecipeCreated={(recipe) => {
-                    setMeals(prev => [...prev, recipe]);
-                }}
-            />
-            <CreateRestaurantModal
-                visible={showRestaurantModal}
-                onClose={() => setShowRestaurantModal(false)}
-                onRestaurantCreated={(restaurant) => {
-                    setRestaurants(prev => [...prev, restaurant]);
-                }}
+                visible={recipeModalVisible}
+                onClose={() => setRecipeModalVisible(false)}
+                onRecipeCreated={handleRecipeCreated}
             />
 
-            {/* Edit Modals */}
-            <EditRecipeModal
-                visible={!!editingRecipe}
-                recipe={editingRecipe}
-                onClose={() => setEditingRecipe(null)}
-                onRecipeUpdated={(recipe) => {
-                    setMeals(prev => prev.map(m => (m._id || m.id) === (recipe._id || recipe.id) ? recipe : m));
-                    setEditingRecipe(null);
-                }}
-            />
-            <EditRestaurantModal
-                visible={!!editingRestaurant}
-                restaurant={editingRestaurant}
-                onClose={() => setEditingRestaurant(null)}
-                onRestaurantUpdated={(restaurant) => {
-                    setRestaurants(prev => prev.map(r => (r._id || r.id) === (restaurant._id || restaurant.id) ? restaurant : r));
-                    setEditingRestaurant(null);
-                }}
+            <CreateRestaurantModal
+                visible={restaurantModalVisible}
+                onClose={() => setRestaurantModalVisible(false)}
+                onRestaurantCreated={handleRestaurantCreated}
             />
         </View>
     );
@@ -264,92 +198,98 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
     },
-    centered: {
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     header: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
         padding: 16,
-        paddingBottom: 8,
+        paddingBottom: 12,
+    },
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     title: {
         fontSize: 24,
         fontWeight: 'bold',
     },
-    tabSelector: {
+    addButton: {
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    tabContainer: {
         flexDirection: 'row',
         paddingHorizontal: 16,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        gap: 8,
+        marginBottom: 16,
     },
     tab: {
         flex: 1,
-        paddingVertical: 12,
+        flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        paddingVertical: 12,
+        borderRadius: 12,
     },
     tabText: {
         fontSize: 14,
         fontWeight: '600',
     },
-    list: {
-        flex: 1,
-    },
-    listContent: {
+    content: {
         padding: 16,
+        paddingTop: 0,
     },
-    emptyContainer: {
-        padding: 32,
-        alignItems: 'center',
-    },
-    card: {
+    itemCard: {
+        padding: 16,
         borderRadius: 12,
         marginBottom: 12,
-        padding: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    cardContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        marginBottom: 2,
-    },
-    cardActions: {
-        flexDirection: 'row',
         gap: 8,
     },
-    actionButton: {
-        padding: 8,
-    },
-    deleteButton: {
-        padding: 8,
-    },
-    fab: {
-        position: 'absolute',
-        bottom: 24,
-        right: 24,
-        width: 56,
-        height: 56,
-        borderRadius: 28,
-        justifyContent: 'center',
+    itemHeader: {
+        flexDirection: 'row',
         alignItems: 'center',
-        elevation: 6,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 4,
+        gap: 8,
+    },
+    itemTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        flex: 1,
+    },
+    itemDescription: {
+        fontSize: 14,
+    },
+    itemFooter: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 4,
+    },
+    badge: {
+        paddingHorizontal: 10,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    badgeText: {
+        fontSize: 12,
+        fontWeight: '600',
+    },
+    emptyContainer: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 60,
+        gap: 12,
+    },
+    emptyText: {
+        fontSize: 18,
+        fontWeight: '600',
+    },
+    emptySubtext: {
+        fontSize: 14,
+        textAlign: 'center',
     },
 });
+

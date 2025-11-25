@@ -20,6 +20,12 @@ export interface Member {
     pointsTotal: number;
     walletBalance?: number; // Sometimes distinct from total points
     focusedTaskId?: string; // ADHD Feature: When set, child sees only this task in Focus Mode
+
+    // Streak System (Gamification)
+    currentStreak?: number; // Days of consecutive task completion
+    longestStreak?: number; // Personal best streak
+    lastCompletionDate?: string; // ISO date string for tracking
+    streakMultiplier?: number; // Current point multiplier (1.0, 1.5, 2.0, etc.)
 }
 
 export interface Task {
@@ -27,6 +33,7 @@ export interface Task {
     _id?: string;
     title: string;
     description?: string;
+    icon?: string; // Icon name for visual representation (for non-readers)
     value: number;
     pointsValue?: number; // API sometimes returns this instead of value
     status: 'Pending' | 'PendingApproval' | 'Completed' | 'Approved';
@@ -102,7 +109,10 @@ export interface DashboardData {
 }
 
 export interface FamilyData {
-    household: Household;
+    memberProfiles: Member[];
+    tasks?: Task[];
+    storeItems?: StoreItem[];
+    household?: Household; // Keep for backward compatibility
 }
 
 export interface LoginResponse {
