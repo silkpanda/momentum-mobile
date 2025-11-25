@@ -34,7 +34,8 @@ export const getMultiplierForStreak = (streakDays: number): number => {
  */
 export const getCurrentTier = (streakDays: number) => {
     let currentTier = STREAK_TIERS[0];
-    for (const tier of STREAK_TIERS) {
+    for (let i = 0; i < STREAK_TIERS.length; i++) {
+        const tier = STREAK_TIERS[i];
         if (streakDays >= tier.days) {
             currentTier = tier;
         } else {

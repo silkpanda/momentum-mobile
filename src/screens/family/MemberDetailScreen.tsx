@@ -21,6 +21,9 @@ import { MemberPointsUpdatedEvent, TaskUpdatedEvent, QuestUpdatedEvent } from '.
 import FocusModeView from '../../components/focus/FocusModeView';
 import { useData } from '../../contexts/DataContext';
 import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
+import StreakBadge from '../../components/streaks/StreakBadge';
+import MultiplierBadge from '../../components/streaks/MultiplierBadge';
+import StreakProgress from '../../components/streaks/StreakProgress';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -227,12 +230,12 @@ export default function MemberDetailScreen() {
                         <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>{memberPoints}</Text>
                         <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Points</Text>
                     </View>
-                    <View style={[styles.statCard, { backgroundColor: theme.colors.bgSurface }]}>
-                        <Trophy size={20} color={theme.colors.signalSuccess} />
-                        <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>--</Text>
-                        <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Streak</Text>
-                    </View>
+                    <StreakBadge streak={memberData?.currentStreak || 0} size="medium" />
+                    <MultiplierBadge multiplier={memberData?.streakMultiplier || 1.0} size="medium" />
                 </View>
+
+                {/* Streak Progress */}
+                <StreakProgress currentStreak={memberData?.currentStreak || 0} />
 
                 <TouchableOpacity
                     style={[styles.storeButton, { backgroundColor: theme.colors.actionPrimary }]}
