@@ -13,6 +13,7 @@ export type RootStackParamList = {
 export type ParentTabParamList = {
     Dashboard: undefined;
     Tasks: undefined;
+    Routines: undefined;
     Store: undefined;
     Quests: undefined;
     Meals: undefined;

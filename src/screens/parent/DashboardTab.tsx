@@ -1,5 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, RefreshControl, Alert } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useData } from '../../contexts/DataContext';
@@ -13,11 +15,15 @@ import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
 import PendingTaskCard from '../../components/dashboard/PendingTaskCard';
 import PendingQuestCard from '../../components/dashboard/PendingQuestCard';
 import FamilyMemberCard from '../../components/dashboard/FamilyMemberCard';
+import { RootStackParamList } from '../../navigation/types';
+
+type DashboardNavigationProp = StackNavigationProp<RootStackParamList>;
 
 export default function DashboardTab() {
     const { user } = useAuth();
     const { currentTheme: theme } = useTheme();
     const { execute: executeOptimistic } = useOptimisticUpdate();
+    const navigation = useNavigation<DashboardNavigationProp>();
 
     // Get ALL data from global cache
     const {
@@ -317,6 +323,13 @@ export default function DashboardTab() {
                                 key={member.id || member._id}
                                 member={member}
                                 focusedTask={focusedTask}
+                                onPress={() => navigation.navigate('MemberDetail', {
+                                    memberId: member.id || member._id || '',
+                                    userId: member.userId,
+                                    memberName: member.firstName,
+                                    memberColor: member.profileColor,
+                                    memberPoints: member.pointsTotal
+                                })}
                                 onSetFocus={() => {
                                     setSelectedMember(member);
                                     setTaskSelectionVisible(true);

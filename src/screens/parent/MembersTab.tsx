@@ -1,18 +1,22 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, RefreshControl } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { StackNavigationProp } from '@react-navigation/stack';
 import { useData } from '../../contexts/DataContext';
 import { api } from '../../services/api';
 import { Member } from '../../types';
+import { RootStackParamList } from '../../navigation/types';
 import CreateMemberModal from '../../components/parent/CreateMemberModal';
 import EditMemberModal from '../../components/parent/EditMemberModal';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SkeletonList } from '../../components/SkeletonLoader';
-import { Users, Plus } from 'lucide-react-native';
+import { Users, Plus, Edit } from 'lucide-react-native';
 import MemberAvatar from '../../components/family/MemberAvatar';
 
+type MembersTabNavigationProp = StackNavigationProp<RootStackParamList>;
+
 export default function MembersTab() {
-    const navigation = useNavigation();
+    const navigation = useNavigation<MembersTabNavigationProp>();
     const { currentTheme: theme } = useTheme();
 
     // Get data from global cache
@@ -22,7 +26,7 @@ export default function MembersTab() {
     const [editModalVisible, setEditModalVisible] = useState(false);
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
 
-    const handleMemberPress = (member: Member) => {
+    const handleEditPress = (member: Member) => {
         setSelectedMember(member);
         setEditModalVisible(true);
     };
@@ -30,7 +34,13 @@ export default function MembersTab() {
     const renderMemberItem = ({ item }: { item: Member }) => (
         <TouchableOpacity
             style={[styles.memberCard, { backgroundColor: theme.colors.bgSurface }]}
-            onPress={() => handleMemberPress(item)}
+            onPress={() => navigation.navigate('MemberDetail', {
+                memberId: item.id || item._id || '',
+                userId: item.userId,
+                memberName: item.firstName,
+                memberColor: item.profileColor,
+                memberPoints: item.pointsTotal
+            })}
         >
             <MemberAvatar
                 name={item.firstName}
@@ -48,6 +58,12 @@ export default function MembersTab() {
                     {item.pointsTotal || 0} points
                 </Text>
             </View>
+            <TouchableOpacity
+                style={{ padding: 8 }}
+                onPress={() => handleEditPress(item)}
+            >
+                <Edit size={20} color={theme.colors.textSecondary} />
+            </TouchableOpacity>
         </TouchableOpacity>
     );
 

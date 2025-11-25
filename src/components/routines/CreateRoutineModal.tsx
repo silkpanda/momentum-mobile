@@ -1,15 +1,16 @@
-// src/components/routines/CreateRoutineModal.tsx
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useData } from '../../contexts/DataContext';
 import { X, Plus, Trash2, Sunrise, Sun, Moon } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { logger } from '../../utils/logger';
+import MemberAvatar from '../family/MemberAvatar';
 
 interface CreateRoutineModalProps {
     visible: boolean;
     onClose: () => void;
-    memberId: string;
+    memberId?: string;
     onSuccess: () => void;
 }
 
@@ -17,18 +18,25 @@ type TimeOfDay = 'morning' | 'noon' | 'night';
 
 export default function CreateRoutineModal({ visible, onClose, memberId, onSuccess }: CreateRoutineModalProps) {
     const { currentTheme: theme } = useTheme();
+    const { members } = useData();
+
     const [title, setTitle] = useState('');
     const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>('morning');
     const [items, setItems] = useState<{ title: string; order: number; isCompleted: boolean }[]>([{ title: '', order: 0, isCompleted: false }]);
+    const [selectedMemberId, setSelectedMemberId] = useState(memberId || '');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    useEffect(() => {
+        if (memberId) setSelectedMemberId(memberId);
+    }, [memberId]);
 
     const handleAddItem = () => {
         setItems([...items, { title: '', order: items.length, isCompleted: false }]);
+        // Don't blur - let keyboard stay open for next input
     };
 
     const handleRemoveItem = (index: number) => {
         const newItems = items.filter((_, i) => i !== index);
-        // Reorder
         const reordered = newItems.map((item, i) => ({ ...item, order: i }));
         setItems(reordered);
     };
@@ -40,6 +48,11 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
     };
 
     const handleSubmit = async () => {
+        if (!selectedMemberId) {
+            Alert.alert('Error', 'Please select a family member');
+            return;
+        }
+
         if (!title.trim()) {
             Alert.alert('Error', 'Please enter a routine title');
             return;
@@ -54,7 +67,7 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
         try {
             setIsSubmitting(true);
             await api.createRoutine({
-                memberId,
+                memberId: selectedMemberId,
                 title,
                 timeOfDay,
                 items: validItems,
@@ -68,6 +81,7 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
             setTitle('');
             setTimeOfDay('morning');
             setItems([{ title: '', order: 0, isCompleted: false }]);
+            if (!memberId) setSelectedMemberId('');
         } catch (error) {
             logger.error('Failed to create routine', error);
             Alert.alert('Error', 'Failed to create routine. Please try again.');
@@ -115,6 +129,41 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
                 </View>
 
                 <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+
+                    {/* Member Selection (if not pre-selected) */}
+                    {!memberId && (
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Assign To</Text>
+                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                                {members.map(member => (
+                                    <TouchableOpacity
+                                        key={member.id || member._id}
+                                        style={[
+                                            styles.memberOption,
+                                            {
+                                                borderColor: selectedMemberId === (member.id || member._id) ? theme.colors.actionPrimary : theme.colors.borderSubtle,
+                                                backgroundColor: selectedMemberId === (member.id || member._id) ? theme.colors.actionPrimary + '10' : theme.colors.bgSurface
+                                            }
+                                        ]}
+                                        onPress={() => setSelectedMemberId(member.id || member._id || '')}
+                                    >
+                                        <MemberAvatar
+                                            name={member.firstName}
+                                            color={member.profileColor}
+                                            size={40}
+                                        />
+                                        <Text style={[
+                                            styles.memberName,
+                                            { color: theme.colors.textPrimary, fontWeight: selectedMemberId === (member.id || member._id) ? 'bold' : 'normal' }
+                                        ]}>
+                                            {member.firstName}
+                                        </Text>
+                                    </TouchableOpacity>
+                                ))}
+                            </ScrollView>
+                        </View>
+                    )}
+
                     {/* Title Input */}
                     <View style={styles.section}>
                         <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Routine Title</Text>
@@ -159,6 +208,8 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
                                     placeholderTextColor={theme.colors.textTertiary}
                                     value={item.title}
                                     onChangeText={(text) => handleItemChange(text, index)}
+                                    blurOnSubmit={false}
+                                    returnKeyType="next"
                                 />
                                 {items.length > 1 && (
                                     <TouchableOpacity
@@ -314,5 +365,16 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    memberOption: {
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 8,
+        minWidth: 80,
+    },
+    memberName: {
+        fontSize: 12,
     },
 });

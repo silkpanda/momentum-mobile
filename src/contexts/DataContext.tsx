@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { logger } from '../utils/logger';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
-import { Task, Quest, Member, StoreItem, Meal, Restaurant } from '../types';
+import { Task, Quest, Member, StoreItem, Meal, Restaurant, Routine } from '../types';
 
 interface DataContextType {
     // Data
@@ -15,6 +15,7 @@ interface DataContextType {
     storeItems: StoreItem[];
     meals: Meal[];
     restaurants: Restaurant[];
+    routines: Routine[];
     householdId: string;
 
     // Loading states
@@ -26,6 +27,7 @@ interface DataContextType {
     updateTask: (taskId: string, updates: Partial<Task>) => void;
     updateQuest: (questId: string, updates: Partial<Quest>) => void;
     updateMember: (memberId: string, updates: Partial<Member>) => void;
+    updateRoutine: (routineId: string, updates: Partial<Routine>) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -41,6 +43,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
     const [meals, setMeals] = useState<Meal[]>([]);
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+    const [routines, setRoutines] = useState<Routine[]>([]);
     const [householdId, setHouseholdId] = useState<string>('');
 
     const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -61,6 +64,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 storeRes,
                 mealsRes,
                 restaurantsRes,
+                routinesRes,
             ] = await Promise.all([
                 api.getTasks(),
                 api.getQuests(),
@@ -68,6 +72,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 api.getStoreItems(),
                 api.getMeals().catch(() => ({ data: { meals: [] } })), // Optional
                 api.getRestaurants().catch(() => ({ data: { restaurants: [] } })), // Optional
+                api.getAllRoutines().catch(() => ({ data: { routines: [] } })), // Optional
             ]);
 
             // Update all state at once
@@ -77,6 +82,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             // API can return either 'recipes' or 'meals'
             if (mealsRes.data && 'recipes' in mealsRes.data) setMeals(mealsRes.data.recipes);
             if (restaurantsRes.data?.restaurants) setRestaurants(restaurantsRes.data.restaurants);
+            if (routinesRes.data?.routines) setRoutines(routinesRes.data.routines);
 
             if (dashboardRes.data?.household) {
                 const household = dashboardRes.data.household;
@@ -97,6 +103,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     quests: questsRes.data?.quests?.length || 0,
                     members: members.length,
                     storeItems: storeRes.data?.storeItems?.length || 0,
+                    routines: routinesRes.data?.routines?.length || 0,
                 });
             }
         } catch (error) {
@@ -123,6 +130,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updateMember = useCallback((memberId: string, updates: Partial<Member>) => {
         setMembers(prev => prev.map(m =>
             (m.id === memberId || m._id === memberId) ? { ...m, ...updates } : m
+        ));
+    }, []);
+
+    const updateRoutine = useCallback((routineId: string, updates: Partial<Routine>) => {
+        setRoutines(prev => prev.map(r =>
+            (r.id === routineId || r._id === routineId) ? { ...r, ...updates } : r
         ));
     }, []);
 
@@ -162,16 +175,23 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             loadAllData(true);
         };
 
+        const handleRoutineUpdate = () => {
+            logger.info('📡 Routine updated via WebSocket');
+            loadAllData(true);
+        };
+
         on('taskUpdated', handleTaskUpdate);
         on('questUpdated', handleQuestUpdate);
         on('memberUpdated', handleMemberUpdate);
         on('storeUpdated', handleStoreUpdate);
+        on('routine_updated', handleRoutineUpdate);
 
         return () => {
             off('taskUpdated', handleTaskUpdate);
             off('questUpdated', handleQuestUpdate);
             off('memberUpdated', handleMemberUpdate);
             off('storeUpdated', handleStoreUpdate);
+            off('routine_updated', handleRoutineUpdate);
         };
     }, [isAuthenticated, on, off, loadAllData]);
 
@@ -182,6 +202,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         storeItems,
         meals,
         restaurants,
+        routines,
         householdId,
         isInitialLoad,
         isRefreshing,
@@ -189,6 +210,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         updateTask,
         updateQuest,
         updateMember,
+        updateRoutine,
     };
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

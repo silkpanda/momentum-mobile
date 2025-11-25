@@ -11,13 +11,18 @@ interface FamilyMemberCardProps {
     focusedTask?: Task;
     onSetFocus: () => void;
     onClearFocus: () => void;
+    onPress: () => void;
 }
 
-export default function FamilyMemberCard({ member, focusedTask, onSetFocus, onClearFocus }: FamilyMemberCardProps) {
+export default function FamilyMemberCard({ member, focusedTask, onSetFocus, onClearFocus, onPress }: FamilyMemberCardProps) {
     const { currentTheme: theme } = useTheme();
 
     return (
-        <View style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
+        <TouchableOpacity
+            style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
             {focusedTask && (
                 <View style={[styles.focusBanner, { backgroundColor: theme.colors.actionPrimary }]}>
                     <Target size={12} color="#FFFFFF" />
@@ -65,7 +70,7 @@ export default function FamilyMemberCard({ member, focusedTask, onSetFocus, onCl
                     </TouchableOpacity>
                 )}
             </View>
-        </View>
+        </TouchableOpacity>
     );
 }
 
