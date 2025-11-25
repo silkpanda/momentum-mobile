@@ -16,7 +16,7 @@ import MemberAvatar from '../../components/family/MemberAvatar';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSocket } from '../../contexts/SocketContext';
-import { Task, Quest, Member, QuestClaim } from '../../types';
+import { Task, Quest, Member, QuestClaim, Routine } from '../../types';
 import { MemberPointsUpdatedEvent, TaskUpdatedEvent, QuestUpdatedEvent } from '../../constants/socketEvents';
 import FocusModeView from '../../components/focus/FocusModeView';
 import { useData } from '../../contexts/DataContext';
@@ -24,6 +24,9 @@ import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
 import StreakBadge from '../../components/streaks/StreakBadge';
 import MultiplierBadge from '../../components/streaks/MultiplierBadge';
 import StreakProgress from '../../components/streaks/StreakProgress';
+import RoutineCard from '../../components/routines/RoutineCard';
+import RoutineDetailModal from '../../components/routines/RoutineDetailModal';
+import CreateRoutineModal from '../../components/routines/CreateRoutineModal';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -41,6 +44,12 @@ export default function MemberDetailScreen() {
     const { tasks: allTasks, quests: allQuests, members, refresh, updateTask, updateQuest, isRefreshing } = useData();
     const { execute } = useOptimisticUpdate();
 
+    // Routine State
+    const [routines, setRoutines] = useState<Routine[]>([]);
+    const [selectedRoutine, setSelectedRoutine] = useState<Routine | null>(null);
+    const [isRoutineModalVisible, setIsRoutineModalVisible] = useState(false);
+    const [isCreateRoutineModalVisible, setIsCreateRoutineModalVisible] = useState(false);
+
     // Derived State
     const memberData = useMemo(() =>
         members.find(m => m.id === memberId || m._id === memberId),
@@ -55,6 +64,44 @@ export default function MemberDetailScreen() {
             setMemberPoints(memberData.pointsTotal || 0);
         }
     }, [memberData?.pointsTotal]);
+
+    // Fetch Routines
+    const fetchRoutines = useCallback(async () => {
+        try {
+            const response = await api.getMemberRoutines(memberId);
+            if (response.data?.routines) {
+                setRoutines(response.data.routines);
+            }
+        } catch (error) {
+            console.error('Failed to fetch routines:', error);
+        }
+    }, [memberId]);
+
+    useEffect(() => {
+        fetchRoutines();
+    }, [fetchRoutines]);
+
+    // Listen for routine updates via WebSocket
+    useEffect(() => {
+        const handleRoutineUpdate = (data: any) => {
+            // Simple refresh for now
+            fetchRoutines();
+        };
+
+        const handleRoutineItemToggled = (data: any) => {
+            if (data.memberId === memberId) {
+                fetchRoutines();
+            }
+        };
+
+        on('routine_updated', handleRoutineUpdate);
+        on('routine_item_toggled', handleRoutineItemToggled);
+
+        return () => {
+            off('routine_updated', handleRoutineUpdate);
+            off('routine_item_toggled', handleRoutineItemToggled);
+        };
+    }, [on, off, fetchRoutines, memberId]);
 
     const memberTasks = useMemo(() =>
         allTasks.filter(t => {
@@ -113,6 +160,7 @@ export default function MemberDetailScreen() {
 
     const onRefresh = () => {
         refresh();
+        fetchRoutines();
     };
 
     const handleCompleteTask = async (taskId: string) => {
@@ -132,7 +180,7 @@ export default function MemberDetailScreen() {
         const quest = allQuests.find(q => (q.id || q._id) === questId);
         if (!quest) return;
 
-        const newClaim = {
+        const newClaim: QuestClaim = {
             memberId,
             status: 'claimed',
             claimedAt: new Date().toISOString()
@@ -159,7 +207,7 @@ export default function MemberDetailScreen() {
         await execute({
             optimisticUpdate: () => {
                 const updatedClaims = quest.claims?.map(c =>
-                    c.memberId === memberId ? { ...c, status: 'completed' } : c
+                    c.memberId === memberId ? { ...c, status: 'completed' as const } : c
                 );
                 updateQuest(questId, { claims: updatedClaims });
             },
@@ -169,6 +217,17 @@ export default function MemberDetailScreen() {
             },
             successMessage: 'Quest completed! 🏆'
         });
+    };
+
+    const handleRoutinePress = (routine: Routine) => {
+        setSelectedRoutine(routine);
+        setIsRoutineModalVisible(true);
+    };
+
+    const handleRoutineUpdate = (updatedRoutine: Routine) => {
+        setRoutines(prev => prev.map(r =>
+            (r._id === updatedRoutine._id || r.id === updatedRoutine._id) ? updatedRoutine : r
+        ));
     };
 
     // Focus Mode Check
@@ -251,13 +310,42 @@ export default function MemberDetailScreen() {
                     <Text style={styles.storeButtonText}>Visit Rewards Store</Text>
                 </TouchableOpacity>
 
+                {/* Routines Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginBottom: 0 }]}>My Routines</Text>
+                    {user?.role === 'Parent' && (
+                        <TouchableOpacity onPress={() => setIsCreateRoutineModalVisible(true)}>
+                            <Text style={{ color: theme.colors.actionPrimary, fontWeight: '600' }}>+ Add</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {routines.length > 0 ? (
+                    routines.map((routine) => (
+                        <RoutineCard
+                            key={routine._id || routine.id}
+                            routine={routine}
+                            onPress={() => handleRoutinePress(routine)}
+                        />
+                    ))
+                ) : (
+                    <View style={[styles.emptyState, { marginBottom: 24 }]}>
+                        <Text style={{ color: theme.colors.textSecondary }}>No routines assigned.</Text>
+                        {user?.role === 'Parent' && (
+                            <TouchableOpacity onPress={() => setIsCreateRoutineModalVisible(true)} style={{ marginTop: 8 }}>
+                                <Text style={{ color: theme.colors.actionPrimary, fontWeight: 'bold' }}>Create First Routine</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>My Tasks</Text>
 
                 {memberTasks.length > 0 ? (
                     memberTasks.map((task) => (
                         <TaskCard
                             key={task._id || task.id}
-                            task={task}
+                            task={task as any}
                             onComplete={() => handleCompleteTask(task._id || task.id)}
                         />
                     ))
@@ -273,7 +361,7 @@ export default function MemberDetailScreen() {
                     availableQuests.map((quest) => (
                         <QuestCard
                             key={quest._id || quest.id}
-                            quest={quest}
+                            quest={quest as any}
                             onClaim={() => handleClaimQuest(quest._id || quest.id)}
                         />
                     ))
@@ -289,7 +377,7 @@ export default function MemberDetailScreen() {
                     activeQuests.map((quest) => (
                         <QuestCard
                             key={quest._id || quest.id}
-                            quest={quest}
+                            quest={quest as any}
                             onComplete={() => handleCompleteQuest(quest._id || quest.id)}
                         />
                     ))
@@ -299,6 +387,25 @@ export default function MemberDetailScreen() {
                     </View>
                 )}
             </ScrollView>
+
+            {/* Routine Detail Modal */}
+            <RoutineDetailModal
+                visible={isRoutineModalVisible}
+                onClose={() => setIsRoutineModalVisible(false)}
+                routine={selectedRoutine}
+                onUpdate={handleRoutineUpdate}
+            />
+
+            {/* Create Routine Modal */}
+            <CreateRoutineModal
+                visible={isCreateRoutineModalVisible}
+                onClose={() => setIsCreateRoutineModalVisible(false)}
+                memberId={memberId}
+                onSuccess={() => {
+                    fetchRoutines();
+                    setIsCreateRoutineModalVisible(false);
+                }}
+            />
         </View >
     );
 }
@@ -355,6 +462,13 @@ const styles = StyleSheet.create({
     },
     statLabel: {
         fontSize: 14,
+    },
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        marginTop: 24,
     },
     sectionTitle: {
         fontSize: 20,
