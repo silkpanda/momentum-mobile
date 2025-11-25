@@ -94,6 +94,28 @@ export interface Meal {
     isTrying?: boolean;
 }
 
+export interface RoutineItem {
+    _id?: string;
+    title: string;
+    order: number;
+    isCompleted: boolean;
+    completedAt?: string;
+}
+
+export interface Routine {
+    id: string;
+    _id?: string;
+    householdId: string;
+    memberId: string;
+    timeOfDay: 'morning' | 'noon' | 'night';
+    title: string;
+    items: RoutineItem[];
+    isActive: boolean;
+    lastResetDate?: string;
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 export interface Household {
     id: string;
     _id?: string;

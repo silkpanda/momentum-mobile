@@ -17,7 +17,9 @@ import {
     Quest,
     StoreItem,
     Restaurant,
-    Meal
+    Meal,
+    Routine,
+    RoutineItem
 } from '../types';
 
 const getBaseUrl = () => {
@@ -369,6 +371,45 @@ class ApiClient {
     async deleteMeal(mealId: string): Promise<ApiResponse<void>> {
         return this.request<void>(`/meals/recipes/${mealId}`, {
             method: 'DELETE',
+        });
+    }
+
+    // Routines
+    async getAllRoutines(): Promise<ApiResponse<{ routines: Routine[] }>> {
+        return this.request<{ routines: Routine[] }>('/routines');
+    }
+
+    async getMemberRoutines(memberId: string): Promise<ApiResponse<{ routines: Routine[] }>> {
+        return this.request<{ routines: Routine[] }>(`/routines/member/${memberId}`);
+    }
+
+    async getRoutineById(routineId: string): Promise<ApiResponse<{ routine: Routine }>> {
+        return this.request<{ routine: Routine }>(`/routines/${routineId}`);
+    }
+
+    async createRoutine(routineData: Partial<Routine>): Promise<ApiResponse<{ routine: Routine }>> {
+        return this.request<{ routine: Routine }>('/routines', {
+            method: 'POST',
+            body: JSON.stringify(routineData),
+        });
+    }
+
+    async updateRoutine(routineId: string, routineData: Partial<Routine>): Promise<ApiResponse<{ routine: Routine }>> {
+        return this.request<{ routine: Routine }>(`/routines/${routineId}`, {
+            method: 'PUT',
+            body: JSON.stringify(routineData),
+        });
+    }
+
+    async deleteRoutine(routineId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/routines/${routineId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async toggleRoutineItem(routineId: string, itemId: string): Promise<ApiResponse<{ routine: Routine; item: RoutineItem }>> {
+        return this.request<{ routine: Routine; item: RoutineItem }>(`/routines/${routineId}/items/${itemId}/toggle`, {
+            method: 'POST',
         });
     }
 }
