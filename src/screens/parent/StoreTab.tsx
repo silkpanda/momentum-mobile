@@ -36,8 +36,8 @@ export default function StoreTab() {
             style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
             onPress={() => handleItemPress(item)}
         >
-            {item.imageUrl ? (
-                <Image source={{ uri: item.imageUrl }} style={styles.itemImage} />
+            {item.image ? (
+                <Image source={{ uri: item.image }} style={styles.itemImage} />
             ) : (
                 <View style={[styles.itemImagePlaceholder, { backgroundColor: theme.colors.bgCanvas }]}>
                     <ShoppingBag size={32} color={theme.colors.borderSubtle} />
@@ -45,7 +45,7 @@ export default function StoreTab() {
             )}
             <View style={styles.itemInfo}>
                 <Text style={[styles.itemName, { color: theme.colors.textPrimary }]}>
-                    {item.name}
+                    {item.itemName}
                 </Text>
                 {item.description && (
                     <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]} numberOfLines={2}>
@@ -56,7 +56,7 @@ export default function StoreTab() {
                     <View style={styles.priceContainer}>
                         <Coins size={16} color={theme.colors.actionPrimary} />
                         <Text style={[styles.itemPrice, { color: theme.colors.actionPrimary }]}>
-                            {item.pointsCost} pts
+                            {item.cost} pts
                         </Text>
                     </View>
                     {item.stock !== undefined && (

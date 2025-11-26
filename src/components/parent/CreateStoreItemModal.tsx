@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
 import { X } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import { StoreItem } from '../../types';
 import {
     validateForm,
     getInitialFormData,
@@ -15,6 +16,7 @@ interface CreateStoreItemModalProps {
     visible: boolean;
     onClose: () => void;
     onItemCreated: () => void;
+    initialItem?: StoreItem | null;
 }
 
 const STORE_ITEM_FORM_FIELDS: FormField[] = [
@@ -23,7 +25,7 @@ const STORE_ITEM_FORM_FIELDS: FormField[] = [
     { name: 'cost', label: 'Cost (Points)', type: 'number', required: true, min: 1, defaultValue: 50 },
 ];
 
-export default function CreateStoreItemModal({ visible, onClose, onItemCreated }: CreateStoreItemModalProps) {
+export default function CreateStoreItemModal({ visible, onClose, onItemCreated, initialItem }: CreateStoreItemModalProps) {
     const { currentTheme: theme } = useTheme();
 
     // Form State
@@ -31,13 +33,31 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
     const [errors, setErrors] = useState<Record<string, string>>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
 
+    // Stock State
+    const [isInfinite, setIsInfinite] = useState(true);
+    const [stock, setStock] = useState('1');
+
     useEffect(() => {
         if (visible) {
-            setFormData(getInitialFormData(STORE_ITEM_FORM_FIELDS));
+            if (initialItem) {
+                // Edit Mode
+                setFormData({
+                    itemName: initialItem.itemName,
+                    description: initialItem.description,
+                    cost: initialItem.cost,
+                });
+                setIsInfinite(initialItem.isInfinite ?? true);
+                setStock(initialItem.stock ? String(initialItem.stock) : '1');
+            } else {
+                // Create Mode
+                setFormData(getInitialFormData(STORE_ITEM_FORM_FIELDS));
+                setIsInfinite(true);
+                setStock('1');
+            }
             setErrors({});
             setIsSubmitting(false);
         }
-    }, [visible]);
+    }, [visible, initialItem]);
 
     const handleChange = (name: string, value: any) => {
         setFormData(prev => ({ ...prev, [name]: value }));
@@ -50,7 +70,7 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
         }
     };
 
-    const handleCreate = async () => {
+    const handleSave = async () => {
         // 1. Validate Form Fields
         const validation = validateForm(formData, STORE_ITEM_FORM_FIELDS);
 
@@ -64,17 +84,26 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
             // 2. Sanitize Data
             const sanitizedData = sanitizeFormData(formData, STORE_ITEM_FORM_FIELDS);
 
-            await api.createStoreItem({
+            const payload = {
                 itemName: sanitizedData.itemName,
                 description: sanitizedData.description,
                 cost: sanitizedData.cost,
                 isAvailable: true,
-            });
+                isInfinite: isInfinite,
+                stock: isInfinite ? undefined : parseInt(stock) || 0,
+            };
+
+            if (initialItem && (initialItem.id || initialItem._id)) {
+                await api.updateStoreItem(initialItem.id || initialItem._id!, payload);
+            } else {
+                await api.createStoreItem(payload);
+            }
+
             onItemCreated();
             onClose();
         } catch (error) {
-            console.error('Error creating store item:', error);
-            Alert.alert('Error', 'Failed to create item');
+            console.error('Error saving store item:', error);
+            Alert.alert('Error', 'Failed to save item');
         } finally {
             setIsSubmitting(false);
         }
@@ -90,7 +119,9 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
             <View style={styles.modalOverlay}>
                 <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
                     <View style={styles.header}>
-                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>New Reward</Text>
+                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                            {initialItem ? 'Edit Reward' : 'New Reward'}
+                        </Text>
                         <TouchableOpacity onPress={onClose} style={styles.closeButton}>
                             <X size={24} color={theme.colors.textSecondary} />
                         </TouchableOpacity>
@@ -108,7 +139,7 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
                                 }]}
                                 placeholder="e.g. Extra Screen Time"
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={formData.itemName}
+                                value={formData.itemName as string}
                                 onChangeText={(text) => handleChange('itemName', text)}
                             />
                             {errors.itemName && (
@@ -127,7 +158,7 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
                                 }]}
                                 placeholder="Add details..."
                                 placeholderTextColor={theme.colors.textSecondary}
-                                value={formData.description}
+                                value={formData.description as string}
                                 onChangeText={(text) => handleChange('description', text)}
                                 multiline
                                 numberOfLines={3}
@@ -143,7 +174,7 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
                                     borderColor: errors.cost ? theme.colors.signalAlert : theme.colors.borderSubtle,
                                     color: theme.colors.textPrimary
                                 }]}
-                                value={String(formData.cost)}
+                                value={String(formData.cost || '')}
                                 onChangeText={(text) => handleChange('cost', text)}
                                 keyboardType="numeric"
                             />
@@ -151,18 +182,48 @@ export default function CreateStoreItemModal({ visible, onClose, onItemCreated }
                                 <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.cost}</Text>
                             )}
                         </View>
+
+                        {/* Stock Management */}
+                        <View style={styles.inputGroup}>
+                            <View style={styles.switchContainer}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: 0 }]}>Infinite Stock</Text>
+                                <Switch
+                                    value={isInfinite}
+                                    onValueChange={setIsInfinite}
+                                    trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.actionPrimary }}
+                                />
+                            </View>
+
+                            {!isInfinite && (
+                                <View style={{ marginTop: 12 }}>
+                                    <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Quantity Available</Text>
+                                    <TextInput
+                                        style={[styles.input, {
+                                            backgroundColor: theme.colors.bgCanvas,
+                                            borderColor: theme.colors.borderSubtle,
+                                            color: theme.colors.textPrimary
+                                        }]}
+                                        value={stock}
+                                        onChangeText={setStock}
+                                        keyboardType="numeric"
+                                    />
+                                </View>
+                            )}
+                        </View>
                     </ScrollView>
 
                     <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
                         <TouchableOpacity
                             style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary }]}
-                            onPress={handleCreate}
+                            onPress={handleSave}
                             disabled={isSubmitting}
                         >
                             {isSubmitting ? (
                                 <ActivityIndicator color="#FFFFFF" />
                             ) : (
-                                <Text style={styles.createButtonText}>Create Reward</Text>
+                                <Text style={styles.createButtonText}>
+                                    {initialItem ? 'Save Changes' : 'Create Reward'}
+                                </Text>
                             )}
                         </TouchableOpacity>
                     </View>
@@ -239,5 +300,10 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    switchContainer: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
 });
