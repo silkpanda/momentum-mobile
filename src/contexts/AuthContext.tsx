@@ -75,8 +75,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                     logger.error('Token verification failed:', error.message);
 
                     // Check if this is an authentication error (401) vs network error
-                    if (error.message && (error.message.includes('401') || error.message.includes('Unauthorized') || error.message.includes('Invalid token'))) {
-                        logger.warn('Auth error detected, clearing credentials');
+                    // TEMPORARY FIX: Also catch 500 "Something went wrong" which is how unhandled TokenExpiredError appears
+                    if (error.message && (
+                        error.message.includes('401') ||
+                        error.message.includes('Unauthorized') ||
+                        error.message.includes('Invalid token') ||
+                        error.message.includes('Something went wrong on the server') // Catch the 500 from expired token
+                    )) {
+                        logger.warn('Auth error detected (or expired token 500), clearing credentials');
                         await clearAuth();
                     } else {
                         logger.debug('Network error, keeping existing credentials');
