@@ -1,14 +1,11 @@
-// =========================================================
-// momentum-mobile/src/screens/family/MemberStoreScreen.tsx
-// Child Store View - For spending points
-// =========================================================
+// src/screens/family/MemberStoreScreen.tsx
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, FlatList, ActivityIndicator, RefreshControl, Alert, TouchableOpacity, Platform, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, Alert, TouchableOpacity, Platform, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp } from '@react-navigation/native';
 import { ArrowLeft, Star, ShoppingBag } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { api } from '../../services/api';
-import { StoreItem, Member } from '../../types';
+import { StoreItem, Member, WishlistItem } from '../../types';
 import StoreItemCard from '../../components/shared/StoreItemCard';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -29,7 +26,7 @@ export default function MemberStoreScreen() {
     const { memberId, userId, memberName, memberColor, memberPoints: initialPoints } = route.params;
     const { currentTheme: theme } = useTheme();
 
-    const { storeItems, members, refresh, isRefreshing } = useData();
+    const { storeItems, members, refresh, isRefreshing, wishlistItems } = useData();
     const { execute } = useOptimisticUpdate();
 
     const [currentPoints, setCurrentPoints] = useState(initialPoints);
@@ -47,22 +44,21 @@ export default function MemberStoreScreen() {
         }
     }, [memberData?.pointsTotal]);
 
-    // Real-time updates
+    // Real-time updates (points, store items, wishlist)
     useEffect(() => {
-        const handleUpdate = (data: any) => {
-            // Check if this is a points update for the current member
+        const handlePointsUpdate = (data: any) => {
             if (data && 'pointsTotal' in data && 'memberId' in data && data.memberId === memberId) {
                 console.log(`✅ [MemberStore] Socket update points: ${data.pointsTotal}`);
                 setCurrentPoints(data.pointsTotal);
             }
         };
-
-        on('member_points_updated', handleUpdate);
-        on('store_item_updated', refresh); // Refresh store items if they change
-
+        on('member_points_updated', handlePointsUpdate);
+        on('store_item_updated', refresh);
+        on('wishlist_updated', refresh);
         return () => {
-            off('member_points_updated', handleUpdate);
+            off('member_points_updated', handlePointsUpdate);
             off('store_item_updated', refresh);
+            off('wishlist_updated', refresh);
         };
     }, [on, off, memberId, refresh]);
 
@@ -75,11 +71,9 @@ export default function MemberStoreScreen() {
             Alert.alert('Not enough points', "You need more points to redeem this reward!");
             return;
         }
-
         const confirmPurchase = () => {
             performPurchase(item);
         };
-
         if (Platform.OS === 'web') {
             if (window.confirm(`Redeem "${item.itemName}" for ${item.cost} points?`)) {
                 confirmPurchase();
@@ -98,21 +92,15 @@ export default function MemberStoreScreen() {
 
     const performPurchase = async (item: StoreItem) => {
         const previousPoints = currentPoints;
-
         await execute({
             optimisticUpdate: () => {
-                // Optimistically deduct points
                 setCurrentPoints(prev => prev - item.cost);
             },
             apiCall: async () => {
                 const response = await api.purchaseItem(item._id || item.id, userId);
-
-                // If successful, update points from server response
                 if (response.data && typeof response.data.newPointsTotal === 'number') {
                     console.log(`[Store] Updated points from server: ${response.data.newPointsTotal}`);
                     setCurrentPoints(response.data.newPointsTotal);
-
-                    // Notify MemberDetailScreen immediately
                     DeviceEventEmitter.emit('update_member_points', {
                         memberId,
                         points: response.data.newPointsTotal
@@ -127,32 +115,93 @@ export default function MemberStoreScreen() {
         });
     };
 
-    // Wishlist handler using householdId from AuthContext with fallback to DataContext
+    // Wishlist handling
     const { householdId: authHouseholdId } = useAuth();
     const { householdId: dataHouseholdId } = useData();
 
+    // Local state for optimistic updates: { [itemId]: boolean }
+    const [pendingUpdates, setPendingUpdates] = useState<Record<string, boolean>>({});
+    // Local state for processing items to prevent double-clicks: { [itemId]: boolean }
+    const [processingItems, setProcessingItems] = useState<Record<string, boolean>>({});
+
+    // Helper to indicate if an item is already wishlisted for this member
+    const isItemWishlisted = (item: StoreItem): boolean => {
+        const itemId = item._id || item.id || '';
+        // Check pending updates first
+        if (pendingUpdates[itemId] !== undefined) {
+            return pendingUpdates[itemId];
+        }
+        // Fallback to server data
+        return wishlistItems.some(w =>
+            w.title === item.itemName && (w.memberId === memberId || w.memberId?.toString() === memberId)
+        );
+    };
+
     const handleAddToWishlist = async (item: StoreItem) => {
         const targetHouseholdId = authHouseholdId || dataHouseholdId;
+        const itemId = item._id || item.id || '';
 
         if (!targetHouseholdId) {
-            console.error('Household ID missing. Auth:', authHouseholdId, 'Data:', dataHouseholdId);
-            Alert.alert('Error', 'Household information missing. Please try refreshing.');
+            console.error('Household ID missing');
             return;
         }
+
+        // Prevent double-clicks
+        if (processingItems[itemId]) return;
+
+        const currentlyWishlisted = isItemWishlisted(item);
+        const nextState = !currentlyWishlisted;
+
+        console.log(`[Wishlist] Toggling item "${item.itemName}" (ID: ${itemId}) from ${currentlyWishlisted} to ${nextState}`);
+
+        // 1. Optimistic Update & Set Processing
+        setPendingUpdates(prev => ({ ...prev, [itemId]: nextState }));
+        setProcessingItems(prev => ({ ...prev, [itemId]: true }));
+
         try {
-            await api.createWishlistItem({
-                memberId,
-                householdId: targetHouseholdId,
-                title: item.itemName,
-                description: item.description,
-                pointsCost: item.cost,
-                imageUrl: item.image,
-                priority: 'medium',
-            });
-            Alert.alert('Success', `Added "${item.itemName}" to your wishlist!`);
+            if (currentlyWishlisted) {
+                // Find the wishlist item ID to delete
+                const existingItem = wishlistItems.find(w =>
+                    w.title === item.itemName && (w.memberId === memberId || w.memberId?.toString() === memberId)
+                );
+
+                if (existingItem) {
+                    console.log(`[Wishlist] Deleting wishlist item ID: ${existingItem._id || existingItem.id}`);
+                    await api.deleteWishlistItem(existingItem._id || existingItem.id || '');
+                    console.log(`[Wishlist] Deleted successfully`);
+                    refresh(); // Force refresh global data
+                } else {
+                    console.warn(`[Wishlist] Could not find existing wishlist item for "${item.itemName}" to delete.`);
+                }
+            } else {
+                console.log(`[Wishlist] Creating wishlist item for member ${memberId}`);
+                const res = await api.createWishlistItem({
+                    memberId,
+                    householdId: targetHouseholdId,
+                    title: item.itemName,
+                    description: item.description,
+                    pointsCost: item.cost,
+                    imageUrl: item.image,
+                    priority: 'medium',
+                });
+                console.log(`[Wishlist] Created successfully:`, res.data);
+                refresh(); // Force refresh global data
+            }
         } catch (error) {
-            console.error('Error adding to wishlist:', error);
-            Alert.alert('Error', 'Failed to add item to wishlist');
+            console.error('Error toggling wishlist:', error);
+            // Revert optimistic update on error
+            setPendingUpdates(prev => {
+                const newState = { ...prev };
+                delete newState[itemId];
+                return newState;
+            });
+            Alert.alert('Error', 'Failed to update wishlist');
+        } finally {
+            setProcessingItems(prev => {
+                const newState = { ...prev };
+                delete newState[itemId];
+                return newState;
+            });
         }
     };
 
@@ -185,6 +234,7 @@ export default function MemberStoreScreen() {
                         userPoints={currentPoints}
                         onPurchase={() => handlePurchase(item)}
                         onAddToWishlist={() => handleAddToWishlist(item)}
+                        isWishlisted={isItemWishlisted(item)}
                     />
                 )}
                 contentContainerStyle={styles.listContent}
@@ -198,67 +248,17 @@ export default function MemberStoreScreen() {
             />
         </View>
     );
-
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-    },
-    header: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-        paddingBottom: 16,
-        borderBottomWidth: 1,
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 2,
-        zIndex: 10,
-    },
-    backButton: {
-        padding: 4,
-    },
-    headerTitleContainer: {
-        alignItems: 'center',
-    },
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        marginBottom: 4,
-    },
-    pointsBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(99, 102, 241, 0.1)', // Indigo with opacity
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 12,
-        gap: 4,
-    },
-    pointsText: {
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    centered: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    listContent: {
-        padding: 16,
-    },
-    emptyContainer: {
-        padding: 32,
-        alignItems: 'center',
-        gap: 12,
-        marginTop: 40,
-    },
-    emptyText: {
-        fontSize: 16,
-        textAlign: 'center',
-    },
+    container: { flex: 1 },
+    header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 16, borderBottomWidth: 1, elevation: 2, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 2, zIndex: 10 },
+    backButton: { padding: 4 },
+    headerTitleContainer: { alignItems: 'center' },
+    headerTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 4 },
+    pointsBadge: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(99, 102, 241, 0.1)', paddingHorizontal: 8, paddingVertical: 2, borderRadius: 12, gap: 4 },
+    pointsText: { fontSize: 14, fontWeight: '700' },
+    listContent: { padding: 16 },
+    emptyContainer: { padding: 32, alignItems: 'center', gap: 12, marginTop: 40 },
+    emptyText: { fontSize: 16, textAlign: 'center' },
 });

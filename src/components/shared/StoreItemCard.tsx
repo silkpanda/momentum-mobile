@@ -5,22 +5,32 @@ import { useTheme } from '../../contexts/ThemeContext';
 import {
     getStoreItemCardState,
     getRedeemButtonLabel,
-    type StoreItemCardProps
+    type StoreItemCardProps,
 } from 'momentum-shared';
 
-// Adapter interface if needed, or just use StoreItemCardProps
-// The current usage passes onPurchase, so we'll accept that and map it
+// Extend shared props with optional callbacks and wishlist flag
 interface Props extends Omit<StoreItemCardProps, 'onRedeem'> {
     onPurchase?: () => void;
     onRedeem?: () => void;
     onAddToWishlist?: () => void;
+    /**
+     * Indicates whether this store item is already in the user's wishlist.
+     * When true, the heart icon appears filled.
+     */
+    isWishlisted?: boolean;
 }
 
-export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem, onAddToWishlist }: Props) {
+export default function StoreItemCard({
+    item,
+    userPoints,
+    onPurchase,
+    onRedeem,
+    onAddToWishlist,
+    isWishlisted = false,
+}: Props) {
     const { currentTheme: theme } = useTheme();
     const { canAfford, hasStock } = getStoreItemCardState(item, userPoints);
     const buttonLabel = getRedeemButtonLabel({ canAfford, hasStock, isAvailable: hasStock });
-
     const handlePress = onRedeem || onPurchase;
 
     return (
@@ -31,9 +41,7 @@ export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem, 
             </View>
 
             <View style={styles.content}>
-                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-                    {item.itemName}
-                </Text>
+                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>{item.itemName}</Text>
                 <Text style={[styles.description, { color: theme.colors.textSecondary }]} numberOfLines={2}>
                     {item.description}
                 </Text>
@@ -41,9 +49,7 @@ export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem, 
                 <View style={styles.footer}>
                     <View style={styles.priceContainer}>
                         <Star size={16} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
-                        <Text style={[styles.priceText, { color: theme.colors.actionPrimary }]}>
-                            {item.cost}
-                        </Text>
+                        <Text style={[styles.priceText, { color: theme.colors.actionPrimary }]}>{item.cost}</Text>
                     </View>
 
                     <View style={styles.actions}>
@@ -52,7 +58,11 @@ export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem, 
                                 style={[styles.iconButton, { borderColor: theme.colors.borderSubtle }]}
                                 onPress={onAddToWishlist}
                             >
-                                <Heart size={20} color={theme.colors.actionPrimary} />
+                                <Heart
+                                    size={20}
+                                    color={theme.colors.actionPrimary}
+                                    fill={isWishlisted ? theme.colors.actionPrimary : 'none'}
+                                />
                             </TouchableOpacity>
                         )}
 
@@ -60,15 +70,17 @@ export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem, 
                             style={[
                                 styles.button,
                                 { backgroundColor: canAfford && hasStock ? theme.colors.actionPrimary : theme.colors.bgCanvas },
-                                (!canAfford || !hasStock) && { borderWidth: 1, borderColor: theme.colors.borderSubtle }
+                                (!canAfford || !hasStock) && { borderWidth: 1, borderColor: theme.colors.borderSubtle },
                             ]}
                             onPress={handlePress}
                             disabled={!canAfford || !hasStock}
                         >
-                            <Text style={[
-                                styles.buttonText,
-                                { color: canAfford && hasStock ? '#FFFFFF' : theme.colors.textSecondary }
-                            ]}>
+                            <Text
+                                style={[
+                                    styles.buttonText,
+                                    { color: canAfford && hasStock ? '#FFFFFF' : theme.colors.textSecondary },
+                                ]}
+                            >
                                 {buttonLabel}
                             </Text>
                         </TouchableOpacity>

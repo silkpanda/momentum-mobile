@@ -29,7 +29,7 @@ interface SocketProviderProps {
 export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [connected, setConnected] = useState(false);
-    const { token, isLoading } = useAuth();
+    const { token, isLoading, householdId } = useAuth();
 
     useEffect(() => {
         // Wait for auth to finish loading
@@ -54,6 +54,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
             // If we already have a socket connected with the same token, don't reconnect
             if (socket?.connected && (socket.auth as any)?.token === token) {
                 logger.debug('Socket already connected with current token');
+                // Ensure we are joined to the household room even if reusing socket
+                if (householdId) {
+                    socket.emit('join_household', householdId);
+                }
                 return;
             }
 
@@ -77,6 +81,10 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
                 newSocket.on('connect', () => {
                     logger.info('Connected to WebSocket server');
                     setConnected(true);
+                    if (householdId) {
+                        logger.info(`Joining household room: ${householdId}`);
+                        newSocket.emit('join_household', householdId);
+                    }
                 });
 
                 newSocket.on('disconnect', () => {
@@ -104,7 +112,7 @@ export const SocketProvider: React.FC<SocketProviderProps> = ({ children }) => {
             }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [token, isLoading]);
+    }, [token, isLoading, householdId]);
 
     const emit = useCallback((event: string, data?: any) => {
         if (socket && connected) {
