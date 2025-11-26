@@ -6,7 +6,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map, Link } from 'lucide-react-native';
+import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map, Link as LinkIcon } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
@@ -43,6 +43,8 @@ export default function MemberDetailScreen() {
     const insets = useSafeAreaInsets();
     const { user } = useAuth();
     const { on, off } = useSocket();
+
+
 
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const { currentTheme: theme } = useTheme();
@@ -359,12 +361,12 @@ export default function MemberDetailScreen() {
                     {memberName}
                 </Text>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
-                    {user?.role === 'Parent' && (
+                    {(user?.role === 'Parent' || user?.role?.toLowerCase() === 'parent') && (
                         <TouchableOpacity
                             onPress={() => setIsLinkCodeModalVisible(true)}
                             style={[styles.headerButton, { backgroundColor: theme.colors.bgCanvas }]}
                         >
-                            <Link size={20} color={theme.colors.textSecondary} />
+                            <LinkIcon size={20} color={theme.colors.textSecondary} />
                         </TouchableOpacity>
                     )}
                     <TouchableOpacity
