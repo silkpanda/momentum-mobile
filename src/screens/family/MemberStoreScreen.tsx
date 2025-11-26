@@ -16,6 +16,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useSocket } from '../../contexts/SocketContext';
 import { useData } from '../../contexts/DataContext';
 import { useOptimisticUpdate } from '../../hooks/useOptimisticUpdate';
+import { useAuth } from '../../contexts/AuthContext';
 
 type MemberStoreRouteProp = RouteProp<RootStackParamList, 'MemberStore'>;
 
@@ -126,28 +127,50 @@ export default function MemberStoreScreen() {
         });
     };
 
+    // Wishlist handler using householdId from AuthContext with fallback to DataContext
+    const { householdId: authHouseholdId } = useAuth();
+    const { householdId: dataHouseholdId } = useData();
+
+    const handleAddToWishlist = async (item: StoreItem) => {
+        const targetHouseholdId = authHouseholdId || dataHouseholdId;
+
+        if (!targetHouseholdId) {
+            console.error('Household ID missing. Auth:', authHouseholdId, 'Data:', dataHouseholdId);
+            Alert.alert('Error', 'Household information missing. Please try refreshing.');
+            return;
+        }
+        try {
+            await api.createWishlistItem({
+                memberId,
+                householdId: targetHouseholdId,
+                title: item.itemName,
+                description: item.description,
+                pointsCost: item.cost,
+                imageUrl: item.image,
+                priority: 'medium',
+            });
+            Alert.alert('Success', `Added "${item.itemName}" to your wishlist!`);
+        } catch (error) {
+            console.error('Error adding to wishlist:', error);
+            Alert.alert('Error', 'Failed to add item to wishlist');
+        }
+    };
+
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
-            <View style={[
-                styles.header,
-                {
-                    backgroundColor: theme.colors.bgSurface,
-                    borderBottomColor: theme.colors.borderSubtle,
-                    paddingTop: insets.top + 16
-                }
-            ]}>
+            <View style={[styles.header, {
+                backgroundColor: theme.colors.bgSurface,
+                borderBottomColor: theme.colors.borderSubtle,
+                paddingTop: insets.top + 16,
+            }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
                     <ArrowLeft size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
                 <View style={styles.headerTitleContainer}>
-                    <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
-                        Rewards Store
-                    </Text>
+                    <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Rewards Store</Text>
                     <View style={styles.pointsBadge}>
                         <Star size={14} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
-                        <Text style={[styles.pointsText, { color: theme.colors.actionPrimary }]}>
-                            {currentPoints} pts
-                        </Text>
+                        <Text style={[styles.pointsText, { color: theme.colors.actionPrimary }]}>{currentPoints} pts</Text>
                     </View>
                 </View>
                 <View style={{ width: 24 }} />
@@ -161,6 +184,7 @@ export default function MemberStoreScreen() {
                         item={item}
                         userPoints={currentPoints}
                         onPurchase={() => handlePurchase(item)}
+                        onAddToWishlist={() => handleAddToWishlist(item)}
                     />
                 )}
                 contentContainerStyle={styles.listContent}
@@ -168,14 +192,13 @@ export default function MemberStoreScreen() {
                 ListEmptyComponent={
                     <View style={styles.emptyContainer}>
                         <ShoppingBag size={48} color={theme.colors.borderSubtle} />
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            No rewards available yet.
-                        </Text>
+                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>No rewards available yet.</Text>
                     </View>
                 }
             />
         </View>
     );
+
 }
 
 const styles = StyleSheet.create({

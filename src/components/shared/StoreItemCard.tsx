@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { ShoppingBag, Star } from 'lucide-react-native';
+import { ShoppingBag, Star, Heart } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import {
     getStoreItemCardState,
@@ -13,9 +13,10 @@ import {
 interface Props extends Omit<StoreItemCardProps, 'onRedeem'> {
     onPurchase?: () => void;
     onRedeem?: () => void;
+    onAddToWishlist?: () => void;
 }
 
-export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem }: Props) {
+export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem, onAddToWishlist }: Props) {
     const { currentTheme: theme } = useTheme();
     const { canAfford, hasStock } = getStoreItemCardState(item, userPoints);
     const buttonLabel = getRedeemButtonLabel({ canAfford, hasStock, isAvailable: hasStock });
@@ -45,22 +46,33 @@ export default function StoreItemCard({ item, userPoints, onPurchase, onRedeem }
                         </Text>
                     </View>
 
-                    <TouchableOpacity
-                        style={[
-                            styles.button,
-                            { backgroundColor: canAfford && hasStock ? theme.colors.actionPrimary : theme.colors.bgCanvas },
-                            (!canAfford || !hasStock) && { borderWidth: 1, borderColor: theme.colors.borderSubtle }
-                        ]}
-                        onPress={handlePress}
-                        disabled={!canAfford || !hasStock}
-                    >
-                        <Text style={[
-                            styles.buttonText,
-                            { color: canAfford && hasStock ? '#FFFFFF' : theme.colors.textSecondary }
-                        ]}>
-                            {buttonLabel}
-                        </Text>
-                    </TouchableOpacity>
+                    <View style={styles.actions}>
+                        {onAddToWishlist && (
+                            <TouchableOpacity
+                                style={[styles.iconButton, { borderColor: theme.colors.borderSubtle }]}
+                                onPress={onAddToWishlist}
+                            >
+                                <Heart size={20} color={theme.colors.actionPrimary} />
+                            </TouchableOpacity>
+                        )}
+
+                        <TouchableOpacity
+                            style={[
+                                styles.button,
+                                { backgroundColor: canAfford && hasStock ? theme.colors.actionPrimary : theme.colors.bgCanvas },
+                                (!canAfford || !hasStock) && { borderWidth: 1, borderColor: theme.colors.borderSubtle }
+                            ]}
+                            onPress={handlePress}
+                            disabled={!canAfford || !hasStock}
+                        >
+                            <Text style={[
+                                styles.buttonText,
+                                { color: canAfford && hasStock ? '#FFFFFF' : theme.colors.textSecondary }
+                            ]}>
+                                {buttonLabel}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
             </View>
         </View>
@@ -109,6 +121,18 @@ const styles = StyleSheet.create({
         marginLeft: 4,
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    actions: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    iconButton: {
+        padding: 8,
+        borderRadius: 20,
+        borderWidth: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     button: {
         paddingHorizontal: 16,

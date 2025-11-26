@@ -50,8 +50,11 @@ export default function TasksTab() {
     };
 
     const renderTaskItem = ({ item }: { item: Task }) => {
-        const assignedMember = item.assignedTo
-            ? members.find(m => (m.id === item.assignedTo || m._id === item.assignedTo))
+        const assignedMember = item.assignedTo && item.assignedTo.length > 0
+            ? members.find(m =>
+                (m.id && item.assignedTo.includes(m.id)) ||
+                (m._id && item.assignedTo.includes(m._id))
+            )
             : null;
 
         return (
