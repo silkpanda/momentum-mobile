@@ -19,7 +19,8 @@ import {
     Restaurant,
     Meal,
     Routine,
-    RoutineItem
+    RoutineItem,
+    WishlistItem
 } from '../types';
 
 const getBaseUrl = () => {
@@ -409,6 +410,55 @@ class ApiClient {
 
     async toggleRoutineItem(routineId: string, itemId: string): Promise<ApiResponse<{ routine: Routine; item: RoutineItem }>> {
         return this.request<{ routine: Routine; item: RoutineItem }>(`/routines/${routineId}/items/${itemId}/toggle`, {
+            method: 'POST',
+        });
+    }
+
+    // ============================================================
+    // WISHLIST METHODS
+    // ============================================================
+
+    async getWishlist(memberId: string, includePurchased: boolean = false): Promise<ApiResponse<{ wishlistItems: WishlistItem[]; currentPoints: number }>> {
+        const query = includePurchased ? '?includePurchased=true' : '';
+        return this.request<{ wishlistItems: WishlistItem[]; currentPoints: number }>(`/wishlist/member/${memberId}${query}`);
+    }
+
+    async createWishlistItem(data: {
+        memberId: string;
+        householdId: string;
+        title: string;
+        description?: string;
+        pointsCost: number;
+        imageUrl?: string;
+        priority?: 'low' | 'medium' | 'high';
+    }): Promise<ApiResponse<{ wishlistItem: WishlistItem }>> {
+        return this.request<{ wishlistItem: WishlistItem }>('/wishlist', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async updateWishlistItem(id: string, data: {
+        title?: string;
+        description?: string;
+        pointsCost?: number;
+        imageUrl?: string;
+        priority?: 'low' | 'medium' | 'high';
+    }): Promise<ApiResponse<{ wishlistItem: WishlistItem }>> {
+        return this.request<{ wishlistItem: WishlistItem }>(`/wishlist/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async deleteWishlistItem(id: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/wishlist/${id}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async purchaseWishlistItem(id: string): Promise<ApiResponse<{ wishlistItem: WishlistItem; newPointsTotal: number }>> {
+        return this.request<{ wishlistItem: WishlistItem; newPointsTotal: number }>(`/wishlist/${id}/purchase`, {
             method: 'POST',
         });
     }

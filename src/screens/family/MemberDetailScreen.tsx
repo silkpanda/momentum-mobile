@@ -16,7 +16,7 @@ import MemberAvatar from '../../components/family/MemberAvatar';
 import { RootStackParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useSocket } from '../../contexts/SocketContext';
-import { Task, Quest, Member, QuestClaim, Routine } from '../../types';
+import { Task, Quest, Member, QuestClaim, Routine, WishlistItem } from '../../types';
 import { MemberPointsUpdatedEvent, TaskUpdatedEvent, QuestUpdatedEvent } from '../../constants/socketEvents';
 import FocusModeView from '../../components/focus/FocusModeView';
 import { useData } from '../../contexts/DataContext';
@@ -27,6 +27,9 @@ import StreakProgress from '../../components/streaks/StreakProgress';
 import RoutineCard from '../../components/routines/RoutineCard';
 import RoutineDetailModal from '../../components/routines/RoutineDetailModal';
 import CreateRoutineModal from '../../components/routines/CreateRoutineModal';
+import WishlistCard from '../../components/wishlist/WishlistCard';
+import CreateWishlistItemModal from '../../components/wishlist/CreateWishlistItemModal';
+import WishlistDetailModal from '../../components/wishlist/WishlistDetailModal';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -41,7 +44,7 @@ export default function MemberDetailScreen() {
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const { currentTheme: theme } = useTheme();
 
-    const { tasks: allTasks, quests: allQuests, members, refresh, updateTask, updateQuest, isRefreshing } = useData();
+    const { tasks: allTasks, quests: allQuests, members, wishlistItems: allWishlistItems, householdId, refresh, updateTask, updateQuest, isRefreshing } = useData();
     const { execute } = useOptimisticUpdate();
 
     // Routine State
@@ -50,6 +53,11 @@ export default function MemberDetailScreen() {
     const [isRoutineModalVisible, setIsRoutineModalVisible] = useState(false);
     const [isCreateRoutineModalVisible, setIsCreateRoutineModalVisible] = useState(false);
 
+    // Wishlist State
+    const [selectedWishlistItem, setSelectedWishlistItem] = useState<WishlistItem | null>(null);
+    const [isWishlistDetailModalVisible, setIsWishlistDetailModalVisible] = useState(false);
+    const [isCreateWishlistModalVisible, setIsCreateWishlistModalVisible] = useState(false);
+
     // Derived State
     const memberData = useMemo(() =>
         members.find(m => m.id === memberId || m._id === memberId),
@@ -57,6 +65,12 @@ export default function MemberDetailScreen() {
     );
 
     const [memberPoints, setMemberPoints] = useState(initialPoints);
+
+    // Filter wishlist items for this member
+    const memberWishlistItems = useMemo(() =>
+        allWishlistItems.filter(item => item.memberId === memberId),
+        [allWishlistItems, memberId]
+    );
 
     // Update local points state when member data changes
     useEffect(() => {
@@ -339,6 +353,39 @@ export default function MemberDetailScreen() {
                     </View>
                 )}
 
+                {/* Wishlist Section */}
+                <View style={styles.sectionHeader}>
+                    <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginBottom: 0 }]}>My Wishlist</Text>
+                    {user?.role === 'Parent' && (
+                        <TouchableOpacity onPress={() => setIsCreateWishlistModalVisible(true)}>
+                            <Text style={{ color: theme.colors.actionPrimary, fontWeight: '600' }}>+ Add</Text>
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {memberWishlistItems.length > 0 ? (
+                    memberWishlistItems.map((item) => (
+                        <WishlistCard
+                            key={item._id || item.id}
+                            item={item}
+                            currentPoints={memberPoints}
+                            onPress={() => {
+                                setSelectedWishlistItem(item);
+                                setIsWishlistDetailModalVisible(true);
+                            }}
+                        />
+                    ))
+                ) : (
+                    <View style={[styles.emptyState, { marginBottom: 24 }]}>
+                        <Text style={{ color: theme.colors.textSecondary }}>No wishlist items yet.</Text>
+                        {user?.role === 'Parent' && (
+                            <TouchableOpacity onPress={() => setIsCreateWishlistModalVisible(true)} style={{ marginTop: 8 }}>
+                                <Text style={{ color: theme.colors.actionPrimary, fontWeight: 'bold' }}>Add First Item</Text>
+                            </TouchableOpacity>
+                        )}
+                    </View>
+                )}
+
                 <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>My Tasks</Text>
 
                 {memberTasks.length > 0 ? (
@@ -406,6 +453,33 @@ export default function MemberDetailScreen() {
                     setIsCreateRoutineModalVisible(false);
                 }}
             />
+
+            {/* Create Wishlist Item Modal */}
+            <CreateWishlistItemModal
+                visible={isCreateWishlistModalVisible}
+                onClose={() => setIsCreateWishlistModalVisible(false)}
+                memberId={memberId}
+                householdId={householdId}
+                onSuccess={() => {
+                    refresh();
+                    setIsCreateWishlistModalVisible(false);
+                }}
+            />
+
+            {/* Wishlist Detail Modal */}
+            {selectedWishlistItem && (
+                <WishlistDetailModal
+                    visible={isWishlistDetailModalVisible}
+                    onClose={() => setIsWishlistDetailModalVisible(false)}
+                    item={selectedWishlistItem}
+                    currentPoints={memberPoints}
+                    onSuccess={() => {
+                        refresh();
+                        setIsWishlistDetailModalVisible(false);
+                    }}
+                    isParent={user?.role === 'Parent'}
+                />
+            )}
         </View >
     );
 }

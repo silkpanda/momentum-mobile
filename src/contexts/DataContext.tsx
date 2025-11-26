@@ -5,7 +5,7 @@ import { api } from '../services/api';
 import { logger } from '../utils/logger';
 import { useSocket } from './SocketContext';
 import { useAuth } from './AuthContext';
-import { Task, Quest, Member, StoreItem, Meal, Restaurant, Routine } from '../types';
+import { Task, Quest, Member, StoreItem, Meal, Restaurant, Routine, WishlistItem } from '../types';
 
 interface DataContextType {
     // Data
@@ -16,6 +16,7 @@ interface DataContextType {
     meals: Meal[];
     restaurants: Restaurant[];
     routines: Routine[];
+    wishlistItems: WishlistItem[];
     householdId: string;
 
     // Loading states
@@ -28,6 +29,7 @@ interface DataContextType {
     updateQuest: (questId: string, updates: Partial<Quest>) => void;
     updateMember: (memberId: string, updates: Partial<Member>) => void;
     updateRoutine: (routineId: string, updates: Partial<Routine>) => void;
+    updateWishlistItem: (itemId: string, updates: Partial<WishlistItem>) => void;
 }
 
 const DataContext = createContext<DataContextType | undefined>(undefined);
@@ -44,6 +46,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [meals, setMeals] = useState<Meal[]>([]);
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [routines, setRoutines] = useState<Routine[]>([]);
+    const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
     const [householdId, setHouseholdId] = useState<string>('');
 
     const [isInitialLoad, setIsInitialLoad] = useState(true);
@@ -94,6 +97,26 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                         id: m.id || m._id
                     }));
                     setMembers(sanitizedMembers);
+
+                    // Fetch wishlist for all members
+                    try {
+                        const wishlistPromises = sanitizedMembers.map((member: Member) =>
+                            api.getWishlist(member.id || member._id || '').catch(() => ({ data: { wishlistItems: [] } }))
+                        );
+                        const wishlistResults = await Promise.all(wishlistPromises);
+
+                        // Combine all wishlist items from all members
+                        const allWishlistItems: WishlistItem[] = [];
+                        wishlistResults.forEach(result => {
+                            if (result.data?.wishlistItems) {
+                                allWishlistItems.push(...result.data.wishlistItems);
+                            }
+                        });
+                        setWishlistItems(allWishlistItems);
+                    } catch (error) {
+                        logger.error('Error loading wishlist items:', error);
+                        setWishlistItems([]);
+                    }
                 }
             }
 
@@ -104,6 +127,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     members: members.length,
                     storeItems: storeRes.data?.storeItems?.length || 0,
                     routines: routinesRes.data?.routines?.length || 0,
+                    wishlistItems: wishlistItems.length,
                 });
             }
         } catch (error) {
@@ -136,6 +160,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const updateRoutine = useCallback((routineId: string, updates: Partial<Routine>) => {
         setRoutines(prev => prev.map(r =>
             (r.id === routineId || r._id === routineId) ? { ...r, ...updates } : r
+        ));
+    }, []);
+
+    const updateWishlistItem = useCallback((itemId: string, updates: Partial<WishlistItem>) => {
+        setWishlistItems(prev => prev.map(item =>
+            (item.id === itemId || item._id === itemId) ? { ...item, ...updates } : item
         ));
     }, []);
 
@@ -180,11 +210,17 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             loadAllData(true);
         };
 
+        const handleWishlistUpdate = () => {
+            logger.info('📡 Wishlist updated via WebSocket');
+            loadAllData(true);
+        };
+
         on('taskUpdated', handleTaskUpdate);
         on('questUpdated', handleQuestUpdate);
         on('memberUpdated', handleMemberUpdate);
         on('storeUpdated', handleStoreUpdate);
         on('routine_updated', handleRoutineUpdate);
+        on('wishlist_updated', handleWishlistUpdate);
 
         return () => {
             off('taskUpdated', handleTaskUpdate);
@@ -192,6 +228,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             off('memberUpdated', handleMemberUpdate);
             off('storeUpdated', handleStoreUpdate);
             off('routine_updated', handleRoutineUpdate);
+            off('wishlist_updated', handleWishlistUpdate);
         };
     }, [isAuthenticated, on, off, loadAllData]);
 
@@ -203,6 +240,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         meals,
         restaurants,
         routines,
+        wishlistItems,
         householdId,
         isInitialLoad,
         isRefreshing,
@@ -211,6 +249,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         updateQuest,
         updateMember,
         updateRoutine,
+        updateWishlistItem,
     };
 
     return <DataContext.Provider value={value}>{children}</DataContext.Provider>;

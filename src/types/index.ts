@@ -116,6 +116,25 @@ export interface Routine {
     updatedAt?: string;
 }
 
+export interface WishlistItem {
+    id?: string;
+    _id?: string;
+    memberId: string;
+    householdId: string;
+    title: string;
+    description?: string;
+    pointsCost: number;
+    imageUrl?: string;
+    priority: 'low' | 'medium' | 'high';
+    isPurchased: boolean;
+    purchasedAt?: string;
+    createdAt?: string;
+    updatedAt?: string;
+    // Client-side calculated fields
+    progress?: number;
+    canAfford?: boolean;
+}
+
 export interface Household {
     id: string;
     _id?: string;
