@@ -1,10 +1,11 @@
 import 'react-native-gesture-handler';
-import React from 'react';
-import { View, ActivityIndicator } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, ActivityIndicator, Platform } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts, Inter_400Regular, Inter_500Medium, Inter_600SemiBold } from '@expo-google-fonts/inter';
+import * as ScreenOrientation from 'expo-screen-orientation';
 import { AuthProvider } from './src/contexts/AuthContext';
 import { ThemeProvider } from './src/contexts/ThemeContext';
 import { DataProvider } from './src/contexts/DataContext';
@@ -13,8 +14,35 @@ import ErrorBoundary from './src/components/ErrorBoundary';
 
 import { SocketProvider } from './src/contexts/SocketContext';
 
+// Detect if device is a tablet
+const isTablet = () => {
+  const { width, height } = require('react-native').Dimensions.get('window');
+  const aspectRatio = width / height;
+  const minDimension = Math.min(width, height);
+
+  // Tablets typically have larger screens (> 600dp) and closer to square aspect ratios
+  return minDimension >= 600;
+};
+
 export default function App() {
   console.log('[App] Rendering App component');
+
+  // Lock orientation based on device type
+  useEffect(() => {
+    async function lockOrientation() {
+      if (isTablet()) {
+        // Tablets: Allow all orientations
+        await ScreenOrientation.unlockAsync();
+        console.log('[App] Tablet detected - orientation unlocked');
+      } else {
+        // Phones: Lock to portrait
+        await ScreenOrientation.lockAsync(ScreenOrientation.OrientationLock.PORTRAIT_UP);
+        console.log('[App] Phone detected - locked to portrait');
+      }
+    }
+
+    lockOrientation();
+  }, []);
 
   // Load Inter fonts
   const [fontsLoaded] = useFonts({

@@ -26,6 +26,7 @@ export interface Member {
     longestStreak?: number; // Personal best streak
     lastCompletionDate?: string; // ISO date string for tracking
     streakMultiplier?: number; // Current point multiplier (1.0, 1.5, 2.0, etc.)
+    isLinkedChild?: boolean;
 }
 
 export interface Task {

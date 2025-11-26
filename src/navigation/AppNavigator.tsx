@@ -14,6 +14,8 @@ import MemberDetailScreen from '../screens/family/MemberDetailScreen';
 import MemberStoreScreen from '../screens/family/MemberStoreScreen';
 import { RootStackParamList } from './types';
 
+import SharingSettingsScreen from '../screens/household/SharingSettingsScreen';
+
 const Stack = createStackNavigator<RootStackParamList>();
 
 export default function AppNavigator() {
@@ -35,6 +37,7 @@ export default function AppNavigator() {
                     <Stack.Screen name="Parent" component={ParentScreen} />
                     <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
                     <Stack.Screen name="MemberStore" component={MemberStoreScreen} />
+                    <Stack.Screen name="SharingSettings" component={SharingSettingsScreen} />
                 </>
             ) : (
                 <>

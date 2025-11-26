@@ -4,19 +4,25 @@ import { useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
-import { CheckCircle, XCircle, Clock } from 'lucide-react-native';
+import { CheckCircle, XCircle, Clock, Settings, ArrowRight } from 'lucide-react-native';
 import { Task } from '../../types';
+import { useData } from '../../contexts/DataContext';
 
 export default function ApprovalsTab() {
     const { user } = useAuth();
+    const { householdId } = useData();
     const [tasks, setTasks] = useState<Task[]>([]);
+    const [proposals, setProposals] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const { currentTheme: theme } = useTheme();
 
     const loadData = async () => {
         try {
-            const tasksResponse = await api.getTasks();
+            const [tasksResponse, linksResponse] = await Promise.all([
+                api.getTasks(),
+                api.getHouseholdLinks().catch(err => ({ data: { links: [] } }))
+            ]);
 
             if (tasksResponse.data && tasksResponse.data.tasks) {
                 // Filter for tasks that are pending approval
@@ -26,6 +32,31 @@ export default function ApprovalsTab() {
                 setTasks(pendingApproval);
             } else {
                 setTasks([]);
+            }
+
+            // Process Proposals
+            if (linksResponse.data && linksResponse.data.links) {
+                const allProposals: any[] = [];
+                linksResponse.data.links.forEach((link: any) => {
+                    if (link.pendingChanges) {
+                        const pending = link.pendingChanges.filter((change: any) =>
+                            change.status === 'pending' &&
+                            change.proposedByHousehold !== householdId
+                        );
+                        // Add linkId and childName to the change object for context
+                        pending.forEach((p: any) => {
+                            allProposals.push({
+                                ...p,
+                                linkId: link._id,
+                                childName: link.childId?.firstName || 'Child',
+                                otherHousehold: link.household1._id === householdId ? link.household2?.householdName : link.household1?.householdName
+                            });
+                        });
+                    }
+                });
+                setProposals(allProposals);
+            } else {
+                setProposals([]);
             }
         } catch (error) {
             console.error('Error loading approvals:', error);
@@ -80,6 +111,27 @@ export default function ApprovalsTab() {
         );
     };
 
+    const handleApproveProposal = async (linkId: string, changeId: string) => {
+        try {
+            await api.approveChange(linkId, changeId);
+            Alert.alert('Success', 'Setting change approved');
+            loadData();
+        } catch (error) {
+            console.error('Error approving proposal:', error);
+            Alert.alert('Error', 'Failed to approve change');
+        }
+    };
+
+    const handleRejectProposal = async (linkId: string, changeId: string) => {
+        try {
+            await api.rejectChange(linkId, changeId);
+            loadData();
+        } catch (error) {
+            console.error('Error rejecting proposal:', error);
+            Alert.alert('Error', 'Failed to reject change');
+        }
+    };
+
     if (isLoading && !tasks.length) {
         return (
             <View style={[styles.container, styles.centered, { backgroundColor: theme.colors.bgCanvas }]}>
@@ -98,6 +150,67 @@ export default function ApprovalsTab() {
             </View>
 
             <FlatList
+                ListHeaderComponent={
+                    <>
+                        {proposals.length > 0 && (
+                            <View style={styles.section}>
+                                <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary }]}>Household Proposals</Text>
+                                {proposals.map((proposal, index) => (
+                                    <View key={index} style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
+                                        <View style={styles.cardHeader}>
+                                            <View style={styles.taskInfo}>
+                                                <View style={styles.proposalHeader}>
+                                                    <Settings size={20} color={theme.colors.actionPrimary} />
+                                                    <Text style={[styles.taskTitle, { color: theme.colors.textPrimary }]}>
+                                                        {proposal.setting.charAt(0).toUpperCase() + proposal.setting.slice(1)} Settings
+                                                    </Text>
+                                                </View>
+                                                <Text style={[styles.taskDescription, { color: theme.colors.textSecondary }]}>
+                                                    {proposal.otherHousehold || 'Other Household'} proposes to change {proposal.setting} to:
+                                                </Text>
+                                                <View style={styles.changeRow}>
+                                                    <Text style={[styles.valueText, { color: theme.colors.textSecondary, textDecorationLine: 'line-through' }]}>
+                                                        {proposal.currentValue}
+                                                    </Text>
+                                                    <ArrowRight size={16} color={theme.colors.textSecondary} />
+                                                    <Text style={[styles.valueText, { color: theme.colors.actionPrimary, fontWeight: 'bold' }]}>
+                                                        {proposal.proposedValue}
+                                                    </Text>
+                                                </View>
+                                                <Text style={[styles.childName, { color: theme.colors.textTertiary }]}>
+                                                    For: {proposal.childName}
+                                                </Text>
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.actionButtons}>
+                                            <TouchableOpacity
+                                                style={[styles.button, styles.rejectButton, { borderColor: theme.colors.signalAlert }]}
+                                                onPress={() => handleRejectProposal(proposal.linkId, proposal._id)}
+                                            >
+                                                <XCircle size={20} color={theme.colors.signalAlert} />
+                                                <Text style={[styles.buttonText, { color: theme.colors.signalAlert }]}>
+                                                    Reject
+                                                </Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                style={[styles.button, styles.approveButton, { backgroundColor: theme.colors.signalSuccess }]}
+                                                onPress={() => handleApproveProposal(proposal.linkId, proposal._id)}
+                                            >
+                                                <CheckCircle size={20} color="#FFFFFF" />
+                                                <Text style={[styles.buttonText, { color: '#FFFFFF' }]}>
+                                                    Approve
+                                                </Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                ))}
+                                <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginTop: 24, marginBottom: 8 }]}>Task Approvals</Text>
+                            </View>
+                        )}
+                    </>
+                }
                 data={tasks}
                 keyExtractor={(item) => item._id || item.id}
                 renderItem={({ item }) => (
@@ -280,5 +393,37 @@ const styles = StyleSheet.create({
         fontSize: 14,
         marginTop: 8,
         textAlign: 'center',
+    },
+    section: {
+        marginBottom: 16,
+    },
+    sectionTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        marginBottom: 12,
+    },
+    proposalHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 8,
+    },
+    changeRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+        marginVertical: 8,
+        backgroundColor: 'rgba(0,0,0,0.03)',
+        padding: 8,
+        borderRadius: 8,
+        alignSelf: 'flex-start',
+    },
+    valueText: {
+        fontSize: 14,
+        fontWeight: '500',
+    },
+    childName: {
+        fontSize: 12,
+        marginTop: 4,
     },
 });

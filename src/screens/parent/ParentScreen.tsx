@@ -15,6 +15,7 @@ import DashboardTab from './DashboardTab';
 import SettingsTab from './SettingsTab';
 import MembersTab from './MembersTab';
 import RoutinesTab from './RoutinesTab';
+import ApprovalsTab from './ApprovalsTab';
 import { ParentTabParamList } from '../../navigation/types';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -73,6 +74,7 @@ export default function ParentScreen() {
 
                 {/* Lazy load less common tabs to save memory */}
                 <Tab.Screen name="Tasks" component={TasksTab} />
+                <Tab.Screen name="Approvals" component={ApprovalsTab} />
                 <Tab.Screen name="Routines" component={RoutinesTab} />
                 <Tab.Screen name="Store" component={StoreTab} />
                 <Tab.Screen name="Quests" component={QuestsTab} />

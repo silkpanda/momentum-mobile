@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
-import { X, Check, Save, Trash2 } from 'lucide-react-native';
+import { X, Check, Save, Trash2, Link } from 'lucide-react-native';
+import { useNavigation } from '@react-navigation/native';
 import { api } from '../../services/api';
 import { Member } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -33,12 +34,27 @@ export default function EditMemberModal({ visible, member, onClose, onSuccess, h
     const [selectedColor, setSelectedColor] = useState<string>(PROFILE_COLORS[0].hex);
     const [loading, setLoading] = useState(false);
     const [deleting, setDeleting] = useState(false);
+    const [links, setLinks] = useState<any[]>([]);
+    const navigation = useNavigation<any>();
 
     useEffect(() => {
         if (member) {
             setFirstName(member.firstName);
             setRole(member.role);
             setSelectedColor(member.profileColor || PROFILE_COLORS[0].hex);
+
+            if (member.isLinkedChild) {
+                api.getHouseholdLinks().then(res => {
+                    if (res.data) {
+                        const childLinks = res.data.links.filter((l: any) =>
+                            (l.childId._id === member.id || l.childId._id === member._id || l.childId === member.id || l.childId === member._id)
+                        );
+                        setLinks(childLinks);
+                    }
+                }).catch(err => console.log('Failed to fetch links', err));
+            } else {
+                setLinks([]);
+            }
         }
     }, [member]);
 
@@ -177,6 +193,31 @@ export default function EditMemberModal({ visible, member, onClose, onSuccess, h
                                 ))}
                             </View>
                         </View>
+
+                        {/* Linked Households */}
+                        {links.length > 0 && (
+                            <View style={styles.formGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Linked Households</Text>
+                                {links.map((link, index) => {
+                                    const otherHousehold = link.household1._id === householdId ? link.household2 : link.household1;
+                                    return (
+                                        <TouchableOpacity
+                                            key={index}
+                                            style={[styles.linkButton, { borderColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgCanvas }]}
+                                            onPress={() => {
+                                                onClose();
+                                                navigation.navigate('SharingSettings', { linkId: link._id, childName: member?.firstName });
+                                            }}
+                                        >
+                                            <Link size={20} color={theme.colors.textPrimary} />
+                                            <Text style={[styles.linkButtonText, { color: theme.colors.textPrimary }]}>
+                                                Manage Sharing with {otherHousehold?.name || 'Other Household'}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            </View>
+                        )}
 
                         {/* Update Button */}
                         <TouchableOpacity
@@ -334,5 +375,18 @@ const styles = StyleSheet.create({
     deleteButtonText: {
         fontSize: 16,
         fontWeight: '600',
+    },
+    linkButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginBottom: 8,
+        gap: 12,
+    },
+    linkButtonText: {
+        fontSize: 14,
+        fontWeight: '500',
     },
 });

@@ -41,22 +41,25 @@ export default function FamilyHeader({
                 <Text style={[styles.householdName, { color: theme.colors.textPrimary }]}>{householdName}</Text>
             </View>
 
-            {isParent ? (
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+                {(!isParent && isLandscape) && (
+                    <TouchableOpacity
+                        style={[styles.headerButton, { backgroundColor: theme.colors.actionPrimary }]}
+                        onPress={onRemindParent}
+                    >
+                        <Bell size={20} color="#FFFFFF" />
+                        <Text style={styles.headerButtonText}>Remind Parent</Text>
+                    </TouchableOpacity>
+                )}
+
                 <TouchableOpacity
-                    style={[styles.iconButton, { backgroundColor: theme.colors.bgCanvas }]}
+                    style={[styles.headerButton, { backgroundColor: theme.colors.bgCanvas }]}
                     onPress={onSettingsPress}
                 >
-                    <Settings size={24} color={theme.colors.textSecondary} />
+                    <Settings size={20} color={theme.colors.textSecondary} />
+                    <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Parent View</Text>
                 </TouchableOpacity>
-            ) : isLandscape ? (
-                <TouchableOpacity
-                    style={[styles.headerButton, { backgroundColor: theme.colors.actionPrimary }]}
-                    onPress={onRemindParent}
-                >
-                    <Bell size={20} color="#FFFFFF" />
-                    <Text style={styles.headerButtonText}>Remind Parent</Text>
-                </TouchableOpacity>
-            ) : null}
+            </View>
         </View>
     );
 }

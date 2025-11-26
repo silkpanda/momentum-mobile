@@ -98,21 +98,14 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     }));
                     setMembers(sanitizedMembers);
 
-                    // Fetch wishlist for all members
+                    // Fetch all wishlist items for the household in a single call
                     try {
-                        const wishlistPromises = sanitizedMembers.map((member: Member) =>
-                            api.getWishlist(member.id || member._id || '').catch(() => ({ data: { wishlistItems: [] } }))
-                        );
-                        const wishlistResults = await Promise.all(wishlistPromises);
-
-                        // Combine all wishlist items from all members
-                        const allWishlistItems: WishlistItem[] = [];
-                        wishlistResults.forEach(result => {
-                            if (result.data?.wishlistItems) {
-                                allWishlistItems.push(...result.data.wishlistItems);
-                            }
-                        });
-                        setWishlistItems(allWishlistItems);
+                        const wishlistRes = await api.getHouseholdWishlist(household.id || household._id || '');
+                        if (wishlistRes.data?.wishlistItems) {
+                            setWishlistItems(wishlistRes.data.wishlistItems);
+                        } else {
+                            setWishlistItems([]);
+                        }
                     } catch (error) {
                         logger.error('Error loading wishlist items:', error);
                         setWishlistItems([]);

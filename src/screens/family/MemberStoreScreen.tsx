@@ -169,7 +169,6 @@ export default function MemberStoreScreen() {
                     console.log(`[Wishlist] Deleting wishlist item ID: ${existingItem._id || existingItem.id}`);
                     await api.deleteWishlistItem(existingItem._id || existingItem.id || '');
                     console.log(`[Wishlist] Deleted successfully`);
-                    refresh(); // Force refresh global data
                 } else {
                     console.warn(`[Wishlist] Could not find existing wishlist item for "${item.itemName}" to delete.`);
                 }
@@ -185,7 +184,6 @@ export default function MemberStoreScreen() {
                     priority: 'medium',
                 });
                 console.log(`[Wishlist] Created successfully:`, res.data);
-                refresh(); // Force refresh global data
             }
         } catch (error) {
             console.error('Error toggling wishlist:', error);

@@ -6,7 +6,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map } from 'lucide-react-native';
+import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map, Link } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
@@ -30,6 +30,9 @@ import CreateRoutineModal from '../../components/routines/CreateRoutineModal';
 import WishlistCard from '../../components/wishlist/WishlistCard';
 import CreateWishlistItemModal from '../../components/wishlist/CreateWishlistItemModal';
 import WishlistDetailModal from '../../components/wishlist/WishlistDetailModal';
+import PINEntryModal from '../../components/pin/PINEntryModal';
+import PINSetupModal from '../../components/pin/PINSetupModal';
+import LinkCodeGenerationModal from '../../components/household/LinkCodeGenerationModal';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
 type NavigationProp = StackNavigationProp<RootStackParamList>;
@@ -57,6 +60,80 @@ export default function MemberDetailScreen() {
     const [selectedWishlistItem, setSelectedWishlistItem] = useState<WishlistItem | null>(null);
     const [isWishlistDetailModalVisible, setIsWishlistDetailModalVisible] = useState(false);
     const [isCreateWishlistModalVisible, setIsCreateWishlistModalVisible] = useState(false);
+
+    // PIN State
+    const [isPinEntryModalVisible, setIsPinEntryModalVisible] = useState(false);
+    const [isPinSetupModalVisible, setIsPinSetupModalVisible] = useState(false);
+    const [pinSetupCompleted, setPinSetupCompleted] = useState(false);
+
+    // Link Code State
+    const [isLinkCodeModalVisible, setIsLinkCodeModalVisible] = useState(false);
+
+    // Check PIN status
+    useFocusEffect(
+        useCallback(() => {
+            const checkPinStatus = async () => {
+                try {
+                    const response = await api.getPinStatus();
+                    setPinSetupCompleted(response.data?.pinSetupCompleted || false);
+                } catch (error) {
+                    console.log('PIN status check failed:', error);
+                }
+            };
+            checkPinStatus();
+        }, [])
+    );
+
+    const handleParentPress = () => {
+        // Find a parent member to verify against
+        const parentMember = members.find(m => m.role === 'Parent');
+
+        if (!parentMember) {
+            Alert.alert('Error', 'No parent account found in this household.');
+            return;
+        }
+
+        if (!pinSetupCompleted) {
+            Alert.alert(
+                'Set Up PIN?',
+                'Secure the Parent Dashboard with a 4-digit PIN.',
+                [
+                    {
+                        text: 'Skip',
+                        onPress: () => navigation.navigate('Parent' as never),
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Set Up PIN',
+                        onPress: () => setIsPinSetupModalVisible(true),
+                    },
+                ]
+            );
+        } else {
+            setIsPinEntryModalVisible(true);
+        }
+    };
+
+    const handlePinVerified = () => {
+        // PIN already verified by modal, just navigate
+        setIsPinEntryModalVisible(false);
+        setTimeout(() => {
+            navigation.navigate('Parent' as never);
+        }, 100);
+    };
+
+    const handlePinSetupSuccess = async (pin: string) => {
+        try {
+            await api.setupPin(pin);
+            setPinSetupCompleted(true);
+            setIsPinSetupModalVisible(false);
+            Alert.alert('Success!', 'PIN set up. You can now access the dashboard.', [
+                { text: 'OK', onPress: () => navigation.navigate('Parent' as never) }
+            ]);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to set up PIN. Please try again.');
+        }
+    };
 
     // Derived State
     const memberData = useMemo(() =>
@@ -281,9 +358,23 @@ export default function MemberDetailScreen() {
                 <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>
                     {memberName}
                 </Text>
-                <TouchableOpacity onPress={() => navigation.navigate('Parent' as never)}>
-                    <Settings size={24} color={theme.colors.textSecondary} />
-                </TouchableOpacity>
+                <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {user?.role === 'Parent' && (
+                        <TouchableOpacity
+                            onPress={() => setIsLinkCodeModalVisible(true)}
+                            style={[styles.headerButton, { backgroundColor: theme.colors.bgCanvas }]}
+                        >
+                            <Link size={20} color={theme.colors.textSecondary} />
+                        </TouchableOpacity>
+                    )}
+                    <TouchableOpacity
+                        onPress={handleParentPress}
+                        style={[styles.headerButton, { backgroundColor: theme.colors.bgCanvas }]}
+                    >
+                        <Settings size={20} color={theme.colors.textSecondary} />
+                        <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Parent View</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <ScrollView
@@ -480,6 +571,31 @@ export default function MemberDetailScreen() {
                     isParent={user?.role === 'Parent'}
                 />
             )}
+
+            {/* PIN Modals */}
+            <PINEntryModal
+                visible={isPinEntryModalVisible}
+                onClose={() => setIsPinEntryModalVisible(false)}
+                onSuccess={handlePinVerified}
+                memberId={members.find(m => m.role === 'Parent')?.id || ''}
+                householdId={householdId}
+                title="Enter Parent PIN"
+                subtitle="Verify parent identity to access Parent Dashboard"
+            />
+
+            <PINSetupModal
+                visible={isPinSetupModalVisible}
+                onClose={() => setIsPinSetupModalVisible(false)}
+                onSuccess={handlePinSetupSuccess}
+            />
+
+            {/* Link Code Modal */}
+            <LinkCodeGenerationModal
+                visible={isLinkCodeModalVisible}
+                onClose={() => setIsLinkCodeModalVisible(false)}
+                childId={memberId}
+                childName={memberName}
+            />
         </View >
     );
 }
@@ -571,5 +687,17 @@ const styles = StyleSheet.create({
         color: '#FFFFFF',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    headerButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 8,
+        paddingHorizontal: 12,
+        borderRadius: 20,
+        gap: 6,
+    },
+    headerButtonText: {
+        fontWeight: '600',
+        fontSize: 14,
     },
 });

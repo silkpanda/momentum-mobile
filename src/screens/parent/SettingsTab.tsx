@@ -1,13 +1,15 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
-import { User, Mail, Home, LogOut, Star } from 'lucide-react-native';
+import { User, Mail, Home, LogOut, Star, Shield } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
 import { Member } from '../../types';
 import MemberAvatar from '../../components/family/MemberAvatar';
 import ThemeSwitcher from '../../components/ThemeSwitcher';
+import PINSetupModal from '../../components/pin/PINSetupModal';
+import ChangePINModal from '../../components/pin/ChangePINModal';
 
 export default function SettingsTab() {
     const { user, logout } = useAuth();
@@ -16,6 +18,21 @@ export default function SettingsTab() {
     const [userProfile, setUserProfile] = useState<any>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
+
+    // PIN State
+    const [pinSetupCompleted, setPinSetupCompleted] = useState(false);
+    const [isPinSetupModalVisible, setIsPinSetupModalVisible] = useState(false);
+    const [isChangePinModalVisible, setIsChangePinModalVisible] = useState(false);
+
+    // Check PIN status
+    const checkPinStatus = async () => {
+        try {
+            const response = await api.getPinStatus();
+            setPinSetupCompleted(response.data?.pinSetupCompleted || false);
+        } catch (error) {
+            console.log('PIN status check failed:', error);
+        }
+    };
 
     const loadProfileData = async () => {
         try {
@@ -28,6 +45,7 @@ export default function SettingsTab() {
                 );
                 setUserProfile(profile);
             }
+            await checkPinStatus();
         } catch (error) {
             console.error('Error loading profile data:', error);
         } finally {
@@ -158,6 +176,58 @@ export default function SettingsTab() {
                 </Text>
                 <ThemeSwitcher />
             </View>
+
+            {/* Security Settings */}
+            <View style={[styles.card, { backgroundColor: theme.colors.bgSurface }]}>
+                <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>
+                    Security
+                </Text>
+                <TouchableOpacity
+                    style={styles.infoRow}
+                    onPress={() => {
+                        if (pinSetupCompleted) {
+                            setIsChangePinModalVisible(true);
+                        } else {
+                            setIsPinSetupModalVisible(true);
+                        }
+                    }}
+                >
+                    <Shield size={20} color={pinSetupCompleted ? theme.colors.signalSuccess : theme.colors.signalAlert} />
+                    <View style={styles.infoContent}>
+                        <Text style={[styles.infoLabel, { color: theme.colors.textSecondary }]}>
+                            PIN Authentication
+                        </Text>
+                        <Text style={[styles.infoValue, { color: theme.colors.textPrimary }]}>
+                            {pinSetupCompleted ? 'Change PIN' : 'Set Up PIN (Recommended)'}
+                        </Text>
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            <PINSetupModal
+                visible={isPinSetupModalVisible}
+                onClose={() => setIsPinSetupModalVisible(false)}
+                onSuccess={async (pin) => {
+                    try {
+                        await api.setupPin(pin);
+                        setPinSetupCompleted(true);
+                        setIsPinSetupModalVisible(false);
+                        Alert.alert('Success!', 'Your PIN has been set up.');
+                        await checkPinStatus();
+                    } catch (error) {
+                        Alert.alert('Error', 'Failed to set up PIN.');
+                    }
+                }}
+            />
+
+            <ChangePINModal
+                visible={isChangePinModalVisible}
+                onClose={() => setIsChangePinModalVisible(false)}
+                onSuccess={async () => {
+                    Alert.alert('Success!', 'Your PIN has been changed.');
+                    await checkPinStatus();
+                }}
+            />
 
             {/* Logout Button */}
             <TouchableOpacity

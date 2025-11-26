@@ -423,6 +423,11 @@ class ApiClient {
         return this.request<{ wishlistItems: WishlistItem[]; currentPoints: number }>(`/wishlist/member/${memberId}${query}`);
     }
 
+    async getHouseholdWishlist(householdId: string, includePurchased: boolean = false): Promise<ApiResponse<{ wishlistItems: WishlistItem[] }>> {
+        const query = includePurchased ? '?includePurchased=true' : '';
+        return this.request<{ wishlistItems: WishlistItem[] }>(`/wishlist/household/${householdId}${query}`);
+    }
+
     async createWishlistItem(data: {
         memberId: string;
         householdId: string;
@@ -459,6 +464,127 @@ class ApiClient {
 
     async purchaseWishlistItem(id: string): Promise<ApiResponse<{ wishlistItem: WishlistItem; newPointsTotal: number }>> {
         return this.request<{ wishlistItem: WishlistItem; newPointsTotal: number }>(`/wishlist/${id}/purchase`, {
+            method: 'POST',
+        });
+    }
+
+    // ============================================================
+    // PIN AUTHENTICATION METHODS
+    // ============================================================
+
+    async setupPin(pin: string): Promise<ApiResponse<{ pinSetupCompleted: boolean }>> {
+        return this.request<{ pinSetupCompleted: boolean }>('/pin/setup-pin', {
+            method: 'POST',
+            body: JSON.stringify({ pin }),
+        });
+    }
+
+    async verifyPin(pin: string, memberId: string, householdId: string): Promise<ApiResponse<{
+        verified: boolean;
+        memberId: string;
+        userId: string;
+        firstName: string;
+        role: string;
+    }>> {
+        const url = `${API_BASE_URL}/pin/verify-pin`;
+
+        try {
+            const headers = await this.getHeaders();
+            const response = await fetch(url, {
+                method: 'POST',
+                headers,
+                body: JSON.stringify({ pin, memberId, householdId }),
+            });
+
+            // For PIN verification, 401 is expected (incorrect PIN), not an error
+            if (response.status === 401) {
+                // Return a structured response indicating verification failed
+                return {
+                    status: 'error',
+                    data: {
+                        verified: false,
+                        memberId,
+                        userId: '',
+                        firstName: '',
+                        role: '',
+                    },
+                };
+            }
+
+            // For other non-OK responses, use normal error handling
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.message || 'PIN verification failed');
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error: any) {
+            // Only log actual errors, not incorrect PIN
+            if (error.message !== 'PIN verification failed') {
+                logger.error(`Error verifying PIN:`, error.message);
+            }
+            throw error;
+        }
+    }
+
+    async changePin(oldPin: string, newPin: string): Promise<ApiResponse<void>> {
+        return this.request<void>('/pin/change-pin', {
+            method: 'PUT',
+            body: JSON.stringify({ oldPin, newPin }),
+        });
+    }
+
+    async getPinStatus(): Promise<ApiResponse<{ pinSetupCompleted: boolean; lastPinVerification?: string }>> {
+        return this.request<{ pinSetupCompleted: boolean; lastPinVerification?: string }>('/pin/pin-status');
+    }
+    // ============================================================
+    // HOUSEHOLD LINK METHODS (Multi-Household)
+    // ============================================================
+
+    async generateLinkCode(childId: string): Promise<ApiResponse<{ code: string; expiresAt: string; childName: string }>> {
+        return this.request<{ code: string; expiresAt: string; childName: string }>('/household/child/generate-link-code', {
+            method: 'POST',
+            body: JSON.stringify({ childId }),
+        });
+    }
+
+    async linkExistingChild(code: string, displayName: string, profileColor: string): Promise<ApiResponse<{ child: Member; householdLink: any; message: string }>> {
+        return this.request<{ child: Member; householdLink: any; message: string }>('/household/child/link-existing', {
+            method: 'POST',
+            body: JSON.stringify({ code, displayName, profileColor }),
+        });
+    }
+
+    async getHouseholdLinks(): Promise<ApiResponse<{ links: any[]; count: number }>> {
+        return this.request<{ links: any[]; count: number }>('/household/links');
+    }
+
+    async getLinkSettings(linkId: string): Promise<ApiResponse<{ link: any }>> {
+        return this.request<{ link: any }>(`/household/link/${linkId}/settings`);
+    }
+
+    async proposeSettingChange(linkId: string, setting: string, newValue: string): Promise<ApiResponse<{ message: string; pendingChange: any }>> {
+        return this.request<{ message: string; pendingChange: any }>(`/household/link/${linkId}/propose-change`, {
+            method: 'POST',
+            body: JSON.stringify({ setting, newValue }),
+        });
+    }
+
+    async approveChange(linkId: string, changeId: string): Promise<ApiResponse<{ message: string; updatedSettings: any }>> {
+        return this.request<{ message: string; updatedSettings: any }>(`/household/link/${linkId}/approve-change/${changeId}`, {
+            method: 'POST',
+        });
+    }
+
+    async rejectChange(linkId: string, changeId: string): Promise<ApiResponse<{ message: string }>> {
+        return this.request<{ message: string }>(`/household/link/${linkId}/reject-change/${changeId}`, {
+            method: 'POST',
+        });
+    }
+
+    async unlinkChild(childId: string): Promise<ApiResponse<{ message: string }>> {
+        return this.request<{ message: string }>(`/household/child/${childId}/unlink`, {
             method: 'POST',
         });
     }

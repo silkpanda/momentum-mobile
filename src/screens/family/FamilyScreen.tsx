@@ -20,6 +20,8 @@ import { DashboardData, Member } from '../../types';
 import MealCard from '../../components/family/MealCard';
 import MemberColumn from '../../components/family/MemberColumn';
 import FamilyHeader from '../../components/family/FamilyHeader';
+import PINEntryModal from '../../components/pin/PINEntryModal';
+import PINSetupModal from '../../components/pin/PINSetupModal';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -38,6 +40,12 @@ export default function FamilyScreen() {
     const isLandscape = width > 600;
 
     const [todaysMeal, setTodaysMeal] = useState<{ main: string; side: string } | null>(null);
+
+    // PIN State
+    const [isPinEntryModalVisible, setIsPinEntryModalVisible] = useState(false);
+    const [isPinSetupModalVisible, setIsPinSetupModalVisible] = useState(false);
+    const [selectedMember, setSelectedMember] = useState<Member | null>(null);
+    const [pinSetupCompleted, setPinSetupCompleted] = useState(false);
 
     const loadData = async () => {
         try {
@@ -73,6 +81,17 @@ export default function FamilyScreen() {
     useFocusEffect(
         useCallback(() => {
             loadData();
+
+            // Check PIN status
+            const checkPinStatus = async () => {
+                try {
+                    const response = await api.getPinStatus();
+                    setPinSetupCompleted(response.data?.pinSetupCompleted || false);
+                } catch (error) {
+                    console.log('PIN status check failed:', error);
+                }
+            };
+            checkPinStatus();
         }, [])
     );
 
@@ -134,6 +153,53 @@ export default function FamilyScreen() {
     const allTasks = data?.tasks || [];
 
     const handleMemberPress = (member: Member) => {
+        // Direct navigation for member profiles (as requested)
+        navigateToMemberDetail(member);
+    };
+
+    const handleParentPress = () => {
+        console.log('[FamilyScreen] handleParentPress called');
+        // Find a parent member to verify against (not current user if they're a child)
+        const parentMember = members.find((m: Member) => m.role === 'Parent');
+        console.log('[FamilyScreen] Parent member found:', !!parentMember);
+
+        if (parentMember) {
+            setSelectedMember(parentMember);
+        }
+
+        if (!parentMember) {
+            // No parent in household - shouldn't happen, but handle gracefully
+            Alert.alert('Error', 'No parent account found in this household.');
+            return;
+        }
+
+        console.log('[FamilyScreen] pinSetupCompleted:', pinSetupCompleted);
+
+        if (!pinSetupCompleted) {
+            // Parent doesn't have PIN - offer to set up
+            Alert.alert(
+                'Set Up PIN?',
+                'Secure the Parent Dashboard with a 4-digit PIN.',
+                [
+                    {
+                        text: 'Skip',
+                        onPress: () => navigation.navigate('Parent'),
+                        style: 'cancel',
+                    },
+                    {
+                        text: 'Set Up PIN',
+                        onPress: () => setIsPinSetupModalVisible(true),
+                    },
+                ]
+            );
+        } else {
+            // Parent has PIN - require verification
+            console.log('[FamilyScreen] Opening PIN Entry Modal');
+            setIsPinEntryModalVisible(true);
+        }
+    };
+
+    const navigateToMemberDetail = (member: Member) => {
         navigation.navigate('MemberDetail', {
             memberId: member.id,
             userId: member.userId,
@@ -141,6 +207,27 @@ export default function FamilyScreen() {
             memberColor: member.profileColor,
             memberPoints: member.pointsTotal || 0
         });
+    };
+
+    const handlePinVerified = () => {
+        // PIN already verified by modal, just navigate
+        setIsPinEntryModalVisible(false);
+        setTimeout(() => {
+            navigation.navigate('Parent');
+        }, 100);
+    };
+
+    const handlePinSetupSuccess = async (pin: string) => {
+        try {
+            await api.setupPin(pin);
+            setPinSetupCompleted(true);
+            setIsPinSetupModalVisible(false);
+            Alert.alert('Success!', 'PIN set up. You can now access the dashboard.', [
+                { text: 'OK', onPress: () => navigation.navigate('Parent') }
+            ]);
+        } catch (error) {
+            Alert.alert('Error', 'Failed to set up PIN. Please try again.');
+        }
     };
 
     // Render Content based on Layout Mode
@@ -218,7 +305,7 @@ export default function FamilyScreen() {
                 isParent={isParent}
                 isLandscape={isLandscape}
                 insets={insets}
-                onSettingsPress={() => navigation.navigate('Parent')}
+                onSettingsPress={handleParentPress}
                 onRemindParent={handleRemindParent}
             />
 
@@ -240,6 +327,23 @@ export default function FamilyScreen() {
                     <Text style={styles.fabText}>Remind Parent</Text>
                 </TouchableOpacity>
             )}
+
+            {/* PIN Modals */}
+            <PINEntryModal
+                visible={isPinEntryModalVisible}
+                onClose={() => setIsPinEntryModalVisible(false)}
+                onSuccess={handlePinVerified}
+                memberId={members.find((m: Member) => m.role === 'Parent')?.id || ''}
+                householdId={data?.household?.id || ''}
+                title="Enter Parent PIN"
+                subtitle="Verify parent identity to access Parent Dashboard"
+            />
+
+            <PINSetupModal
+                visible={isPinSetupModalVisible}
+                onClose={() => setIsPinSetupModalVisible(false)}
+                onSuccess={handlePinSetupSuccess}
+            />
         </View>
     );
 }
@@ -263,7 +367,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
     },
     landscapeContainer: {
-        flex: 1, // Ensure it takes full height
+        flex: 1,
         flexDirection: 'row',
         padding: 24,
         gap: 24,

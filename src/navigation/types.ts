@@ -8,6 +8,7 @@ export type RootStackParamList = {
     Parent: undefined;
     MemberDetail: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
     MemberStore: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
+    SharingSettings: { linkId: string; childName: string };
 } & AuthStackParamList;
 
 export type ParentTabParamList = {
@@ -18,5 +19,6 @@ export type ParentTabParamList = {
     Quests: undefined;
     Meals: undefined;
     Members: undefined;
+    Approvals: undefined;
     Settings: undefined;
 };
