@@ -595,7 +595,7 @@ export default function MemberDetailScreen() {
             <LinkCodeGenerationModal
                 visible={isLinkCodeModalVisible}
                 onClose={() => setIsLinkCodeModalVisible(false)}
-                childId={memberId}
+                childId={memberData?.userId || userId || memberId}
                 childName={memberName}
             />
         </View >
