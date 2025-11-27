@@ -384,10 +384,25 @@ export default function MemberDetailScreen() {
                 contentContainerStyle={styles.content}
             >
                 <View style={styles.heroSection}>
-                    <MemberAvatar name={memberName} color={memberColor} size={80} />
+                    <View style={styles.avatarWrapper}>
+                        <MemberAvatar name={memberName} color={memberColor} size={80} />
+                        {memberData?.isLinkedChild && (
+                            <View style={[styles.profileLinkBadge, { backgroundColor: theme.colors.actionPrimary }]}>
+                                <LinkIcon size={16} color="#FFFFFF" strokeWidth={2.5} />
+                            </View>
+                        )}
+                    </View>
                     <Text style={[styles.greeting, { color: theme.colors.textPrimary }]}>
                         Ready to crush it today?
                     </Text>
+                    {memberData?.isLinkedChild && (
+                        <View style={[styles.linkedBanner, { backgroundColor: theme.colors.bgSurface }]}>
+                            <LinkIcon size={14} color={theme.colors.actionPrimary} />
+                            <Text style={[styles.linkedText, { color: theme.colors.textSecondary }]}>
+                                Linked across households
+                            </Text>
+                        </View>
+                    )}
                 </View>
 
                 <View style={styles.statsRow}>
@@ -628,6 +643,39 @@ const styles = StyleSheet.create({
     heroSection: {
         alignItems: 'center',
         marginBottom: 24,
+    },
+    avatarWrapper: {
+        position: 'relative',
+    },
+    profileLinkBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 3,
+        borderColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.2,
+        shadowRadius: 3,
+        elevation: 4,
+    },
+    linkedBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        marginTop: 12,
+    },
+    linkedText: {
+        fontSize: 13,
+        fontWeight: '600',
     },
     greeting: {
         fontSize: 20,

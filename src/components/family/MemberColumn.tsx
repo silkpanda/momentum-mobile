@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { CheckCircle, Target, Star } from 'lucide-react-native';
+import { CheckCircle, Target, Star, Link } from 'lucide-react-native';
 import MemberAvatar from './MemberAvatar';
 import { Member, Task } from '../../types';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -43,15 +43,24 @@ export default function MemberColumn({ member, allTasks, onPress }: MemberColumn
             activeOpacity={0.9}
         >
             <View style={styles.columnHeader}>
-                <MemberAvatar
-                    name={`${member.firstName} ${member.lastName || ''}`.trim()}
-                    color={member.profileColor}
-                    size={56}
-                />
+                <View style={styles.avatarContainer}>
+                    <MemberAvatar
+                        name={`${member.firstName} ${member.lastName || ''}`.trim()}
+                        color={member.profileColor}
+                        size={56}
+                    />
+                    {member.isLinkedChild && (
+                        <View style={[styles.linkBadge, { backgroundColor: theme.colors.actionPrimary }]}>
+                            <Link size={12} color="#FFFFFF" strokeWidth={2.5} />
+                        </View>
+                    )}
+                </View>
                 <View style={styles.headerInfo}>
-                    <Text style={[styles.memberName, { color: isFocusMode ? '#FFFFFF' : theme.colors.textPrimary }]}>
-                        {member.firstName}
-                    </Text>
+                    <View style={styles.nameRow}>
+                        <Text style={[styles.memberName, { color: isFocusMode ? '#FFFFFF' : theme.colors.textPrimary }]}>
+                            {member.firstName}
+                        </Text>
+                    </View>
                     <View style={styles.pointsRow}>
                         <Star size={12} color={isFocusMode ? '#FFFFFF' : theme.colors.actionPrimary} fill={isFocusMode ? '#FFFFFF' : theme.colors.actionPrimary} />
                         <Text style={[styles.memberPoints, { color: isFocusMode ? '#FFFFFF' : theme.colors.textSecondary }]}>
@@ -127,8 +136,33 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         gap: 12,
     },
+    avatarContainer: {
+        position: 'relative',
+    },
+    linkBadge: {
+        position: 'absolute',
+        bottom: -2,
+        right: -2,
+        width: 22,
+        height: 22,
+        borderRadius: 11,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.2,
+        shadowRadius: 2,
+        elevation: 3,
+    },
     headerInfo: {
         flex: 1,
+    },
+    nameRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
     },
     memberName: {
         fontSize: 17,
