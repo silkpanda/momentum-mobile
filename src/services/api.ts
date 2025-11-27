@@ -556,6 +556,10 @@ class ApiClient {
         });
     }
 
+    async validateLinkCode(code: string): Promise<ApiResponse<{ valid: boolean; childId: string; childName: string; expiresAt: string }>> {
+        return this.request<{ valid: boolean; childId: string; childName: string; expiresAt: string }>(`/household/child/validate-code/${code}`);
+    }
+
     async getHouseholdLinks(): Promise<ApiResponse<{ links: any[]; count: number }>> {
         return this.request<{ links: any[]; count: number }>('/household/links');
     }

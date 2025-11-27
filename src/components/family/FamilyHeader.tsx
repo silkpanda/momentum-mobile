@@ -1,6 +1,6 @@
 import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Settings, Bell } from 'lucide-react-native';
+import { Settings, Bell, Link } from 'lucide-react-native';
 import { EdgeInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../contexts/ThemeContext';
 
@@ -11,6 +11,7 @@ interface FamilyHeaderProps {
     insets: EdgeInsets;
     onSettingsPress: () => void;
     onRemindParent: () => void;
+    onLinkChild?: () => void;
 }
 
 export default function FamilyHeader({
@@ -19,7 +20,8 @@ export default function FamilyHeader({
     isLandscape,
     insets,
     onSettingsPress,
-    onRemindParent
+    onRemindParent,
+    onLinkChild
 }: FamilyHeaderProps) {
     const { currentTheme: theme } = useTheme();
 
@@ -49,6 +51,16 @@ export default function FamilyHeader({
                     >
                         <Bell size={20} color="#FFFFFF" />
                         <Text style={styles.headerButtonText}>Remind Parent</Text>
+                    </TouchableOpacity>
+                )}
+
+                {isParent && onLinkChild && (
+                    <TouchableOpacity
+                        style={[styles.headerButton, { backgroundColor: theme.colors.actionPrimary }]}
+                        onPress={onLinkChild}
+                    >
+                        <Link size={20} color="#FFFFFF" />
+                        <Text style={styles.headerButtonText}>Link Child</Text>
                     </TouchableOpacity>
                 )}
 
