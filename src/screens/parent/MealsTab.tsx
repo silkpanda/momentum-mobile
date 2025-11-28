@@ -3,7 +3,8 @@ import { View, Text, StyleSheet, ScrollView, TouchableOpacity, RefreshControl } 
 import { useData } from '../../contexts/DataContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { SkeletonList } from '../../components/SkeletonLoader';
-import { UtensilsCrossed, Plus, ChefHat, MapPin } from 'lucide-react-native';
+import WeeklyScheduler from '../../components/meals/WeeklyScheduler';
+import { Calendar, UtensilsCrossed, Plus, ChefHat, MapPin } from 'lucide-react-native';
 import CreateRecipeModal from '../../components/meals/CreateRecipeModal';
 import CreateRestaurantModal from '../../components/meals/CreateRestaurantModal';
 
@@ -13,15 +14,17 @@ export default function MealsTab() {
     // Get data from global cache
     const { meals, restaurants, isInitialLoad, isRefreshing, refresh } = useData();
 
-    const [activeTab, setActiveTab] = useState<'recipes' | 'restaurants'>('recipes');
+    const [activeTab, setActiveTab] = useState<'recipes' | 'restaurants' | 'plan'>('plan');
     const [recipeModalVisible, setRecipeModalVisible] = useState(false);
     const [restaurantModalVisible, setRestaurantModalVisible] = useState(false);
 
     const handleAddClick = () => {
         if (activeTab === 'recipes') {
             setRecipeModalVisible(true);
-        } else {
+        } else if (activeTab === 'restaurants') {
             setRestaurantModalVisible(true);
+        } else {
+            // For plan, maybe scroll to today? Or just do nothing as the + buttons are inline
         }
     };
 
@@ -51,16 +54,33 @@ export default function MealsTab() {
                         Meals
                     </Text>
                 </View>
-                <TouchableOpacity
-                    style={[styles.addButton, { backgroundColor: theme.colors.actionPrimary }]}
-                    onPress={handleAddClick}
-                >
-                    <Plus size={20} color="#FFFFFF" />
-                </TouchableOpacity>
+                {activeTab !== 'plan' && (
+                    <TouchableOpacity
+                        style={[styles.addButton, { backgroundColor: theme.colors.actionPrimary }]}
+                        onPress={handleAddClick}
+                    >
+                        <Plus size={20} color="#FFFFFF" />
+                    </TouchableOpacity>
+                )}
             </View>
 
             {/* Tab Switcher */}
             <View style={styles.tabContainer}>
+                <TouchableOpacity
+                    style={[
+                        styles.tab,
+                        activeTab === 'plan' && { backgroundColor: theme.colors.actionPrimary }
+                    ]}
+                    onPress={() => setActiveTab('plan')}
+                >
+                    <Calendar size={18} color={activeTab === 'plan' ? '#FFFFFF' : theme.colors.textSecondary} />
+                    <Text style={[
+                        styles.tabText,
+                        { color: activeTab === 'plan' ? '#FFFFFF' : theme.colors.textSecondary }
+                    ]}>
+                        Plan
+                    </Text>
+                </TouchableOpacity>
                 <TouchableOpacity
                     style={[
                         styles.tab,
@@ -73,7 +93,7 @@ export default function MealsTab() {
                         styles.tabText,
                         { color: activeTab === 'recipes' ? '#FFFFFF' : theme.colors.textSecondary }
                     ]}>
-                        Recipes ({meals.length})
+                        Recipes
                     </Text>
                 </TouchableOpacity>
                 <TouchableOpacity
@@ -88,95 +108,99 @@ export default function MealsTab() {
                         styles.tabText,
                         { color: activeTab === 'restaurants' ? '#FFFFFF' : theme.colors.textSecondary }
                     ]}>
-                        Restaurants ({restaurants.length})
+                        Dining Out
                     </Text>
                 </TouchableOpacity>
             </View>
 
             {/* Content */}
-            <ScrollView
-                contentContainerStyle={styles.content}
-                refreshControl={
-                    <RefreshControl
-                        refreshing={isRefreshing}
-                        onRefresh={refresh}
-                        tintColor={theme.colors.actionPrimary}
-                    />
-                }
-            >
-                {activeTab === 'recipes' ? (
-                    meals.length > 0 ? (
-                        meals.map((meal) => (
-                            <View
-                                key={meal.id || meal._id}
-                                style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
-                            >
-                                <View style={styles.itemHeader}>
-                                    <ChefHat size={20} color={theme.colors.actionPrimary} />
-                                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>
-                                        {meal.name}
-                                    </Text>
-                                </View>
-                                {meal.description && (
-                                    <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
-                                        {meal.description}
-                                    </Text>
-                                )}
-                            </View>
-                        ))
-                    ) : (
-                        <View style={styles.emptyContainer}>
-                            <ChefHat size={48} color={theme.colors.borderSubtle} />
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                                No recipes yet
-                            </Text>
-                            <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
-                                Add your family's favorite recipes
-                            </Text>
-                        </View>
-                    )
-                ) : (
-                    restaurants.length > 0 ? (
-                        restaurants.map((restaurant) => (
-                            <View
-                                key={restaurant.id || restaurant._id}
-                                style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
-                            >
-                                <View style={styles.itemHeader}>
-                                    <MapPin size={20} color={theme.colors.actionPrimary} />
-                                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>
-                                        {restaurant.name}
-                                    </Text>
-                                </View>
-                                {restaurant.cuisine && (
-                                    <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
-                                        {restaurant.cuisine}
-                                    </Text>
-                                )}
-                                <View style={styles.itemFooter}>
-                                    {restaurant.isFavorite && (
-                                        <View style={[styles.badge, { backgroundColor: theme.colors.actionPrimary + '20' }]}>
-                                            <Text style={[styles.badgeText, { color: theme.colors.actionPrimary }]}>
-                                                Favorite
-                                            </Text>
-                                        </View>
+            {activeTab === 'plan' ? (
+                <WeeklyScheduler refreshTrigger={isRefreshing ? 1 : 0} />
+            ) : (
+                <ScrollView
+                    contentContainerStyle={styles.content}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={isRefreshing}
+                            onRefresh={refresh}
+                            tintColor={theme.colors.actionPrimary}
+                        />
+                    }
+                >
+                    {activeTab === 'recipes' ? (
+                        meals.length > 0 ? (
+                            meals.map((meal) => (
+                                <View
+                                    key={meal.id || meal._id}
+                                    style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
+                                >
+                                    <View style={styles.itemHeader}>
+                                        <ChefHat size={20} color={theme.colors.actionPrimary} />
+                                        <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>
+                                            {meal.name}
+                                        </Text>
+                                    </View>
+                                    {meal.description && (
+                                        <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
+                                            {meal.description}
+                                        </Text>
                                     )}
                                 </View>
+                            ))
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <ChefHat size={48} color={theme.colors.borderSubtle} />
+                                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                                    No recipes yet
+                                </Text>
+                                <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+                                    Add your family's favorite recipes
+                                </Text>
                             </View>
-                        ))
+                        )
                     ) : (
-                        <View style={styles.emptyContainer}>
-                            <MapPin size={48} color={theme.colors.borderSubtle} />
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                                No restaurants yet
-                            </Text>
-                            <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
-                                Add your family's favorite places to eat
-                            </Text>
-                        </View>
-                    )
-                )}
-            </ScrollView>
+                        restaurants.length > 0 ? (
+                            restaurants.map((restaurant) => (
+                                <View
+                                    key={restaurant.id || restaurant._id}
+                                    style={[styles.itemCard, { backgroundColor: theme.colors.bgSurface }]}
+                                >
+                                    <View style={styles.itemHeader}>
+                                        <MapPin size={20} color={theme.colors.actionPrimary} />
+                                        <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>
+                                            {restaurant.name}
+                                        </Text>
+                                    </View>
+                                    {restaurant.cuisine && (
+                                        <Text style={[styles.itemDescription, { color: theme.colors.textSecondary }]}>
+                                            {restaurant.cuisine}
+                                        </Text>
+                                    )}
+                                    <View style={styles.itemFooter}>
+                                        {restaurant.isFavorite && (
+                                            <View style={[styles.badge, { backgroundColor: theme.colors.actionPrimary + '20' }]}>
+                                                <Text style={[styles.badgeText, { color: theme.colors.actionPrimary }]}>
+                                                    Favorite
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                </View>
+                            ))
+                        ) : (
+                            <View style={styles.emptyContainer}>
+                                <MapPin size={48} color={theme.colors.borderSubtle} />
+                                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                                    No restaurants yet
+                                </Text>
+                                <Text style={[styles.emptySubtext, { color: theme.colors.textSecondary }]}>
+                                    Add your family's favorite places to eat
+                                </Text>
+                            </View>
+                        )
+                    )}
+                </ScrollView>
+            )}
 
             {/* Modals */}
             <CreateRecipeModal

@@ -6,9 +6,19 @@ const KEYS = {
     USER: 'momentum_user',
     HOUSEHOLD_ID: 'momentum_household_id',
     THEME: 'momentum_theme',
+    CALENDARS: 'momentum_selected_calendars',
 };
 
 export const storage = {
+    // Generic
+    async getItem(key: string): Promise<string | null> {
+        return await AsyncStorage.getItem(key);
+    },
+
+    async setItem(key: string, value: string): Promise<void> {
+        await AsyncStorage.setItem(key, value);
+    },
+
     // Token
     async getToken(): Promise<string | null> {
         return await AsyncStorage.getItem(KEYS.TOKEN);

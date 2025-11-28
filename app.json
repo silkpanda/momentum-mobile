@@ -3,6 +3,7 @@
     "name": "momentum-mobile",
     "slug": "momentum-mobile",
     "version": "1.0.0",
+    "scheme": "momentum",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
@@ -30,6 +31,14 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      [
+        "expo-calendar",
+        {
+          "calendarPermission": "The app needs to access your calendar to show your events."
+        }
+      ]
+    ],
     "extra": {
       "eas": {
         "projectId": "467ac6bb-c1e8-4957-9d52-3fae4ae8636c"

@@ -375,6 +375,54 @@ class ApiClient {
         });
     }
 
+    // Meal Plans
+    async getMealPlans(): Promise<ApiResponse<{ mealPlans: any[] }>> {
+        return this.request<{ mealPlans: any[] }>('/meals/plans');
+    }
+
+    async createMealPlan(startDate: string, endDate: string): Promise<ApiResponse<{ mealPlan: any }>> {
+        return this.request<{ mealPlan: any }>('/meals/plans', {
+            method: 'POST',
+            body: JSON.stringify({ startDate, endDate }),
+        });
+    }
+
+    async addMealToPlan(planId: string, mealData: {
+        dayOfWeek: string;
+        mealType: 'breakfast' | 'lunch' | 'dinner' | 'snack';
+        itemType: 'recipe' | 'restaurant' | 'custom';
+        itemId?: string;
+        customTitle?: string;
+    }): Promise<ApiResponse<{ meal: any }>> {
+        return this.request<{ meal: any }>(`/meals/plans/${planId}/meals`, {
+            method: 'POST',
+            body: JSON.stringify(mealData),
+        });
+    }
+
+    async removeMealFromPlan(planId: string, mealId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/meals/plans/${planId}/meals/${mealId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async deleteMealPlan(planId: string): Promise<ApiResponse<void>> {
+        return this.request<void>(`/meals/plans/${planId}`, {
+            method: 'DELETE',
+        });
+    }
+
+    async getUnratedMeals(): Promise<ApiResponse<{ unratedMeals: any[] }>> {
+        return this.request<{ unratedMeals: any[] }>('/meals/unrated');
+    }
+
+    async rateMeal(mealId: string, rating: number): Promise<ApiResponse<{ meal: any }>> {
+        return this.request<{ meal: any }>(`/meals/rate/${mealId}`, {
+            method: 'POST',
+            body: JSON.stringify({ rating }),
+        });
+    }
+
     // Routines
     async getAllRoutines(): Promise<ApiResponse<{ routines: Routine[] }>> {
         return this.request<{ routines: Routine[] }>('/routines');
@@ -589,6 +637,16 @@ class ApiClient {
 
     async unlinkChild(childId: string): Promise<ApiResponse<{ message: string }>> {
         return this.request<{ message: string }>(`/household/child/${childId}/unlink`, {
+            method: 'POST',
+        });
+    }
+
+    // ============================================================
+    // NOTIFICATION METHODS
+    // ============================================================
+
+    async sendParentReminder(): Promise<ApiResponse<{ message: string; data: any }>> {
+        return this.request<{ message: string; data: any }>('/notifications/remind', {
             method: 'POST',
         });
     }

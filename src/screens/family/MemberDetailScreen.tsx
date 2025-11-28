@@ -6,7 +6,7 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map, Link as LinkIcon } from 'lucide-react-native';
+import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map, Link as LinkIcon, Plus } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { api } from '../../services/api';
@@ -32,6 +32,9 @@ import CreateWishlistItemModal from '../../components/wishlist/CreateWishlistIte
 import WishlistDetailModal from '../../components/wishlist/WishlistDetailModal';
 import PINEntryModal from '../../components/pin/PINEntryModal';
 import PINSetupModal from '../../components/pin/PINSetupModal';
+import UpcomingEventsWidget from '../../components/calendar/UpcomingEventsWidget';
+import CalendarSettingsModal from '../../components/calendar/CalendarSettingsModal';
+import MealRatingModal from '../../components/meals/MealRatingModal';
 import LinkCodeGenerationModal from '../../components/household/LinkCodeGenerationModal';
 
 type MemberDetailRouteProp = RouteProp<RootStackParamList, 'MemberDetail'>;
@@ -44,13 +47,23 @@ export default function MemberDetailScreen() {
     const { user } = useAuth();
     const { on, off } = useSocket();
 
-
-
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const { currentTheme: theme } = useTheme();
 
     const { tasks: allTasks, quests: allQuests, members, wishlistItems: allWishlistItems, householdId, refresh, updateTask, updateQuest, isRefreshing } = useData();
     const { execute } = useOptimisticUpdate();
+
+    // Derived State
+    const memberData = useMemo(() =>
+        members.find(m => m.id === memberId || m._id === memberId),
+        [members, memberId]
+    );
+
+    const isOwnProfile = user?.id === userId;
+    const isParent = user?.role === 'Parent';
+
+    // Calendar State
+    const [isCalendarSettingsVisible, setIsCalendarSettingsVisible] = useState(false);
 
     // Routine State
     const [routines, setRoutines] = useState<Routine[]>([]);
@@ -71,7 +84,10 @@ export default function MemberDetailScreen() {
     // Link Code State
     const [isLinkCodeModalVisible, setIsLinkCodeModalVisible] = useState(false);
 
-    // Check PIN status
+    // Meal Rating State
+    const [unratedMeal, setUnratedMeal] = useState<any>(null);
+    const [isRatingModalVisible, setIsRatingModalVisible] = useState(false);
+
     useFocusEffect(
         useCallback(() => {
             const checkPinStatus = async () => {
@@ -87,7 +103,6 @@ export default function MemberDetailScreen() {
     );
 
     const handleParentPress = () => {
-        // Find a parent member to verify against
         const parentMember = members.find(m => m.role === 'Parent');
 
         if (!parentMember) {
@@ -117,7 +132,6 @@ export default function MemberDetailScreen() {
     };
 
     const handlePinVerified = () => {
-        // PIN already verified by modal, just navigate
         setIsPinEntryModalVisible(false);
         setTimeout(() => {
             navigation.navigate('Parent' as never);
@@ -137,28 +151,19 @@ export default function MemberDetailScreen() {
         }
     };
 
-    // Derived State
-    const memberData = useMemo(() =>
-        members.find(m => m.id === memberId || m._id === memberId),
-        [members, memberId]
-    );
-
     const [memberPoints, setMemberPoints] = useState(initialPoints);
 
-    // Filter wishlist items for this member
     const memberWishlistItems = useMemo(() =>
         allWishlistItems.filter(item => item.memberId === memberId),
         [allWishlistItems, memberId]
     );
 
-    // Update local points state when member data changes
     useEffect(() => {
         if (memberData) {
             setMemberPoints(memberData.pointsTotal || 0);
         }
     }, [memberData?.pointsTotal]);
 
-    // Fetch Routines
     const fetchRoutines = useCallback(async () => {
         try {
             const response = await api.getMemberRoutines(memberId);
@@ -174,10 +179,8 @@ export default function MemberDetailScreen() {
         fetchRoutines();
     }, [fetchRoutines]);
 
-    // Listen for routine updates via WebSocket
     useEffect(() => {
         const handleRoutineUpdate = (data: any) => {
-            // Simple refresh for now
             fetchRoutines();
         };
 
@@ -229,11 +232,9 @@ export default function MemberDetailScreen() {
         return null;
     }, [memberData?.focusedTaskId, allTasks]);
 
-    // Listen for direct updates from other screens (like Store)
     useEffect(() => {
         const subscription = DeviceEventEmitter.addListener('update_member_points', (event) => {
             if (event.memberId === memberId) {
-                console.log(`[MemberDetail] Received event update for points: ${event.points}`);
                 setMemberPoints(event.points);
             }
         });
@@ -243,10 +244,8 @@ export default function MemberDetailScreen() {
         };
     }, [memberId]);
 
-    // Update state if params change (e.g. returning from Store with new points)
     useEffect(() => {
         if (route.params?.memberPoints !== undefined) {
-            console.log(`[MemberDetail] Route params changed, updating points to: ${route.params.memberPoints}`);
             setMemberPoints(route.params.memberPoints);
         }
     }, [route.params?.memberPoints]);
@@ -323,13 +322,12 @@ export default function MemberDetailScreen() {
         ));
     };
 
-    // Focus Mode Check
     if (memberData?.focusedTaskId && focusedTask) {
         return (
             <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
                 <FocusModeView
                     task={focusedTask}
-                    currentIndex={1} // Single task view
+                    currentIndex={1}
                     totalTasks={1}
                     onComplete={() => handleCompleteTask(focusedTask._id || focusedTask.id)}
                     onRequestHelp={() => {
@@ -415,7 +413,6 @@ export default function MemberDetailScreen() {
                     <MultiplierBadge multiplier={memberData?.streakMultiplier || 1.0} size="medium" />
                 </View>
 
-                {/* Streak Progress */}
                 <StreakProgress currentStreak={memberData?.currentStreak || 0} />
 
                 <TouchableOpacity
@@ -432,7 +429,6 @@ export default function MemberDetailScreen() {
                     <Text style={styles.storeButtonText}>Visit Rewards Store</Text>
                 </TouchableOpacity>
 
-                {/* Routines Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginBottom: 0 }]}>My Routines</Text>
                     {user?.role === 'Parent' && (
@@ -461,7 +457,6 @@ export default function MemberDetailScreen() {
                     </View>
                 )}
 
-                {/* Wishlist Section */}
                 <View style={styles.sectionHeader}>
                     <Text style={[styles.sectionTitle, { color: theme.colors.textPrimary, marginBottom: 0 }]}>My Wishlist</Text>
                     {user?.role === 'Parent' && (
@@ -541,9 +536,20 @@ export default function MemberDetailScreen() {
                         <Text style={{ color: theme.colors.textSecondary }}>No active quests. Claim one above!</Text>
                     </View>
                 )}
+
+                {(isOwnProfile || isParent) && (
+                    <UpcomingEventsWidget
+                        onSettingsPress={() => setIsCalendarSettingsVisible(true)}
+                    />
+                )}
+
+                <CalendarSettingsModal
+                    visible={isCalendarSettingsVisible}
+                    onClose={() => setIsCalendarSettingsVisible(false)}
+                />
+
             </ScrollView>
 
-            {/* Routine Detail Modal */}
             <RoutineDetailModal
                 visible={isRoutineModalVisible}
                 onClose={() => setIsRoutineModalVisible(false)}
@@ -551,7 +557,6 @@ export default function MemberDetailScreen() {
                 onUpdate={handleRoutineUpdate}
             />
 
-            {/* Create Routine Modal */}
             <CreateRoutineModal
                 visible={isCreateRoutineModalVisible}
                 onClose={() => setIsCreateRoutineModalVisible(false)}
@@ -562,7 +567,6 @@ export default function MemberDetailScreen() {
                 }}
             />
 
-            {/* Create Wishlist Item Modal */}
             <CreateWishlistItemModal
                 visible={isCreateWishlistModalVisible}
                 onClose={() => setIsCreateWishlistModalVisible(false)}
@@ -574,7 +578,6 @@ export default function MemberDetailScreen() {
                 }}
             />
 
-            {/* Wishlist Detail Modal */}
             {selectedWishlistItem && (
                 <WishlistDetailModal
                     visible={isWishlistDetailModalVisible}
@@ -589,7 +592,6 @@ export default function MemberDetailScreen() {
                 />
             )}
 
-            {/* PIN Modals */}
             <PINEntryModal
                 visible={isPinEntryModalVisible}
                 onClose={() => setIsPinEntryModalVisible(false)}
@@ -606,12 +608,21 @@ export default function MemberDetailScreen() {
                 onSuccess={handlePinSetupSuccess}
             />
 
-            {/* Link Code Modal */}
             <LinkCodeGenerationModal
                 visible={isLinkCodeModalVisible}
                 onClose={() => setIsLinkCodeModalVisible(false)}
                 childId={memberData?.userId || userId || memberId}
                 childName={memberName}
+            />
+
+            <MealRatingModal
+                visible={isRatingModalVisible}
+                meal={unratedMeal}
+                onClose={() => setIsRatingModalVisible(false)}
+                onRated={() => {
+                    setIsRatingModalVisible(false);
+                    setUnratedMeal(null);
+                }}
             />
         </View >
     );

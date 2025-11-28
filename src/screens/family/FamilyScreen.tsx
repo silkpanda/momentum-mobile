@@ -126,23 +126,38 @@ export default function FamilyScreen() {
             loadData();
         };
 
+        const handleNotification = (data: any) => {
+            console.log('[FamilyScreen] Notification received:', data);
+            if (user?.role === 'Parent' && data.type === 'reminder') {
+                Alert.alert(data.title, data.message);
+            }
+        };
+
         on(SOCKET_EVENTS.TASK_UPDATED, handleTaskUpdate);
         on(SOCKET_EVENTS.MEMBER_POINTS_UPDATED, handlePointsUpdate);
         on(SOCKET_EVENTS.HOUSEHOLD_UPDATED, handleHouseholdUpdate);
+        on('notification', handleNotification);
 
         return () => {
             off(SOCKET_EVENTS.TASK_UPDATED, handleTaskUpdate);
             off(SOCKET_EVENTS.MEMBER_POINTS_UPDATED, handlePointsUpdate);
             off(SOCKET_EVENTS.HOUSEHOLD_UPDATED, handleHouseholdUpdate);
+            off('notification', handleNotification);
         };
-    }, [on, off]);
+    }, [on, off, user]);
 
-    const handleRemindParent = () => {
-        Alert.alert(
-            "Sent!",
-            "We've pinged your parent to come help you.",
-            [{ text: "OK" }]
-        );
+    const handleRemindParent = async () => {
+        try {
+            await api.sendParentReminder();
+            Alert.alert(
+                "Sent!",
+                "We've pinged your parent to come help you.",
+                [{ text: "OK" }]
+            );
+        } catch (error) {
+            console.error('Failed to send reminder:', error);
+            Alert.alert("Error", "Could not send reminder. Please try again.");
+        }
     };
 
     const isParent = user?.role === 'Parent';
