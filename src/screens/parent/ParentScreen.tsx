@@ -22,8 +22,11 @@ import { useTheme } from '../../contexts/ThemeContext';
 
 const Tab = createMaterialTopTabNavigator<ParentTabParamList>();
 
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RootStackParamList } from '../../navigation/types';
+
 export default function ParentScreen() {
-    const navigation = useNavigation();
+    const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
     const insets = useSafeAreaInsets();
     const { currentTheme: theme } = useTheme();
 
@@ -46,7 +49,21 @@ export default function ParentScreen() {
                     <ArrowLeft size={24} color={theme.colors.textPrimary} />
                     <Text style={[styles.backText, { color: theme.colors.textPrimary }]}>Back to Family View</Text>
                 </TouchableOpacity>
-                <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Parent View</Text>
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity
+                        onPress={() => navigation.navigate('BentoTest')}
+                        style={{
+                            backgroundColor: theme.colors.actionPrimary,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 16
+                        }}
+                    >
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>Bento UI</Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Parent View</Text>
+                </View>
             </View>
 
             <Tab.Navigator
@@ -81,7 +98,7 @@ export default function ParentScreen() {
                 <Tab.Screen name="Meals" component={MealsTab} />
                 <Tab.Screen name="Settings" component={SettingsTab} />
             </Tab.Navigator>
-        </View>
+        </View >
     );
 }
 

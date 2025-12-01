@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -121,122 +121,127 @@ export default function CreateTaskModal({ visible, onClose, onTaskCreated, membe
             transparent={true}
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
-                    <View style={styles.header}>
-                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-                            {initialTask ? 'Edit Task' : 'New Task'}
-                        </Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <X size={24} color={theme.colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.form}>
-                        {/* Title Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
-                            <TextInput
-                                style={[styles.input, {
-                                    backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: errors.title ? theme.colors.signalAlert : theme.colors.borderSubtle,
-                                    color: theme.colors.textPrimary
-                                }]}
-                                placeholder="e.g. Clean your room"
-                                placeholderTextColor={theme.colors.textSecondary}
-                                value={formData.title}
-                                onChangeText={(text) => handleChange('title', text)}
-                            />
-                            {errors.title && (
-                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.title}</Text>
-                            )}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
+                        <View style={styles.header}>
+                            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                                {initialTask ? 'Edit Task' : 'New Task'}
+                            </Text>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                                <X size={24} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Description Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea, {
-                                    backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
-                                    color: theme.colors.textPrimary
-                                }]}
-                                placeholder="Add details..."
-                                placeholderTextColor={theme.colors.textSecondary}
-                                value={formData.description}
-                                onChangeText={(text) => handleChange('description', text)}
-                                multiline
-                                numberOfLines={3}
-                            />
-                        </View>
-
-                        {/* Points Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Points Value</Text>
-                            <TextInput
-                                style={[styles.input, {
-                                    backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: errors.pointsValue ? theme.colors.signalAlert : theme.colors.borderSubtle,
-                                    color: theme.colors.textPrimary
-                                }]}
-                                value={String(formData.pointsValue)}
-                                onChangeText={(text) => handleChange('pointsValue', text)}
-                                keyboardType="numeric"
-                            />
-                            {errors.pointsValue && (
-                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.pointsValue}</Text>
-                            )}
-                        </View>
-
-                        {/* Assignees Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Assign To</Text>
-                            <View style={styles.assigneesContainer}>
-                                {members.map(member => (
-                                    <TouchableOpacity
-                                        key={member.id || member._id}
-                                        style={[
-                                            styles.assigneeChip,
-                                            selectedAssignees.includes(member.id || member._id)
-                                                ? { backgroundColor: theme.colors.actionPrimary, borderColor: theme.colors.actionPrimary }
-                                                : { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle }
-                                        ]}
-                                        onPress={() => toggleAssignee(member.id || member._id)}
-                                    >
-                                        <Text style={[
-                                            styles.assigneeName,
-                                            selectedAssignees.includes(member.id || member._id)
-                                                ? { color: '#FFFFFF' }
-                                                : { color: theme.colors.textPrimary }
-                                        ]}>
-                                            {member.firstName}
-                                        </Text>
-                                        {selectedAssignees.includes(member.id || member._id) && (
-                                            <Check size={16} color="#FFFFFF" style={{ marginLeft: 4 }} />
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
+                        <ScrollView style={styles.form}>
+                            {/* Title Input */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
+                                <TextInput
+                                    style={[styles.input, {
+                                        backgroundColor: theme.colors.bgCanvas,
+                                        borderColor: errors.title ? theme.colors.signalAlert : theme.colors.borderSubtle,
+                                        color: theme.colors.textPrimary
+                                    }]}
+                                    placeholder="e.g. Clean your room"
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                    value={formData.title}
+                                    onChangeText={(text) => handleChange('title', text)}
+                                />
+                                {errors.title && (
+                                    <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.title}</Text>
+                                )}
                             </View>
-                        </View>
-                    </ScrollView>
 
-                    <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
-                        <TouchableOpacity
-                            style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary, flex: 1 }]}
-                            onPress={handleSubmit}
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.createButtonText}>
-                                    {initialTask ? 'Save Changes' : 'Create Task'}
-                                </Text>
-                            )}
-                        </TouchableOpacity>
+                            {/* Description Input */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea, {
+                                        backgroundColor: theme.colors.bgCanvas,
+                                        borderColor: theme.colors.borderSubtle,
+                                        color: theme.colors.textPrimary
+                                    }]}
+                                    placeholder="Add details..."
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                    value={formData.description}
+                                    onChangeText={(text) => handleChange('description', text)}
+                                    multiline
+                                    numberOfLines={3}
+                                />
+                            </View>
+
+                            {/* Points Input */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Points Value</Text>
+                                <TextInput
+                                    style={[styles.input, {
+                                        backgroundColor: theme.colors.bgCanvas,
+                                        borderColor: errors.pointsValue ? theme.colors.signalAlert : theme.colors.borderSubtle,
+                                        color: theme.colors.textPrimary
+                                    }]}
+                                    value={String(formData.pointsValue)}
+                                    onChangeText={(text) => handleChange('pointsValue', text)}
+                                    keyboardType="numeric"
+                                />
+                                {errors.pointsValue && (
+                                    <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.pointsValue}</Text>
+                                )}
+                            </View>
+
+                            {/* Assignees Input */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Assign To</Text>
+                                <View style={styles.assigneesContainer}>
+                                    {members.map(member => (
+                                        <TouchableOpacity
+                                            key={member.id || member._id}
+                                            style={[
+                                                styles.assigneeChip,
+                                                selectedAssignees.includes(member.id || member._id)
+                                                    ? { backgroundColor: theme.colors.actionPrimary, borderColor: theme.colors.actionPrimary }
+                                                    : { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle }
+                                            ]}
+                                            onPress={() => toggleAssignee(member.id || member._id)}
+                                        >
+                                            <Text style={[
+                                                styles.assigneeName,
+                                                selectedAssignees.includes(member.id || member._id)
+                                                    ? { color: '#FFFFFF' }
+                                                    : { color: theme.colors.textPrimary }
+                                            ]}>
+                                                {member.firstName}
+                                            </Text>
+                                            {selectedAssignees.includes(member.id || member._id) && (
+                                                <Check size={16} color="#FFFFFF" style={{ marginLeft: 4 }} />
+                                            )}
+                                        </TouchableOpacity>
+                                    ))}
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
+                            <TouchableOpacity
+                                style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary, flex: 1 }]}
+                                onPress={handleSubmit}
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator color="#FFFFFF" />
+                                ) : (
+                                    <Text style={styles.createButtonText}>
+                                        {initialTask ? 'Save Changes' : 'Create Task'}
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

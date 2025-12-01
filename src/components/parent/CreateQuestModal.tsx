@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { X, Check } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -141,155 +141,160 @@ export default function CreateQuestModal({ visible, onClose, onQuestCreated, ini
             transparent={true}
             onRequestClose={onClose}
         >
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
-                    <View style={styles.header}>
-                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-                            {initialQuest ? 'Edit Quest' : 'New Quest'}
-                        </Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <X size={24} color={theme.colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.form}>
-                        {/* Title Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
-                            <TextInput
-                                style={[styles.input, {
-                                    backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: errors.title ? theme.colors.signalAlert : theme.colors.borderSubtle,
-                                    color: theme.colors.textPrimary
-                                }]}
-                                placeholder="e.g. Read 5 Books"
-                                placeholderTextColor={theme.colors.textSecondary}
-                                value={formData.title}
-                                onChangeText={(text) => handleChange('title', text)}
-                            />
-                            {errors.title && (
-                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.title}</Text>
-                            )}
-                        </View>
-
-                        {/* Description Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea, {
-                                    backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: theme.colors.borderSubtle,
-                                    color: theme.colors.textPrimary
-                                }]}
-                                placeholder="Add details..."
-                                placeholderTextColor={theme.colors.textSecondary}
-                                value={formData.description}
-                                onChangeText={(text) => handleChange('description', text)}
-                                multiline
-                                numberOfLines={3}
-                            />
-                        </View>
-
-                        {/* Reward Input */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Reward (Points)</Text>
-                            <TextInput
-                                style={[styles.input, {
-                                    backgroundColor: theme.colors.bgCanvas,
-                                    borderColor: errors.pointsValue ? theme.colors.signalAlert : theme.colors.borderSubtle,
-                                    color: theme.colors.textPrimary
-                                }]}
-                                value={String(formData.pointsValue)}
-                                onChangeText={(text) => handleChange('pointsValue', text)}
-                                keyboardType="numeric"
-                            />
-                            {errors.pointsValue && (
-                                <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.pointsValue}</Text>
-                            )}
-                        </View>
-
-                        {/* Claims Settings */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Who Can Claim?</Text>
-                            <TouchableOpacity
-                                style={[
-                                    styles.checkboxRow,
-                                    { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle }
-                                ]}
-                                onPress={() => setAllowMultipleClaims(!allowMultipleClaims)}
-                            >
-                                <View style={[
-                                    styles.checkbox,
-                                    allowMultipleClaims && { backgroundColor: theme.colors.actionPrimary, borderColor: theme.colors.actionPrimary }
-                                ]}>
-                                    {allowMultipleClaims && <Check size={16} color="#FFFFFF" />}
-                                </View>
-                                <Text style={[styles.checkboxLabel, { color: theme.colors.textPrimary }]}>
-                                    Allow multiple people to claim this quest
-                                </Text>
-                            </TouchableOpacity>
-                            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-                                {allowMultipleClaims
-                                    ? 'Multiple family members can work on this quest at the same time'
-                                    : 'Only one person can claim this quest at a time'}
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
+                        <View style={styles.header}>
+                            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
+                                {initialQuest ? 'Edit Quest' : 'New Quest'}
                             </Text>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                                <X size={24} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
                         </View>
 
-                        {allowMultipleClaims && (
+                        <ScrollView style={styles.form}>
+                            {/* Title Input */}
                             <View style={styles.inputGroup}>
-                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Max People (Optional)</Text>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
                                 <TextInput
                                     style={[styles.input, {
+                                        backgroundColor: theme.colors.bgCanvas,
+                                        borderColor: errors.title ? theme.colors.signalAlert : theme.colors.borderSubtle,
+                                        color: theme.colors.textPrimary
+                                    }]}
+                                    placeholder="e.g. Read 5 Books"
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                    value={formData.title}
+                                    onChangeText={(text) => handleChange('title', text)}
+                                />
+                                {errors.title && (
+                                    <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.title}</Text>
+                                )}
+                            </View>
+
+                            {/* Description Input */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea, {
                                         backgroundColor: theme.colors.bgCanvas,
                                         borderColor: theme.colors.borderSubtle,
                                         color: theme.colors.textPrimary
                                     }]}
-                                    value={String(formData.maxClaims)}
-                                    onChangeText={(text) => handleChange('maxClaims', text)}
-                                    keyboardType="numeric"
-                                    placeholder="Leave blank for unlimited"
+                                    placeholder="Add details..."
                                     placeholderTextColor={theme.colors.textSecondary}
+                                    value={formData.description}
+                                    onChangeText={(text) => handleChange('description', text)}
+                                    multiline
+                                    numberOfLines={3}
                                 />
+                            </View>
+
+                            {/* Reward Input */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Reward (Points)</Text>
+                                <TextInput
+                                    style={[styles.input, {
+                                        backgroundColor: theme.colors.bgCanvas,
+                                        borderColor: errors.pointsValue ? theme.colors.signalAlert : theme.colors.borderSubtle,
+                                        color: theme.colors.textPrimary
+                                    }]}
+                                    value={String(formData.pointsValue)}
+                                    onChangeText={(text) => handleChange('pointsValue', text)}
+                                    keyboardType="numeric"
+                                />
+                                {errors.pointsValue && (
+                                    <Text style={[styles.errorText, { color: theme.colors.signalAlert }]}>{errors.pointsValue}</Text>
+                                )}
+                            </View>
+
+                            {/* Claims Settings */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Who Can Claim?</Text>
+                                <TouchableOpacity
+                                    style={[
+                                        styles.checkboxRow,
+                                        { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle }
+                                    ]}
+                                    onPress={() => setAllowMultipleClaims(!allowMultipleClaims)}
+                                >
+                                    <View style={[
+                                        styles.checkbox,
+                                        allowMultipleClaims && { backgroundColor: theme.colors.actionPrimary, borderColor: theme.colors.actionPrimary }
+                                    ]}>
+                                        {allowMultipleClaims && <Check size={16} color="#FFFFFF" />}
+                                    </View>
+                                    <Text style={[styles.checkboxLabel, { color: theme.colors.textPrimary }]}>
+                                        Allow multiple people to claim this quest
+                                    </Text>
+                                </TouchableOpacity>
                                 <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-                                    Limit how many people can claim this quest simultaneously
+                                    {allowMultipleClaims
+                                        ? 'Multiple family members can work on this quest at the same time'
+                                        : 'Only one person can claim this quest at a time'}
                                 </Text>
                             </View>
-                        )}
 
-                        {/* Recurrence Settings */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Recurrence</Text>
-                            <View style={styles.optionsRow}>
-                                {renderRecurrenceButton('none', 'None')}
-                                {renderRecurrenceButton('daily', 'Daily')}
-                            </View>
-                            <View style={styles.optionsRow}>
-                                {renderRecurrenceButton('weekly', 'Weekly')}
-                                {renderRecurrenceButton('monthly', 'Monthly')}
-                            </View>
-                            <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
-                                {recurrence === 'none' ? 'Quest will not reset' : `Quest resets ${recurrence}`}
-                            </Text>
-                        </View>
-                    </ScrollView>
-
-                    <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
-                        <TouchableOpacity
-                            style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary, flex: 1 }]}
-                            onPress={handleSubmit}
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.createButtonText}>
-                                    {initialQuest ? 'Save Changes' : 'Create Quest'}
-                                </Text>
+                            {allowMultipleClaims && (
+                                <View style={styles.inputGroup}>
+                                    <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Max People (Optional)</Text>
+                                    <TextInput
+                                        style={[styles.input, {
+                                            backgroundColor: theme.colors.bgCanvas,
+                                            borderColor: theme.colors.borderSubtle,
+                                            color: theme.colors.textPrimary
+                                        }]}
+                                        value={String(formData.maxClaims)}
+                                        onChangeText={(text) => handleChange('maxClaims', text)}
+                                        keyboardType="numeric"
+                                        placeholder="Leave blank for unlimited"
+                                        placeholderTextColor={theme.colors.textSecondary}
+                                    />
+                                    <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+                                        Limit how many people can claim this quest simultaneously
+                                    </Text>
+                                </View>
                             )}
-                        </TouchableOpacity>
+
+                            {/* Recurrence Settings */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Recurrence</Text>
+                                <View style={styles.optionsRow}>
+                                    {renderRecurrenceButton('none', 'None')}
+                                    {renderRecurrenceButton('daily', 'Daily')}
+                                </View>
+                                <View style={styles.optionsRow}>
+                                    {renderRecurrenceButton('weekly', 'Weekly')}
+                                    {renderRecurrenceButton('monthly', 'Monthly')}
+                                </View>
+                                <Text style={[styles.hint, { color: theme.colors.textSecondary }]}>
+                                    {recurrence === 'none' ? 'Quest will not reset' : `Quest resets ${recurrence}`}
+                                </Text>
+                            </View>
+                        </ScrollView>
+
+                        <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
+                            <TouchableOpacity
+                                style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary, flex: 1 }]}
+                                onPress={handleSubmit}
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator color="#FFFFFF" />
+                                ) : (
+                                    <Text style={styles.createButtonText}>
+                                        {initialQuest ? 'Save Changes' : 'Create Quest'}
+                                    </Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

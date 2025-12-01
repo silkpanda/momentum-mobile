@@ -32,7 +32,6 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
 
     const handleAddItem = () => {
         setItems([...items, { title: '', order: items.length, isCompleted: false }]);
-        // Don't blur - let keyboard stay open for next input
     };
 
     const handleRemoveItem = (index: number) => {

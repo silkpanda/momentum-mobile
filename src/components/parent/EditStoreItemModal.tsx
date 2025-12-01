@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, Switch } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert, Switch, KeyboardAvoidingView, Platform } from 'react-native';
 import { X } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -67,92 +67,96 @@ export default function EditStoreItemModal({ visible, onClose, onItemUpdated, it
 
     return (
         <Modal visible={visible} animationType="slide" transparent={true} onRequestClose={onClose}>
-            <View style={styles.modalOverlay}>
-                <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
-                    <View style={styles.header}>
-                        <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Edit Reward</Text>
-                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                            <X size={24} color={theme.colors.textSecondary} />
-                        </TouchableOpacity>
-                    </View>
-
-                    <ScrollView style={styles.form}>
-                        {/* Title */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
-                            <TextInput
-                                style={[styles.input, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
-                                placeholder="e.g. Extra Screen Time"
-                                placeholderTextColor={theme.colors.textSecondary}
-                                value={title}
-                                onChangeText={setTitle}
-                            />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: theme.colors.bgSurface }]}>
+                        <View style={styles.header}>
+                            <Text style={[styles.title, { color: theme.colors.textPrimary }]}>Edit Reward</Text>
+                            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                                <X size={24} color={theme.colors.textSecondary} />
+                            </TouchableOpacity>
                         </View>
 
-                        {/* Description */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
-                            <TextInput
-                                style={[styles.input, styles.textArea, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
-                                placeholder="Add details..."
-                                placeholderTextColor={theme.colors.textSecondary}
-                                value={description}
-                                onChangeText={setDescription}
-                                multiline
-                                numberOfLines={3}
-                            />
-                        </View>
-
-                        {/* Cost */}
-                        <View style={styles.inputGroup}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Cost (Points)</Text>
-                            <TextInput
-                                style={[styles.input, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
-                                value={price}
-                                onChangeText={setPrice}
-                                keyboardType="numeric"
-                            />
-                        </View>
-
-                        {/* Stock Management */}
-                        <View style={styles.inputGroup}>
-                            <View style={styles.switchContainer}>
-                                <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: 0 }]}>Infinite Stock</Text>
-                                <Switch
-                                    value={isInfinite}
-                                    onValueChange={setIsInfinite}
-                                    trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.actionPrimary }}
+                        <ScrollView style={styles.form}>
+                            {/* Title */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Title</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
+                                    placeholder="e.g. Extra Screen Time"
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                    value={title}
+                                    onChangeText={setTitle}
                                 />
                             </View>
-                            {!isInfinite && (
-                                <View style={{ marginTop: 12 }}>
-                                    <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Quantity Available</Text>
-                                    <TextInput
-                                        style={[styles.input, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
-                                        value={stock}
-                                        onChangeText={setStock}
-                                        keyboardType="numeric"
+
+                            {/* Description */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
+                                    placeholder="Add details..."
+                                    placeholderTextColor={theme.colors.textSecondary}
+                                    value={description}
+                                    onChangeText={setDescription}
+                                    multiline
+                                    numberOfLines={3}
+                                />
+                            </View>
+
+                            {/* Cost */}
+                            <View style={styles.inputGroup}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Cost (Points)</Text>
+                                <TextInput
+                                    style={[styles.input, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
+                                    value={price}
+                                    onChangeText={setPrice}
+                                    keyboardType="numeric"
+                                />
+                            </View>
+
+                            {/* Stock Management */}
+                            <View style={styles.inputGroup}>
+                                <View style={styles.switchContainer}>
+                                    <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: 0 }]}>Infinite Stock</Text>
+                                    <Switch
+                                        value={isInfinite}
+                                        onValueChange={setIsInfinite}
+                                        trackColor={{ false: theme.colors.borderSubtle, true: theme.colors.actionPrimary }}
                                     />
                                 </View>
-                            )}
-                        </View>
-                    </ScrollView>
+                                {!isInfinite && (
+                                    <View style={{ marginTop: 12 }}>
+                                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Quantity Available</Text>
+                                        <TextInput
+                                            style={[styles.input, { backgroundColor: theme.colors.bgCanvas, borderColor: theme.colors.borderSubtle, color: theme.colors.textPrimary }]}
+                                            value={stock}
+                                            onChangeText={setStock}
+                                            keyboardType="numeric"
+                                        />
+                                    </View>
+                                )}
+                            </View>
+                        </ScrollView>
 
-                    <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
-                        <TouchableOpacity
-                            style={[styles.updateButton, { backgroundColor: theme.colors.actionPrimary }]}
-                            onPress={handleUpdate}
-                            disabled={isSubmitting}
-                        >
-                            {isSubmitting ? (
-                                <ActivityIndicator color="#FFFFFF" />
-                            ) : (
-                                <Text style={styles.updateButtonText}>Update Reward</Text>
-                            )}
-                        </TouchableOpacity>
+                        <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle }]}>
+                            <TouchableOpacity
+                                style={[styles.updateButton, { backgroundColor: theme.colors.actionPrimary }]}
+                                onPress={handleUpdate}
+                                disabled={isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator color="#FFFFFF" />
+                                ) : (
+                                    <Text style={styles.updateButtonText}>Update Reward</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
-            </View>
         </Modal>
     );
 }

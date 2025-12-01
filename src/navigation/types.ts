@@ -9,6 +9,7 @@ export type RootStackParamList = {
     MemberDetail: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
     MemberStore: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
     SharingSettings: { linkId: string; childName: string };
+    BentoTest: undefined;
 } & AuthStackParamList;
 
 export type ParentTabParamList = {

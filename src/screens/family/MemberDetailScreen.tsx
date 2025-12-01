@@ -3,7 +3,7 @@
 // Individual Member View - For children to check their tasks
 // =========================================================
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, RefreshControl, Alert, DeviceEventEmitter, useWindowDimensions } from 'react-native';
 import { useRoute, useNavigation, RouteProp, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { ArrowLeft, Star, Trophy, Settings, ShoppingBag, Map, Link as LinkIcon, Plus } from 'lucide-react-native';
@@ -49,6 +49,7 @@ export default function MemberDetailScreen() {
 
     const { memberId, userId, memberName = 'Member', memberColor, memberPoints: initialPoints = 0 } = route.params || {};
     const { currentTheme: theme } = useTheme();
+    const { width: screenWidth } = useWindowDimensions();
 
     const { tasks: allTasks, quests: allQuests, members, wishlistItems: allWishlistItems, householdId, refresh, updateTask, updateQuest, isRefreshing } = useData();
     const { execute } = useOptimisticUpdate();
@@ -372,7 +373,9 @@ export default function MemberDetailScreen() {
                         style={[styles.headerButton, { backgroundColor: theme.colors.bgCanvas }]}
                     >
                         <Settings size={20} color={theme.colors.textSecondary} />
-                        <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Parent View</Text>
+                        {screenWidth > 375 && (
+                            <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Parent View</Text>
+                        )}
                     </TouchableOpacity>
                 </View>
             </View>
