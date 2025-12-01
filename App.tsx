@@ -11,8 +11,12 @@ import { ThemeProvider } from './src/contexts/ThemeContext';
 import { DataProvider } from './src/contexts/DataContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { configureGoogleSignIn } from './src/config/googleSignIn';
 
 import { SocketProvider } from './src/contexts/SocketContext';
+
+// Initialize Google Sign-In configuration
+configureGoogleSignIn();
 
 // Detect if device is a tablet
 const isTablet = () => {

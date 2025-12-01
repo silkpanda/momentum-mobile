@@ -1,0 +1,9 @@
+# Ignore generated native directories (they'll be regenerated during build)
+android/
+ios/
+
+# Ignore Expo cache
+.expo/
+
+# Ignore lock files
+*.lock

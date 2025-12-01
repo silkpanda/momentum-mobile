@@ -16,7 +16,8 @@
     },
     "ios": {
       "supportsTablet": true,
-      "requireFullScreen": false
+      "requireFullScreen": false,
+      "bundleIdentifier": "com.momentum.mobile"
     },
     "android": {
       "package": "com.momentum.mobile",
@@ -37,7 +38,8 @@
         {
           "calendarPermission": "The app needs to access your calendar to show your events."
         }
-      ]
+      ],
+      "@react-native-google-signin/google-signin"
     ],
     "extra": {
       "eas": {

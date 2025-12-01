@@ -129,6 +129,20 @@ class ApiClient {
         }
     }
 
+    // Convenience method for GET requests
+    async get<T = any>(endpoint: string): Promise<T> {
+        return this.request<T>(endpoint, { method: 'GET' });
+    }
+
+    // Convenience method for POST requests
+    async post<T = any>(endpoint: string, data?: any): Promise<T> {
+        return this.request<T>(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data),
+        });
+    }
+
     // Auth endpoints
     async login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
         return this.request<LoginResponse>('/auth/login', {

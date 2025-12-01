@@ -1,9 +1,10 @@
 import React, { useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, ActivityIndicator, Linking, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, ScrollView, ActivityIndicator, Alert } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { X, Check, Calendar as CalendarIcon } from 'lucide-react-native';
 import { useCalendar } from '../../hooks/useCalendar';
-import api from '../../services/api';
+import { api } from '../../services/api';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 interface CalendarSettingsModalProps {
     visible: boolean;
@@ -22,16 +23,40 @@ export default function CalendarSettingsModal({ visible, onClose }: CalendarSett
 
     const handleConnectGoogle = async () => {
         try {
-            const response = await api.get('/calendar/google/auth-url');
-            if (response.data.url) {
-                await Linking.openURL(response.data.url);
-                // We might want to close the modal or show a "waiting" state, 
-                // but since the user leaves the app, just closing it or keeping it open is fine.
-                // When they return via deep link, we can handle that elsewhere.
+            // Check if Google Play Services are available (Android only, iOS will skip this)
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+            // This opens the NATIVE Google account picker (no browser!)
+            const userInfo = await GoogleSignin.signIn();
+
+            // Get the authentication tokens
+            const tokens = await GoogleSignin.getTokens();
+
+            console.log('Google Sign-In successful:', userInfo.data?.user.email);
+
+            // Send the tokens to your backend to exchange for a refresh token
+            await api.post('/calendar/google/connect', {
+                idToken: tokens.idToken,
+                accessToken: tokens.accessToken,
+            });
+
+            Alert.alert('Success', 'Google Calendar connected successfully!');
+            onClose();
+        } catch (error: any) {
+            console.error('Google Sign-In error:', error);
+
+            if (error.code === 'SIGN_IN_CANCELLED') {
+                // User cancelled the sign-in flow
+                Alert.alert('Cancelled', 'Google Calendar connection was cancelled');
+            } else if (error.code === 'IN_PROGRESS') {
+                // Sign-in is already in progress
+                Alert.alert('Please wait', 'Sign-in is already in progress');
+            } else if (error.code === 'PLAY_SERVICES_NOT_AVAILABLE') {
+                // Play Services not available or outdated (Android only)
+                Alert.alert('Error', 'Google Play Services is not available on this device');
+            } else {
+                Alert.alert('Error', 'Failed to connect Google Calendar');
             }
-        } catch (error) {
-            console.error('Failed to get auth URL:', error);
-            Alert.alert('Error', 'Failed to initiate Google Calendar connection');
         }
     };
 
