@@ -20,7 +20,8 @@ import {
     Meal,
     Routine,
     RoutineItem,
-    WishlistItem
+    WishlistItem,
+    Notification
 } from '../types';
 
 const getBaseUrl = () => {
@@ -130,12 +131,12 @@ class ApiClient {
     }
 
     // Convenience method for GET requests
-    async get<T = any>(endpoint: string): Promise<T> {
+    async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
         return this.request<T>(endpoint, { method: 'GET' });
     }
 
     // Convenience method for POST requests
-    async post<T = any>(endpoint: string, data?: any): Promise<T> {
+    async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
         return this.request<T>(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -662,6 +663,30 @@ class ApiClient {
     async sendParentReminder(): Promise<ApiResponse<{ message: string; data: any }>> {
         return this.request<{ message: string; data: any }>('/notifications/remind', {
             method: 'POST',
+        });
+    }
+
+    async getNotifications(): Promise<ApiResponse<{ notifications: Notification[]; unreadCount: number }>> {
+        return this.request<{ notifications: Notification[]; unreadCount: number }>('/notifications');
+    }
+
+    async markAsRead(notificationId: string): Promise<ApiResponse<{ notification: Notification }>> {
+        return this.request<{ notification: Notification }>(`/notifications/${notificationId}/read`, {
+            method: 'PATCH',
+        });
+    }
+
+    async markAllAsRead(): Promise<ApiResponse<{ message: string }>> {
+        return this.request<{ message: string }>('/notifications/read-all', {
+            method: 'PATCH',
+        });
+    }
+
+    async savePushToken(token: string): Promise<ApiResponse<{ message: string }>> {
+        return this.request<{ message: string }>('/notifications/push-token', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ token }),
         });
     }
 }

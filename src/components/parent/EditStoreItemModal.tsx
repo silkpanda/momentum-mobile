@@ -157,6 +157,7 @@ export default function EditStoreItemModal({ visible, onClose, onItemUpdated, it
                         </View>
                     </View>
                 </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

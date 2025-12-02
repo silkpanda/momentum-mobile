@@ -414,7 +414,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     scrollContent: {
-        paddingBottom: 80, // Reduced from 100 to improve space utilization (FAB at bottom: 32)
+        paddingBottom: 120, // Increased to 120 to improve space utilization
     },
     sectionContainer: {
         marginTop: 24,

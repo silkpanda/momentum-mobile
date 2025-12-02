@@ -1,20 +1,28 @@
+
 import React from 'react';
 import { TouchableOpacity, StyleSheet, Animated, ViewStyle } from 'react-native';
-import { spacing, shadows, borderRadius, bentoPalette, widgetSizes } from '../../theme/bentoTokens';
+import { spacing, shadows, borderRadius, bentoPalette, widgetSizes, animations } from '../../theme/bentoTokens';
 
 interface BentoCardProps {
     size: 'hero' | 'standard' | 'wide' | 'tall';
+    mode?: 'parent' | 'family'; // Default to 'parent'
     children: React.ReactNode;
     onPress?: () => void;
     style?: ViewStyle;
 }
 
-export default function BentoCard({ size, children, onPress, style }: BentoCardProps) {
+export default function BentoCard({ size, mode = 'parent', children, onPress, style }: BentoCardProps) {
     const scale = React.useRef(new Animated.Value(1)).current;
+
+    // Determine physics based on mode
+    const pressScale = mode === 'family' ? animations.squishPress.pressed : animations.scalePress.pressed;
+    const springConfig = mode === 'family' ? animations.bouncySpring : animations.springBounce;
+    const cardRadius = mode === 'family' ? borderRadius.round : borderRadius.xl;
+    const cardShadow = mode === 'family' ? shadows.float : shadows.soft;
 
     const handlePressIn = () => {
         Animated.spring(scale, {
-            toValue: 0.96,
+            toValue: pressScale,
             useNativeDriver: true,
         }).start();
     };
@@ -22,8 +30,7 @@ export default function BentoCard({ size, children, onPress, style }: BentoCardP
     const handlePressOut = () => {
         Animated.spring(scale, {
             toValue: 1,
-            damping: 15,
-            stiffness: 200,
+            ...springConfig,
             useNativeDriver: true,
         }).start();
     };
@@ -39,7 +46,11 @@ export default function BentoCard({ size, children, onPress, style }: BentoCardP
             <Animated.View
                 style={[
                     styles.card,
-                    { transform: [{ scale }] }
+                    {
+                        borderRadius: cardRadius,
+                        ...cardShadow,
+                        transform: [{ scale }]
+                    }
                 ]}
             >
                 {children}
@@ -55,32 +66,25 @@ const styles = StyleSheet.create({
     card: {
         flex: 1,
         backgroundColor: bentoPalette.surface,
-        borderRadius: borderRadius.xl,
         padding: spacing.xl,
-        ...shadows.soft,
-        overflow: 'hidden',
+        overflow: 'hidden', // Ensure content respects rounded corners
     },
-    // Sizing logic will be handled by the Grid, but we define base aspect ratios or flex properties here if needed.
-    // Actually, the grid usually controls the width. The card just fills it.
-    // However, for 'hero' and 'wide' they span 2 columns.
+    // Sizing logic
     hero: {
-        // Spans 2 columns
         width: '100%',
         aspectRatio: widgetSizes.aspectRatios.hero,
     },
     standard: {
-        // Spans 1 column
-        width: '47%', // Approx half minus gutter/2. Better handled by parent flex/grid, but this is a simple start.
+        width: '47%',
         aspectRatio: widgetSizes.aspectRatios.standard,
     },
     wide: {
-        // Spans 2 columns
         width: '100%',
         aspectRatio: widgetSizes.aspectRatios.wide,
     },
     tall: {
-        // Spans 1 column
         width: '47%',
         aspectRatio: widgetSizes.aspectRatios.tall,
     },
 });
+

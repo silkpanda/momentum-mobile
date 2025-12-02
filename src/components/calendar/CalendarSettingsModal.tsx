@@ -5,6 +5,7 @@ import { X, Check, Calendar as CalendarIcon } from 'lucide-react-native';
 import { useCalendar } from '../../hooks/useCalendar';
 import { api } from '../../services/api';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 
 interface CalendarSettingsModalProps {
     visible: boolean;
@@ -22,6 +23,12 @@ export default function CalendarSettingsModal({ visible, onClose }: CalendarSett
     }, [visible]);
 
     const handleConnectGoogle = async () => {
+        // Check for Expo Go
+        if (Constants.appOwnership === 'expo') {
+            Alert.alert('Not Supported', 'Google Sign-In is not supported in Expo Go. Please use a development build.');
+            return;
+        }
+
         try {
             // Check if Google Play Services are available (Android only, iOS will skip this)
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });

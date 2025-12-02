@@ -373,7 +373,7 @@ export default function MemberDetailScreen() {
                         style={[styles.headerButton, { backgroundColor: theme.colors.bgCanvas }]}
                     >
                         <Settings size={20} color={theme.colors.textSecondary} />
-                        {screenWidth > 375 && (
+                        {screenWidth > 400 && (
                             <Text style={[styles.headerButtonText, { color: theme.colors.textSecondary }]}>Parent View</Text>
                         )}
                     </TouchableOpacity>

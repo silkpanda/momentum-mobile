@@ -7,7 +7,7 @@
     "orientation": "default",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": false,
+    "newArchEnabled": true,
     "main": "index.ts",
     "splash": {
       "image": "./assets/splash-icon.png",

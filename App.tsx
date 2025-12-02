@@ -11,6 +11,7 @@ import { ThemeProvider } from './src/contexts/ThemeContext';
 import { DataProvider } from './src/contexts/DataContext';
 import AppNavigator from './src/navigation/AppNavigator';
 import ErrorBoundary from './src/components/ErrorBoundary';
+import { NotificationManager } from './src/components/notifications/NotificationManager';
 import { configureGoogleSignIn } from './src/config/googleSignIn';
 
 import { SocketProvider } from './src/contexts/SocketContext';
@@ -72,7 +73,9 @@ export default function App() {
             <AuthProvider>
               <SocketProvider>
                 <DataProvider>
-                  <AppNavigator />
+                  <NotificationManager>
+                    <AppNavigator />
+                  </NotificationManager>
                   <StatusBar style="auto" />
                 </DataProvider>
               </SocketProvider>

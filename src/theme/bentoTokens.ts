@@ -84,6 +84,17 @@ export const bentoPalette = {
 } as const;
 
 /**
+ * FAMILY MODE PALETTE
+ * Whimsical, heavy accents
+ */
+export const familyPalette = {
+    questGradient: ['#F59E0B', '#7C3AED'], // Gold to Purple
+    taskBlue: '#38BDF8', // Sky Blue
+    streakFire: '#EF4444', // Red/Orange
+    coinGold: '#FBBF24', // Gold
+} as const;
+
+/**
  * BORDER RADIUS
  * The "Squish" factor
  */
@@ -93,6 +104,7 @@ export const borderRadius = {
     lg: 16,     // Large radius
     xl: 24,     // Bento card radius (The Squish)
     xxl: 32,    // Expanded card radius
+    round: 32,  // Family Mode "Maximum Roundness"
     pill: 9999, // Pill shape (dock)
 } as const;
 
@@ -107,6 +119,14 @@ export const animations = {
         damping: 15,
         stiffness: 200,
         mass: 1,
+    },
+
+    // Bouncier spring for Family Mode
+    bouncySpring: {
+        type: 'spring' as const,
+        damping: 12,
+        stiffness: 180,
+        mass: 1.2,
     },
 
     // Quick spring (for micro-interactions)
@@ -127,6 +147,12 @@ export const animations = {
     // Scale values for press animations
     scalePress: {
         pressed: 0.96,
+        released: 1.0,
+    },
+
+    // The "Squish" for Family Mode
+    squishPress: {
+        pressed: 0.90, // Deep squish
         released: 1.0,
     },
 

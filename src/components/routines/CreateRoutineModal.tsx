@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useData } from '../../contexts/DataContext';
 import { X, Plus, Trash2, Sunrise, Sun, Moon } from 'lucide-react-native';
@@ -118,138 +118,143 @@ export default function CreateRoutineModal({ visible, onClose, memberId, onSucce
             presentationStyle="pageSheet"
             onRequestClose={onClose}
         >
-            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
-                    <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Create Routine</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <X size={24} color={theme.colors.textPrimary} />
-                    </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
-
-                    {/* Member Selection (if not pre-selected) */}
-                    {!memberId && (
-                        <View style={styles.section}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Assign To</Text>
-                            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                                {members.map(member => (
-                                    <TouchableOpacity
-                                        key={member.id || member._id}
-                                        style={[
-                                            styles.memberOption,
-                                            {
-                                                borderColor: selectedMemberId === (member.id || member._id) ? theme.colors.actionPrimary : theme.colors.borderSubtle,
-                                                backgroundColor: selectedMemberId === (member.id || member._id) ? theme.colors.actionPrimary + '10' : theme.colors.bgSurface
-                                            }
-                                        ]}
-                                        onPress={() => setSelectedMemberId(member.id || member._id || '')}
-                                    >
-                                        <MemberAvatar
-                                            name={member.firstName}
-                                            color={member.profileColor}
-                                            size={40}
-                                        />
-                                        <Text style={[
-                                            styles.memberName,
-                                            { color: theme.colors.textPrimary, fontWeight: selectedMemberId === (member.id || member._id) ? 'bold' : 'normal' }
-                                        ]}>
-                                            {member.firstName}
-                                        </Text>
-                                    </TouchableOpacity>
-                                ))}
-                            </ScrollView>
-                        </View>
-                    )}
-
-                    {/* Title Input */}
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Routine Title</Text>
-                        <TextInput
-                            style={[styles.input, {
-                                backgroundColor: theme.colors.bgSurface,
-                                color: theme.colors.textPrimary,
-                                borderColor: theme.colors.borderSubtle
-                            }]}
-                            placeholder="e.g., Morning Routine"
-                            placeholderTextColor={theme.colors.textTertiary}
-                            value={title}
-                            onChangeText={setTitle}
-                        />
-                    </View>
-
-                    {/* Time of Day */}
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Time of Day</Text>
-                        <View style={styles.timeOptionsContainer}>
-                            <TimeOption value="morning" icon={Sunrise} label="Morning" />
-                            <TimeOption value="noon" icon={Sun} label="Noon" />
-                            <TimeOption value="night" icon={Moon} label="Night" />
-                        </View>
-                    </View>
-
-                    {/* Items */}
-                    <View style={styles.section}>
-                        <View style={styles.itemsHeader}>
-                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Checklist Items</Text>
-                        </View>
-
-                        {items.map((item, index) => (
-                            <View key={index} style={styles.itemRow}>
-                                <TextInput
-                                    style={[styles.itemInput, {
-                                        backgroundColor: theme.colors.bgSurface,
-                                        color: theme.colors.textPrimary,
-                                        borderColor: theme.colors.borderSubtle
-                                    }]}
-                                    placeholder={`Item ${index + 1}`}
-                                    placeholderTextColor={theme.colors.textTertiary}
-                                    value={item.title}
-                                    onChangeText={(text) => handleItemChange(text, index)}
-                                    blurOnSubmit={false}
-                                    returnKeyType="next"
-                                />
-                                {items.length > 1 && (
-                                    <TouchableOpacity
-                                        onPress={() => handleRemoveItem(index)}
-                                        style={styles.removeButton}
-                                    >
-                                        <Trash2 size={20} color={theme.colors.signalAlert} />
-                                    </TouchableOpacity>
-                                )}
-                            </View>
-                        ))}
-
-                        <TouchableOpacity
-                            style={[styles.addButton, { borderColor: theme.colors.actionPrimary }]}
-                            onPress={handleAddItem}
-                        >
-                            <Plus size={20} color={theme.colors.actionPrimary} />
-                            <Text style={[styles.addButtonText, { color: theme.colors.actionPrimary }]}>Add Item</Text>
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                    {/* Header */}
+                    <View style={[styles.header, { borderBottomColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
+                        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Create Routine</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                            <X size={24} color={theme.colors.textPrimary} />
                         </TouchableOpacity>
                     </View>
-                </ScrollView>
 
-                {/* Footer */}
-                <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
-                    <TouchableOpacity
-                        style={[
-                            styles.submitButton,
-                            {
-                                backgroundColor: theme.colors.actionPrimary,
-                                opacity: isSubmitting ? 0.7 : 1
-                            }
-                        ]}
-                        onPress={handleSubmit}
-                        disabled={isSubmitting}
-                    >
-                        <Text style={styles.submitButtonText}>
-                            {isSubmitting ? 'Creating...' : 'Create Routine'}
-                        </Text>
-                    </TouchableOpacity>
+                    <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+
+                        {/* Member Selection (if not pre-selected) */}
+                        {!memberId && (
+                            <View style={styles.section}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Assign To</Text>
+                                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                                    {members.map(member => (
+                                        <TouchableOpacity
+                                            key={member.id || member._id}
+                                            style={[
+                                                styles.memberOption,
+                                                {
+                                                    borderColor: selectedMemberId === (member.id || member._id) ? theme.colors.actionPrimary : theme.colors.borderSubtle,
+                                                    backgroundColor: selectedMemberId === (member.id || member._id) ? theme.colors.actionPrimary + '10' : theme.colors.bgSurface
+                                                }
+                                            ]}
+                                            onPress={() => setSelectedMemberId(member.id || member._id || '')}
+                                        >
+                                            <MemberAvatar
+                                                name={member.firstName}
+                                                color={member.profileColor}
+                                                size={40}
+                                            />
+                                            <Text style={[
+                                                styles.memberName,
+                                                { color: theme.colors.textPrimary, fontWeight: selectedMemberId === (member.id || member._id) ? 'bold' : 'normal' }
+                                            ]}>
+                                                {member.firstName}
+                                            </Text>
+                                        </TouchableOpacity>
+                                    ))}
+                                </ScrollView>
+                            </View>
+                        )}
+
+                        {/* Title Input */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Routine Title</Text>
+                            <TextInput
+                                style={[styles.input, {
+                                    backgroundColor: theme.colors.bgSurface,
+                                    color: theme.colors.textPrimary,
+                                    borderColor: theme.colors.borderSubtle
+                                }]}
+                                placeholder="e.g., Morning Routine"
+                                placeholderTextColor={theme.colors.textTertiary}
+                                value={title}
+                                onChangeText={setTitle}
+                            />
+                        </View>
+
+                        {/* Time of Day */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Time of Day</Text>
+                            <View style={styles.timeOptionsContainer}>
+                                <TimeOption value="morning" icon={Sunrise} label="Morning" />
+                                <TimeOption value="noon" icon={Sun} label="Noon" />
+                                <TimeOption value="night" icon={Moon} label="Night" />
+                            </View>
+                        </View>
+
+                        {/* Items */}
+                        <View style={styles.section}>
+                            <View style={styles.itemsHeader}>
+                                <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Checklist Items</Text>
+                            </View>
+
+                            {items.map((item, index) => (
+                                <View key={index} style={styles.itemRow}>
+                                    <TextInput
+                                        style={[styles.itemInput, {
+                                            backgroundColor: theme.colors.bgSurface,
+                                            color: theme.colors.textPrimary,
+                                            borderColor: theme.colors.borderSubtle
+                                        }]}
+                                        placeholder={`Item ${index + 1}`}
+                                        placeholderTextColor={theme.colors.textTertiary}
+                                        value={item.title}
+                                        onChangeText={(text) => handleItemChange(text, index)}
+                                        blurOnSubmit={false}
+                                        returnKeyType="next"
+                                    />
+                                    {items.length > 1 && (
+                                        <TouchableOpacity
+                                            onPress={() => handleRemoveItem(index)}
+                                            style={styles.removeButton}
+                                        >
+                                            <Trash2 size={20} color={theme.colors.signalAlert} />
+                                        </TouchableOpacity>
+                                    )}
+                                </View>
+                            ))}
+
+                            <TouchableOpacity
+                                style={[styles.addButton, { borderColor: theme.colors.actionPrimary }]}
+                                onPress={handleAddItem}
+                            >
+                                <Plus size={20} color={theme.colors.actionPrimary} />
+                                <Text style={[styles.addButtonText, { color: theme.colors.actionPrimary }]}>Add Item</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+
+                    {/* Footer */}
+                    <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
+                        <TouchableOpacity
+                            style={[
+                                styles.submitButton,
+                                {
+                                    backgroundColor: theme.colors.actionPrimary,
+                                    opacity: isSubmitting ? 0.7 : 1
+                                }
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={isSubmitting}
+                        >
+                            <Text style={styles.submitButtonText}>
+                                {isSubmitting ? 'Creating...' : 'Create Routine'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

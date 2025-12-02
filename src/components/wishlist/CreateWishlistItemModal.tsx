@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, Modal, TouchableOpacity, TextInput, ScrollView, Alert, KeyboardAvoidingView, Platform } from 'react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { X, Star, AlertCircle } from 'lucide-react-native';
 import { api } from '../../services/api';
@@ -95,112 +95,117 @@ export default function CreateWishlistItemModal({
             presentationStyle="pageSheet"
             onRequestClose={onClose}
         >
-            <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
-                    <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Add to Wishlist</Text>
-                    <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-                        <X size={24} color={theme.colors.textPrimary} />
-                    </TouchableOpacity>
-                </View>
-
-                <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
-                    {/* Title Input */}
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Item Name *</Text>
-                        <TextInput
-                            style={[styles.input, {
-                                backgroundColor: theme.colors.bgSurface,
-                                color: theme.colors.textPrimary,
-                                borderColor: theme.colors.borderSubtle
-                            }]}
-                            placeholder="e.g., New Bike, Video Game, etc."
-                            placeholderTextColor={theme.colors.textTertiary}
-                            value={title}
-                            onChangeText={setTitle}
-                            returnKeyType="next"
-                            blurOnSubmit={false}
-                        />
+            <KeyboardAvoidingView
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                style={{ flex: 1 }}
+            >
+                <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+                    {/* Header */}
+                    <View style={[styles.header, { borderBottomColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
+                        <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Add to Wishlist</Text>
+                        <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+                            <X size={24} color={theme.colors.textPrimary} />
+                        </TouchableOpacity>
                     </View>
 
-                    {/* Description Input */}
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
-                        <TextInput
-                            style={[styles.textArea, {
-                                backgroundColor: theme.colors.bgSurface,
-                                color: theme.colors.textPrimary,
-                                borderColor: theme.colors.borderSubtle
-                            }]}
-                            placeholder="Add details about this item..."
-                            placeholderTextColor={theme.colors.textTertiary}
-                            value={description}
-                            onChangeText={setDescription}
-                            multiline
-                            numberOfLines={3}
-                            textAlignVertical="top"
-                        />
-                    </View>
-
-                    {/* Points Cost */}
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Point Cost *</Text>
-                        <View style={styles.pointsInputContainer}>
-                            <Star size={20} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
+                    <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
+                        {/* Title Input */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Item Name *</Text>
                             <TextInput
-                                style={[styles.pointsInput, {
+                                style={[styles.input, {
                                     backgroundColor: theme.colors.bgSurface,
                                     color: theme.colors.textPrimary,
                                     borderColor: theme.colors.borderSubtle
                                 }]}
-                                placeholder="0"
+                                placeholder="e.g., New Bike, Video Game, etc."
                                 placeholderTextColor={theme.colors.textTertiary}
-                                value={pointsCost}
-                                onChangeText={setPointsCost}
-                                keyboardType="number-pad"
+                                value={title}
+                                onChangeText={setTitle}
+                                returnKeyType="next"
+                                blurOnSubmit={false}
                             />
-                            <Text style={[styles.pointsLabel, { color: theme.colors.textSecondary }]}>points</Text>
                         </View>
-                    </View>
 
-                    {/* Priority */}
-                    <View style={styles.section}>
-                        <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Priority</Text>
-                        <View style={styles.priorityContainer}>
-                            <PriorityOption value="low" label="Low" color={theme.colors.textTertiary} />
-                            <PriorityOption value="medium" label="Medium" color={theme.colors.signalWarning} />
-                            <PriorityOption value="high" label="High" color={theme.colors.signalAlert} />
+                        {/* Description Input */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Description (Optional)</Text>
+                            <TextInput
+                                style={[styles.textArea, {
+                                    backgroundColor: theme.colors.bgSurface,
+                                    color: theme.colors.textPrimary,
+                                    borderColor: theme.colors.borderSubtle
+                                }]}
+                                placeholder="Add details about this item..."
+                                placeholderTextColor={theme.colors.textTertiary}
+                                value={description}
+                                onChangeText={setDescription}
+                                multiline
+                                numberOfLines={3}
+                                textAlignVertical="top"
+                            />
                         </View>
-                    </View>
 
-                    {/* Info Box */}
-                    <View style={[styles.infoBox, { backgroundColor: theme.colors.actionPrimary + '10', borderColor: theme.colors.actionPrimary + '30' }]}>
-                        <AlertCircle size={16} color={theme.colors.actionPrimary} />
-                        <Text style={[styles.infoText, { color: theme.colors.textPrimary }]}>
-                            Save up points by completing tasks to purchase this item!
-                        </Text>
-                    </View>
-                </ScrollView>
+                        {/* Points Cost */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Point Cost *</Text>
+                            <View style={styles.pointsInputContainer}>
+                                <Star size={20} color={theme.colors.actionPrimary} fill={theme.colors.actionPrimary} />
+                                <TextInput
+                                    style={[styles.pointsInput, {
+                                        backgroundColor: theme.colors.bgSurface,
+                                        color: theme.colors.textPrimary,
+                                        borderColor: theme.colors.borderSubtle
+                                    }]}
+                                    placeholder="0"
+                                    placeholderTextColor={theme.colors.textTertiary}
+                                    value={pointsCost}
+                                    onChangeText={setPointsCost}
+                                    keyboardType="number-pad"
+                                />
+                                <Text style={[styles.pointsLabel, { color: theme.colors.textSecondary }]}>points</Text>
+                            </View>
+                        </View>
 
-                {/* Footer */}
-                <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
-                    <TouchableOpacity
-                        style={[
-                            styles.submitButton,
-                            {
-                                backgroundColor: theme.colors.actionPrimary,
-                                opacity: isSubmitting ? 0.7 : 1
-                            }
-                        ]}
-                        onPress={handleSubmit}
-                        disabled={isSubmitting}
-                    >
-                        <Text style={styles.submitButtonText}>
-                            {isSubmitting ? 'Adding...' : 'Add to Wishlist'}
-                        </Text>
-                    </TouchableOpacity>
+                        {/* Priority */}
+                        <View style={styles.section}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>Priority</Text>
+                            <View style={styles.priorityContainer}>
+                                <PriorityOption value="low" label="Low" color={theme.colors.textTertiary} />
+                                <PriorityOption value="medium" label="Medium" color={'#F59E0B'} />
+                                <PriorityOption value="high" label="High" color={theme.colors.signalAlert} />
+                            </View>
+                        </View>
+
+                        {/* Info Box */}
+                        <View style={[styles.infoBox, { backgroundColor: theme.colors.actionPrimary + '10', borderColor: theme.colors.actionPrimary + '30' }]}>
+                            <AlertCircle size={16} color={theme.colors.actionPrimary} />
+                            <Text style={[styles.infoText, { color: theme.colors.textPrimary }]}>
+                                Save up points by completing tasks to purchase this item!
+                            </Text>
+                        </View>
+                    </ScrollView>
+
+                    {/* Footer */}
+                    <View style={[styles.footer, { borderTopColor: theme.colors.borderSubtle, backgroundColor: theme.colors.bgSurface }]}>
+                        <TouchableOpacity
+                            style={[
+                                styles.submitButton,
+                                {
+                                    backgroundColor: theme.colors.actionPrimary,
+                                    opacity: isSubmitting ? 0.7 : 1
+                                }
+                            ]}
+                            onPress={handleSubmit}
+                            disabled={isSubmitting}
+                        >
+                            <Text style={styles.submitButtonText}>
+                                {isSubmitting ? 'Adding...' : 'Add to Wishlist'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
-            </View>
+            </KeyboardAvoidingView>
         </Modal>
     );
 }

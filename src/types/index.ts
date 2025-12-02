@@ -185,3 +185,29 @@ export interface ApiResponse<T = any> {
     message?: string;
     token?: string;
 }
+export enum NotificationType {
+    TASK_ASSIGNED = 'TASK_ASSIGNED',
+    TASK_COMPLETED = 'TASK_COMPLETED',
+    TASK_APPROVED = 'TASK_APPROVED',
+    TASK_REJECTED = 'TASK_REJECTED',
+    QUEST_AVAILABLE = 'QUEST_AVAILABLE',
+    QUEST_COMPLETED = 'QUEST_COMPLETED',
+    REWARD_REDEEMED = 'REWARD_REDEEMED',
+    APPROVAL_REQUEST = 'APPROVAL_REQUEST',
+    SYSTEM = 'SYSTEM',
+    REMINDER = 'REMINDER'
+}
+
+export interface Notification {
+    id: string;
+    _id?: string;
+    recipientId: string;
+    householdId: string;
+    type: NotificationType;
+    title: string;
+    message: string;
+    data?: Record<string, any>;
+    isRead: boolean;
+    createdAt: string;
+    updatedAt?: string;
+}

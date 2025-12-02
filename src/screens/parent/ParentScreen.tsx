@@ -52,6 +52,17 @@ export default function ParentScreen() {
 
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                     <TouchableOpacity
+                        onPress={() => navigation.navigate('AdminViewShowcase')}
+                        style={{
+                            backgroundColor: theme.colors.actionPrimary,
+                            paddingHorizontal: 12,
+                            paddingVertical: 6,
+                            borderRadius: 16
+                        }}
+                    >
+                        <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 12 }}>Admin View Concepts</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
                         onPress={() => navigation.navigate('BentoTest')}
                         style={{
                             backgroundColor: theme.colors.actionPrimary,

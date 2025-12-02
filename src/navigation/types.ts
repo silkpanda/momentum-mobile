@@ -10,6 +10,8 @@ export type RootStackParamList = {
     MemberStore: { memberId: string; userId: string; memberName: string; memberColor: string; memberPoints: number };
     SharingSettings: { linkId: string; childName: string };
     BentoTest: undefined;
+    AdminViewShowcase: undefined;
+    NotificationCenter: undefined;
 } & AuthStackParamList;
 
 export type ParentTabParamList = {

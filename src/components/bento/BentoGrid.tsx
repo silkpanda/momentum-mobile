@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, View, StyleSheet, ViewStyle } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { spacing, bentoPalette, widgetSizes } from '../../theme/bentoTokens';
 
 interface BentoGridProps {
@@ -8,10 +9,15 @@ interface BentoGridProps {
 }
 
 export default function BentoGrid({ children, style }: BentoGridProps) {
+    const insets = useSafeAreaInsets();
+
     return (
         <ScrollView
             style={[styles.canvas, style]}
-            contentContainerStyle={styles.contentContainer}
+            contentContainerStyle={[
+                styles.contentContainer,
+                { paddingTop: widgetSizes.outerPadding + insets.top }
+            ]}
             showsVerticalScrollIndicator={false}
         >
             <View style={styles.grid}>
@@ -27,7 +33,6 @@ const styles = StyleSheet.create({
         backgroundColor: bentoPalette.canvas,
     },
     contentContainer: {
-        paddingTop: widgetSizes.outerPadding,
         paddingHorizontal: widgetSizes.outerPadding,
         paddingBottom: 120, // Space for FloatingDock
     },
