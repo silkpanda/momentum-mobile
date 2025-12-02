@@ -1,218 +1,176 @@
 // =========================================================
-// Mission Control - Command Panel Interface
+// Mission Control - System Status UI
 // =========================================================
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { CheckSquare, Shield, Users, ShoppingBag, UtensilsCrossed, Settings } from 'lucide-react-native';
-import { useTheme } from '../../contexts/ThemeContext';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    Platform,
+    StatusBar,
+} from 'react-native';
+import {
+    Activity,
+    CheckCircle,
+    Users,
+    Package,
+    Calendar,
+    Settings,
+    Inbox,
+    ClipboardList,
+    BarChart3,
+} from 'lucide-react-native';
 import { useData } from '../../contexts/DataContext';
+import { useTheme } from '../../contexts/ThemeContext';
 
-type PanelId = 'tasks' | 'approvals' | 'crew' | 'rewards' | 'meals' | 'settings';
-
-interface Panel {
-    id: PanelId;
-    title: string;
-    icon: React.ReactNode;
-    color: string;
-    count?: number;
-    urgent?: boolean;
-}
+// Import Manager Modals
+import StoreManagerModal from './bento/modals/StoreManagerModal';
+import RoutineManagerModal from './bento/modals/RoutineManagerModal';
+import MemberManagerModal from './bento/modals/MemberManagerModal';
+import TaskManagerModal from './bento/modals/TaskManagerModal';
+import ThemeSelectorModal from './bento/modals/ThemeSelectorModal';
 
 export default function MissionControl() {
+    const { members, tasks, refresh, routines } = useData();
     const { currentTheme: theme } = useTheme();
-    const { tasks, members } = useData();
-    const [activePanel, setActivePanel] = useState<PanelId>('tasks');
 
-    // Calculate stats
-    const pendingApprovals = tasks.filter(t => t.status === 'PendingApproval').length;
-    const incompleteTasks = tasks.filter(t => t.status === 'Pending').length;
+    // Modal States
+    const [showTasks, setShowTasks] = useState(false);
+    const [showInbox, setShowInbox] = useState(false);
+    const [showMembers, setShowMembers] = useState(false);
+    const [showStore, setShowStore] = useState(false);
+    const [showRoutines, setShowRoutines] = useState(false);
+    const [showSettings, setShowSettings] = useState(false);
 
-    // Overall system status
-    const getSystemStatus = () => {
-        if (pendingApprovals > 0) return { color: '#EF4444', text: 'URGENT', icon: '🔴' };
-        if (incompleteTasks > 5) return { color: '#F59E0B', text: 'ATTENTION NEEDED', icon: '🟡' };
-        return { color: '#10B981', text: 'NOMINAL', icon: '🟢' };
-    };
+    // --- System Status Logic ---
+    const pendingApprovals = tasks.filter(t => t.status === 'PendingApproval');
+    const activeTasks = tasks.filter(t => t.status === 'Pending');
 
-    const systemStatus = getSystemStatus();
+    let systemStatus = 'NOMINAL';
+    let statusColor = theme.colors.signalSuccess;
+    let statusMessage = 'All systems functioning normally.';
 
-    const panels: Panel[] = [
-        {
-            id: 'tasks',
-            title: 'TASKS',
-            icon: <CheckSquare size={20} color="#FFF" />,
-            color: '#6366f1',
-            count: incompleteTasks,
-        },
-        {
-            id: 'approvals',
-            title: 'APPROVALS',
-            icon: <Shield size={20} color="#FFF" />,
-            color: '#8B5CF6',
-            count: pendingApprovals,
-            urgent: pendingApprovals > 0,
-        },
-        {
-            id: 'crew',
-            title: 'CREW',
-            icon: <Users size={20} color="#FFF" />,
-            color: '#10B981',
-            count: members.length,
-        },
-        {
-            id: 'rewards',
-            title: 'REWARDS',
-            icon: <ShoppingBag size={20} color="#FFF" />,
-            color: '#F59E0B',
-        },
-        {
-            id: 'meals',
-            title: 'MEALS',
-            icon: <UtensilsCrossed size={20} color="#FFF" />,
-            color: '#14B8A6',
-        },
-        {
-            id: 'settings',
-            title: 'SETTINGS',
-            icon: <Settings size={20} color="#FFF" />,
-            color: '#6B7280',
-        },
-    ];
+    if (pendingApprovals.length > 0) {
+        systemStatus = 'ATTENTION';
+        statusColor = theme.colors.signalWarning;
+        statusMessage = `${pendingApprovals.length} items require approval.`;
+    }
 
-    const renderPanelContent = (panelId: PanelId) => {
-        switch (panelId) {
-            case 'tasks':
-                return (
-                    <View style={styles.panelContent}>
-                        <TouchableOpacity style={[styles.createButton, { backgroundColor: '#6366f1' }]}>
-                            <Text style={styles.createButtonText}>+ CREATE TASK</Text>
-                        </TouchableOpacity>
-                        {tasks.slice(0, 8).map((task) => (
-                            <View key={task._id} style={[styles.listItem, { borderBottomColor: theme.colors.borderSubtle }]}>
-                                <Text style={[styles.listItemText, { color: theme.colors.textPrimary }]} numberOfLines={1}>
-                                    {task.title}
-                                </Text>
-                                <View style={[styles.taskStatusBadge, { backgroundColor: task.status === 'Completed' ? '#10B981' : '#6366f1' }]}>
-                                    <Text style={styles.statusText}>{task.status}</Text>
-                                </View>
-                            </View>
-                        ))}
+    // --- Components ---
+
+    const StatusHeader = () => (
+        <View style={[styles.header, { backgroundColor: theme.colors.bgSurface, borderLeftColor: statusColor }]}>
+            <View style={styles.headerContent}>
+                <Text style={[styles.statusLabel, { color: statusColor }]}>SYSTEM {systemStatus}</Text>
+                <Text style={[styles.statusMessage, { color: theme.colors.textSecondary }]}>{statusMessage}</Text>
+            </View>
+            <View style={[styles.statusIndicator, { backgroundColor: statusColor }]} />
+        </View>
+    );
+
+    const DashboardStats = () => (
+        <View style={[styles.statsContainer, { backgroundColor: theme.colors.bgSurface }]}>
+            <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>{activeTasks.length}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Active Tasks</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: theme.colors.borderSubtle }]} />
+            <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>{members.length}</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Members</Text>
+            </View>
+            <View style={[styles.statDivider, { backgroundColor: theme.colors.borderSubtle }]} />
+            <View style={styles.statCard}>
+                <Text style={[styles.statValue, { color: theme.colors.textPrimary }]}>98%</Text>
+                <Text style={[styles.statLabel, { color: theme.colors.textSecondary }]}>Efficiency</Text>
+            </View>
+        </View>
+    );
+
+    const ControlModule = ({
+        title,
+        icon: Icon,
+        onPress,
+        badge,
+        accent = theme.colors.actionPrimary
+    }: {
+        title: string;
+        icon: any;
+        onPress: () => void;
+        badge?: number;
+        accent?: string;
+    }) => (
+        <TouchableOpacity
+            style={[styles.module, { backgroundColor: theme.colors.bgSurface, borderColor: theme.colors.borderSubtle }]}
+            onPress={onPress}
+            activeOpacity={0.7}
+        >
+            <View style={styles.moduleHeader}>
+                <Icon size={24} color={theme.colors.textSecondary} />
+                {badge ? (
+                    <View style={[styles.badge, { backgroundColor: accent }]}>
+                        <Text style={[styles.badgeText, { color: theme.colors.textInverse }]}>{badge}</Text>
                     </View>
-                );
-            case 'approvals':
-                return (
-                    <View style={styles.panelContent}>
-                        <Text style={[styles.panelTitle, { color: theme.colors.textPrimary }]}>
-                            Pending Approvals ({pendingApprovals})
-                        </Text>
-                        {pendingApprovals === 0 ? (
-                            <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                                All systems clear! 🎯
-                            </Text>
-                        ) : (
-                            tasks.filter(t => t.status === 'PendingApproval').map((task) => (
-                                <View key={task._id} style={[styles.approvalItem, { borderBottomColor: theme.colors.borderSubtle }]}>
-                                    <Text style={[styles.listItemText, { color: theme.colors.textPrimary }]}>
-                                        {task.title}
-                                    </Text>
-                                    <View style={styles.approvalActions}>
-                                        <TouchableOpacity style={[styles.approveButton, { backgroundColor: '#10B981' }]}>
-                                            <Text style={styles.buttonText}>APPROVE</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={[styles.rejectButton, { backgroundColor: '#EF4444' }]}>
-                                            <Text style={styles.buttonText}>REJECT</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
-                            ))
-                        )}
-                    </View>
-                );
-            case 'crew':
-                return (
-                    <View style={styles.panelContent}>
-                        <Text style={[styles.panelTitle, { color: theme.colors.textPrimary }]}>
-                            Crew Members ({members.length})
-                        </Text>
-                        {members.map((member) => (
-                            <View key={member._id} style={[styles.listItem, { borderBottomColor: theme.colors.borderSubtle }]}>
-                                <Text style={[styles.listItemText, { color: theme.colors.textPrimary }]}>
-                                    {member.firstName} {member.lastName}
-                                </Text>
-                                <Text style={[styles.pointsText, { color: theme.colors.textSecondary }]}>
-                                    {(member as any).points || 0} pts
-                                </Text>
-                            </View>
-                        ))}
-                    </View>
-                );
-            default:
-                return (
-                    <View style={styles.panelContent}>
-                        <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                            {panelId.charAt(0).toUpperCase() + panelId.slice(1)} panel coming soon...
-                        </Text>
-                    </View>
-                );
-        }
-    };
+                ) : null}
+            </View>
+            <Text style={[styles.moduleTitle, { color: theme.colors.textPrimary }]}>{title}</Text>
+        </TouchableOpacity>
+    );
 
     return (
-        <View style={[styles.container, { backgroundColor: '#1F2937' }]}>
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title}>MISSION CONTROL</Text>
-                <View style={[styles.statusBadge, { backgroundColor: systemStatus.color }]}>
-                    <Text style={styles.statusBadgeText}>
-                        {systemStatus.icon} {systemStatus.text}
-                    </Text>
+        <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
+            <StatusBar barStyle={theme.dark ? "light-content" : "dark-content"} />
+
+            <View style={styles.content}>
+                <Text style={[styles.pageTitle, { color: theme.colors.textPrimary }]}>Mission Control</Text>
+
+                <StatusHeader />
+                <DashboardStats />
+
+                <Text style={[styles.sectionLabel, { color: theme.colors.textSecondary }]}>COMMAND DECK</Text>
+                <View style={styles.grid}>
+                    <ControlModule
+                        title="Tasks"
+                        icon={ClipboardList}
+                        onPress={() => setShowTasks(true)}
+                    />
+                    <ControlModule
+                        title="Inbox"
+                        icon={Inbox}
+                        badge={pendingApprovals.length > 0 ? pendingApprovals.length : undefined}
+                        accent={theme.colors.signalWarning}
+                        onPress={() => setShowInbox(true)}
+                    />
+                    <ControlModule
+                        title="Members"
+                        icon={Users}
+                        onPress={() => setShowMembers(true)}
+                    />
+                    <ControlModule
+                        title="Store"
+                        icon={Package}
+                        onPress={() => setShowStore(true)}
+                    />
+                    <ControlModule
+                        title="Routines"
+                        icon={Calendar}
+                        onPress={() => setShowRoutines(true)}
+                    />
+                    <ControlModule
+                        title="Settings"
+                        icon={Settings}
+                        onPress={() => setShowSettings(true)}
+                    />
                 </View>
             </View>
 
-            {/* Control Panels */}
-            <View style={styles.panelGrid}>
-                {panels.map((panel) => (
-                    <TouchableOpacity
-                        key={panel.id}
-                        style={[
-                            styles.panel,
-                            {
-                                backgroundColor: activePanel === panel.id ? panel.color : '#374151',
-                                borderColor: activePanel === panel.id ? panel.color : '#4B5563',
-                            }
-                        ]}
-                        onPress={() => setActivePanel(panel.id)}
-                    >
-                        <View style={styles.panelIcon}>
-                            {panel.icon}
-                        </View>
-                        <Text style={styles.panelLabel}>{panel.title}</Text>
-                        {panel.count !== undefined && (
-                            <View style={[
-                                styles.countBadge,
-                                { backgroundColor: panel.urgent ? '#EF4444' : 'rgba(255,255,255,0.2)' }
-                            ]}>
-                                <Text style={styles.countText}>{panel.count}</Text>
-                            </View>
-                        )}
-                        {panel.urgent && (
-                            <View style={styles.pulseIndicator} />
-                        )}
-                    </TouchableOpacity>
-                ))}
-            </View>
-
-            {/* Active Panel View */}
-            <View style={[styles.activeView, { backgroundColor: theme.colors.bgSurface }]}>
-                <View style={styles.activeViewHeader}>
-                    <Text style={[styles.activeViewTitle, { color: theme.colors.textPrimary }]}>
-                        {panels.find(p => p.id === activePanel)?.title}
-                    </Text>
-                </View>
-                <ScrollView style={styles.activeViewContent}>
-                    {renderPanelContent(activePanel)}
-                </ScrollView>
-            </View>
+            {/* Modals */}
+            <TaskManagerModal visible={showTasks || showInbox} onClose={() => { setShowTasks(false); setShowInbox(false); }} />
+            <MemberManagerModal visible={showMembers} onClose={() => setShowMembers(false)} />
+            <StoreManagerModal visible={showStore} onClose={() => setShowStore(false)} />
+            <RoutineManagerModal visible={showRoutines} onClose={() => setShowRoutines(false)} />
+            <ThemeSelectorModal visible={showSettings} onClose={() => setShowSettings(false)} />
         </View>
     );
 }
@@ -220,175 +178,106 @@ export default function MissionControl() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        paddingTop: Platform.OS === 'ios' ? 60 : 40,
     },
+    content: {
+        padding: 24,
+    },
+    pageTitle: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        marginBottom: 24,
+        letterSpacing: -0.5,
+    },
+    // Header
     header: {
-        paddingTop: 60,
-        paddingHorizontal: 20,
-        paddingBottom: 20,
+        borderRadius: 12,
+        padding: 16,
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
+        marginBottom: 16,
+        borderLeftWidth: 4,
+    },
+    headerContent: {
+        flex: 1,
+    },
+    statusLabel: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginBottom: 4,
+        letterSpacing: 1,
+    },
+    statusMessage: {
+        fontSize: 14,
+    },
+    statusIndicator: {
+        width: 12,
+        height: 12,
+        borderRadius: 6,
+        marginLeft: 16,
+    },
+    // Stats
+    statsContainer: {
+        flexDirection: 'row',
+        borderRadius: 12,
+        padding: 20,
+        marginBottom: 32,
         alignItems: 'center',
     },
-    title: {
+    statCard: {
+        flex: 1,
+        alignItems: 'center',
+    },
+    statValue: {
         fontSize: 24,
         fontWeight: 'bold',
-        color: '#FFF',
-        letterSpacing: 2,
+        marginBottom: 4,
     },
-    statusBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 12,
-    },
-    statusBadgeText: {
-        color: '#FFF',
+    statLabel: {
         fontSize: 12,
-        fontWeight: '700',
+        fontWeight: '500',
     },
-    panelGrid: {
+    statDivider: {
+        width: 1,
+        height: 32,
+    },
+    // Grid
+    sectionLabel: {
+        fontSize: 12,
+        fontWeight: 'bold',
+        marginBottom: 16,
+        letterSpacing: 1,
+        textTransform: 'uppercase',
+    },
+    grid: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        paddingHorizontal: 16,
         gap: 12,
     },
-    panel: {
-        width: '31%',
-        aspectRatio: 1,
-        borderRadius: 12,
-        borderWidth: 2,
-        padding: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-        position: 'relative',
-    },
-    panelIcon: {
-        marginBottom: 8,
-    },
-    panelLabel: {
-        color: '#FFF',
-        fontSize: 11,
-        fontWeight: '700',
-        textAlign: 'center',
-    },
-    countBadge: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        minWidth: 20,
-        height: 20,
-        borderRadius: 10,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingHorizontal: 6,
-    },
-    countText: {
-        color: '#FFF',
-        fontSize: 11,
-        fontWeight: '700',
-    },
-    pulseIndicator: {
-        position: 'absolute',
-        top: 8,
-        right: 8,
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        backgroundColor: '#EF4444',
-    },
-    activeView: {
-        flex: 1,
-        marginTop: 20,
-        borderTopLeftRadius: 24,
-        borderTopRightRadius: 24,
-    },
-    activeViewHeader: {
+    module: {
+        width: '48%',
+        borderRadius: 16,
         padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E7EB',
+        borderWidth: 1,
     },
-    activeViewTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-    },
-    activeViewContent: {
-        flex: 1,
-    },
-    panelContent: {
-        padding: 20,
-    },
-    panelTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        marginBottom: 16,
-    },
-    createButton: {
-        paddingVertical: 12,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-        marginBottom: 20,
-        alignItems: 'center',
-    },
-    createButtonText: {
-        color: '#FFF',
-        fontSize: 14,
-        fontWeight: '700',
-    },
-    listItem: {
+    moduleHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
+        alignItems: 'flex-start',
+        marginBottom: 16,
     },
-    listItemText: {
-        flex: 1,
-        fontSize: 15,
-        marginRight: 12,
-    },
-    taskStatusBadge: {
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-    },
-    statusText: {
-        color: '#FFF',
-        fontSize: 11,
-        fontWeight: '600',
-        textTransform: 'capitalize',
-    },
-    approvalItem: {
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-    },
-    approvalActions: {
-        flexDirection: 'row',
-        gap: 12,
-        marginTop: 12,
-    },
-    approveButton: {
-        flex: 1,
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    rejectButton: {
-        flex: 1,
-        paddingVertical: 10,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
-    buttonText: {
-        color: '#FFF',
-        fontSize: 12,
-        fontWeight: '700',
-    },
-    pointsText: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    emptyText: {
+    moduleTitle: {
         fontSize: 16,
-        textAlign: 'center',
-        marginTop: 40,
+        fontWeight: '600',
+    },
+    badge: {
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 10,
+    },
+    badgeText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });

@@ -19,6 +19,7 @@ export interface CalendarSource {
     title: string;
     color: string;
     type: string;
+    allowsModifications: boolean;
 }
 
 class CalendarService {
@@ -45,16 +46,45 @@ class CalendarService {
             // Filter out holidays and birthdays if desired, or keep them
             // For now, return all readable calendars
             return calendars
-                .filter(cal => cal.allowsModifications || cal.source.type !== 'local') // Try to get synced calendars
                 .map(cal => ({
                     id: cal.id,
                     title: cal.title,
                     color: cal.color,
-                    type: cal.source.type
+                    type: cal.source.type,
+                    allowsModifications: cal.allowsModifications
                 }));
         } catch (error) {
             logger.error('Error fetching calendars:', error);
             return [];
+        }
+    }
+
+    async createEvent(calendarId: string, eventDetails: {
+        title: string;
+        startDate: Date;
+        endDate: Date;
+        allDay?: boolean;
+        location?: string;
+        notes?: string;
+    }): Promise<string> {
+        try {
+            const hasPermission = await this.requestPermissions();
+            if (!hasPermission) throw new Error('Calendar permission denied');
+
+            const eventId = await Calendar.createEventAsync(calendarId, {
+                title: eventDetails.title,
+                startDate: eventDetails.startDate,
+                endDate: eventDetails.endDate,
+                allDay: eventDetails.allDay,
+                location: eventDetails.location,
+                notes: eventDetails.notes,
+                timeZone: 'UTC', // Or local
+            });
+
+            return eventId;
+        } catch (error) {
+            logger.error('Error creating event:', error);
+            throw error;
         }
     }
 

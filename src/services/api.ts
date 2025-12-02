@@ -685,9 +685,23 @@ class ApiClient {
     async savePushToken(token: string): Promise<ApiResponse<{ message: string }>> {
         return this.request<{ message: string }>('/notifications/push-token', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ token }),
         });
+    }
+
+    // ============================================================
+    // CALENDAR METHODS
+    // ============================================================
+
+    async connectGoogleCalendar(data: { idToken: string; accessToken: string; serverAuthCode?: string }): Promise<ApiResponse<any>> {
+        return this.request<any>('/calendar/google/connect', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    }
+
+    async getGoogleCalendarEvents(): Promise<ApiResponse<any[]>> {
+        return this.request<any[]>('/calendar/google/events');
     }
 }
 

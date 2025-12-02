@@ -100,7 +100,23 @@ export default function MemberDetailScreen() {
                 }
             };
             checkPinStatus();
-        }, [])
+
+            const checkUnratedMeals = async () => {
+                // Only check for the user's own profile to avoid popping up on parent view of child
+                if (isOwnProfile) {
+                    try {
+                        const response = await api.getUnratedMeals();
+                        if (response.data && response.data.unratedMeals && response.data.unratedMeals.length > 0) {
+                            setUnratedMeal(response.data.unratedMeals[0]);
+                            setIsRatingModalVisible(true);
+                        }
+                    } catch (error) {
+                        console.log('Failed to check unrated meals:', error);
+                    }
+                }
+            };
+            checkUnratedMeals();
+        }, [isOwnProfile])
     );
 
     const handleParentPress = () => {
@@ -418,6 +434,12 @@ export default function MemberDetailScreen() {
 
                 <StreakProgress currentStreak={memberData?.currentStreak || 0} />
 
+                {(isOwnProfile || isParent) && (
+                    <UpcomingEventsWidget
+                        onSettingsPress={() => setIsCalendarSettingsVisible(true)}
+                    />
+                )}
+
                 <TouchableOpacity
                     style={[styles.storeButton, { backgroundColor: theme.colors.actionPrimary }]}
                     onPress={() => navigation.navigate('MemberStore', {
@@ -540,11 +562,7 @@ export default function MemberDetailScreen() {
                     </View>
                 )}
 
-                {(isOwnProfile || isParent) && (
-                    <UpcomingEventsWidget
-                        onSettingsPress={() => setIsCalendarSettingsVisible(true)}
-                    />
-                )}
+
 
                 <CalendarSettingsModal
                     visible={isCalendarSettingsVisible}

@@ -41,10 +41,15 @@ export default function CalendarSettingsModal({ visible, onClose }: CalendarSett
 
             console.log('Google Sign-In successful:', userInfo.data?.user.email);
 
-            // Send the tokens to your backend to exchange for a refresh token
-            await api.post('/calendar/google/connect', {
+            if (!userInfo.data?.serverAuthCode) {
+                console.warn('No serverAuthCode received. Offline access will not work.');
+            }
+
+            // Send the tokens/code to your backend
+            await api.connectGoogleCalendar({
                 idToken: tokens.idToken,
                 accessToken: tokens.accessToken,
+                serverAuthCode: userInfo.data?.serverAuthCode || undefined,
             });
 
             Alert.alert('Success', 'Google Calendar connected successfully!');

@@ -63,7 +63,26 @@ export const NotificationCenterScreen = () => {
         }
 
         // Navigate based on type
-        // TODO: Add navigation logic
+        switch (notification.type) {
+            case NotificationType.TASK_ASSIGNED:
+            case NotificationType.TASK_APPROVED:
+            case NotificationType.QUEST_AVAILABLE:
+                // Go to Family view where they can access their profile
+                navigation.navigate('Family' as never);
+                break;
+
+            case NotificationType.TASK_COMPLETED:
+            case NotificationType.APPROVAL_REQUEST:
+            case NotificationType.REWARD_REDEEMED:
+                // Go to Parent Dashboard for approvals/redemptions
+                navigation.navigate('Parent' as never);
+                break;
+
+            default:
+                // Default to Family view
+                navigation.navigate('Family' as never);
+                break;
+        }
     };
 
     const getIcon = (type: NotificationType) => {

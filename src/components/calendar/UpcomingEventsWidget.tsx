@@ -17,8 +17,14 @@ export default function UpcomingEventsWidget({ onSettingsPress }: UpcomingEvents
         refreshEvents();
     }, [selectedCalendarIds]); // Refresh when selection changes
 
-    // Limit to top 3 events
-    const displayEvents = events.slice(0, 3);
+    // Filter for Today's events only
+    const today = new Date();
+    const todayStr = today.toDateString();
+
+    const displayEvents = events.filter(event => {
+        const eventDate = new Date(event.startDate);
+        return eventDate.toDateString() === todayStr;
+    });
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgSurface }]}>
@@ -26,7 +32,7 @@ export default function UpcomingEventsWidget({ onSettingsPress }: UpcomingEvents
                 <View style={styles.headerLeft}>
                     <CalendarIcon size={20} color={theme.colors.actionPrimary} />
                     <Text style={[styles.title, { color: theme.colors.textPrimary }]}>
-                        Upcoming Events
+                        Today's Schedule
                     </Text>
                 </View>
                 <TouchableOpacity onPress={onSettingsPress}>
@@ -43,7 +49,7 @@ export default function UpcomingEventsWidget({ onSettingsPress }: UpcomingEvents
             ) : displayEvents.length === 0 ? (
                 <View style={styles.emptyContainer}>
                     <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                        No upcoming events found.
+                        No events scheduled for today.
                     </Text>
                     <TouchableOpacity onPress={onSettingsPress} style={{ marginTop: 8 }}>
                         <Text style={[styles.subLink, { color: theme.colors.actionPrimary }]}>

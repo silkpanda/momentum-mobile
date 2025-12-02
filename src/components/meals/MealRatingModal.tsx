@@ -36,7 +36,7 @@ export default function MealRatingModal({ visible, meal, onClose, onRated }: Mea
     const isRestaurant = meal.itemType === 'Restaurant' || meal.itemType === 'restaurant';
 
     return (
-        <Modal visible={visible} animationType="fade" transparent>
+        <Modal visible={visible} animationType="fade" transparent onRequestClose={() => { }}>
             <View style={styles.overlay}>
                 <View style={[styles.container, { backgroundColor: theme.colors.bgSurface }]}>
                     <Text style={[styles.header, { color: theme.colors.textPrimary }]}>

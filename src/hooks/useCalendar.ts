@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { calendarService, CalendarEvent, CalendarSource } from '../services/calendarService';
+import { api } from '../services/api';
 import { storage } from '../utils/storage';
 
 export const useCalendar = () => {
@@ -8,9 +9,10 @@ export const useCalendar = () => {
     const [selectedCalendarIds, setSelectedCalendarIds] = useState<string[]>([]);
     const [isLoading, setIsLoading] = useState(false);
 
-    // Load saved calendar preferences
+    // Load saved calendar preferences and calendars
     useEffect(() => {
         loadPreferences();
+        refreshCalendars();
     }, []);
 
     const loadPreferences = async () => {
@@ -39,19 +41,60 @@ export const useCalendar = () => {
     };
 
     const refreshEvents = async (calendarIds: string[] = selectedCalendarIds) => {
-        if (calendarIds.length === 0) {
-            setEvents([]);
-            return;
+        setIsLoading(true);
+        const allEvents: CalendarEvent[] = [];
+
+        // 1. Fetch Device Events
+        if (calendarIds.length > 0) {
+            const now = new Date();
+            const nextMonth = new Date();
+            nextMonth.setDate(now.getDate() + 30);
+
+            const deviceEvents = await calendarService.getEvents(now, nextMonth, calendarIds);
+            allEvents.push(...deviceEvents);
         }
 
-        setIsLoading(true);
-        // Fetch next 7 days by default
-        const now = new Date();
-        const nextWeek = new Date();
-        nextWeek.setDate(now.getDate() + 7);
+        // 2. Fetch Google Events
+        try {
+            const response = await api.getGoogleCalendarEvents();
+            if (response && Array.isArray(response)) {
+                // Handle direct array response (from backend controller)
+                const googleEvents = response.map((evt: any) => ({
+                    id: evt.id,
+                    title: evt.summary || 'No Title',
+                    startDate: evt.start.dateTime || evt.start.date,
+                    endDate: evt.end.dateTime || evt.end.date,
+                    allDay: !evt.start.dateTime,
+                    location: evt.location,
+                    notes: evt.description,
+                    calendarId: 'google-primary',
+                    color: '#4285F4', // Google Blue
+                }));
+                allEvents.push(...googleEvents);
+            } else if (response.data && Array.isArray(response.data)) {
+                // Handle ApiResponse wrapper
+                const googleEvents = response.data.map((evt: any) => ({
+                    id: evt.id,
+                    title: evt.summary || 'No Title',
+                    startDate: evt.start.dateTime || evt.start.date,
+                    endDate: evt.end.dateTime || evt.end.date,
+                    allDay: !evt.start.dateTime,
+                    location: evt.location,
+                    notes: evt.description,
+                    calendarId: 'google-primary',
+                    color: '#4285F4', // Google Blue
+                }));
+                allEvents.push(...googleEvents);
+            }
+        } catch (error) {
+            // Silent fail for now - user might not be connected
+            console.log('Google Calendar fetch skipped/failed');
+        }
 
-        const evts = await calendarService.getEvents(now, nextWeek, calendarIds);
-        setEvents(evts);
+        // Sort by date
+        allEvents.sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime());
+
+        setEvents(allEvents);
         setIsLoading(false);
     };
 

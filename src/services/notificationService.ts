@@ -31,6 +31,14 @@ export async function registerForPushNotificationsAsync() {
         }
 
         try {
+            // NOTE: Android Push Notifications require Firebase (FCM) configuration.
+            // Since we are avoiding Firebase for now, we will skip token fetching on Android
+            // to prevent the "Default FirebaseApp is not initialized" error.
+            if (Platform.OS === 'android') {
+                console.log('Skipping Push Token fetch on Android (FCM not configured).');
+                return;
+            }
+
             const projectId = Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
             token = (await Notifications.getExpoPushTokenAsync({
                 projectId,
@@ -41,7 +49,7 @@ export async function registerForPushNotificationsAsync() {
                 await api.savePushToken(token);
             }
         } catch (error) {
-            console.error('Error fetching push token:', error);
+            console.warn('Failed to fetch push token (Push Notifications may not work):', error);
         }
     } else {
         console.log('Must use physical device for Push Notifications');

@@ -9,17 +9,15 @@ import { useNavigation } from '@react-navigation/native';
 import { ArrowLeft } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 
-// Import the 4 concept implementations
+// Import the 3 concept implementations
 import BentoCommandCenter from '../../components/admin-concepts/BentoCommandCenter';
-import ContextCards from '../../components/admin-concepts/ContextCards';
 import MorningBriefing from '../../components/admin-concepts/MorningBriefing';
 import MissionControl from '../../components/admin-concepts/MissionControl';
 
-type ConceptType = 'bento' | 'context' | 'briefing' | 'mission';
+type ConceptType = 'bento' | 'briefing' | 'mission';
 
 const concepts = [
     { id: 'bento' as ConceptType, name: '🍱 Bento Command Center', description: 'Widget-based dashboard' },
-    { id: 'context' as ConceptType, name: '🃏 Context Cards', description: 'Job-focused card stack' },
     { id: 'briefing' as ConceptType, name: '☀️ Morning Briefing', description: 'Curated daily overview' },
     { id: 'mission' as ConceptType, name: '🚀 Mission Control', description: 'Command panel interface' },
 ];
@@ -47,7 +45,6 @@ export default function AdminViewShowcase() {
 
                 {/* Render the selected concept */}
                 {selectedConcept === 'bento' && <BentoCommandCenter />}
-                {selectedConcept === 'context' && <ContextCards />}
                 {selectedConcept === 'briefing' && <MorningBriefing />}
                 {selectedConcept === 'mission' && <MissionControl />}
             </View>

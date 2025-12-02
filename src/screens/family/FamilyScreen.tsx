@@ -22,8 +22,6 @@ import MemberColumn from '../../components/family/MemberColumn';
 import FamilyHeader from '../../components/family/FamilyHeader';
 import PINEntryModal from '../../components/pin/PINEntryModal';
 import PINSetupModal from '../../components/pin/PINSetupModal';
-import LinkCodeInputModal from '../../components/household/LinkCodeInputModal';
-import LinkChildSetupModal from '../../components/household/LinkChildSetupModal';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
 
@@ -48,11 +46,6 @@ export default function FamilyScreen() {
     const [isPinSetupModalVisible, setIsPinSetupModalVisible] = useState(false);
     const [selectedMember, setSelectedMember] = useState<Member | null>(null);
     const [pinSetupCompleted, setPinSetupCompleted] = useState(false);
-
-    // Link Child State
-    const [isLinkCodeModalVisible, setIsLinkCodeModalVisible] = useState(false);
-    const [isLinkSetupModalVisible, setIsLinkSetupModalVisible] = useState(false);
-    const [linkChildData, setLinkChildData] = useState<{ childId: string; childName: string; code: string } | null>(null);
 
     const loadData = async () => {
         try {
@@ -252,15 +245,7 @@ export default function FamilyScreen() {
         }
     };
 
-    const handleLinkCodeSuccess = (childData: { childId: string; childName: string; code: string }) => {
-        setLinkChildData(childData);
-        setIsLinkSetupModalVisible(true);
-    };
 
-    const handleLinkChildSuccess = () => {
-        setLinkChildData(null);
-        loadData(); // Refresh to show the new child
-    };
 
     // Render Content based on Layout Mode
     const renderContent = () => {
@@ -339,7 +324,6 @@ export default function FamilyScreen() {
                 insets={insets}
                 onSettingsPress={handleParentPress}
                 onRemindParent={handleRemindParent}
-                onLinkChild={isParent ? () => setIsLinkCodeModalVisible(true) : undefined}
             />
 
             {renderContent()}
@@ -377,27 +361,6 @@ export default function FamilyScreen() {
                 onClose={() => setIsPinSetupModalVisible(false)}
                 onSuccess={handlePinSetupSuccess}
             />
-
-            {/* Link Child Modals */}
-            <LinkCodeInputModal
-                visible={isLinkCodeModalVisible}
-                onClose={() => setIsLinkCodeModalVisible(false)}
-                onSuccess={handleLinkCodeSuccess}
-            />
-
-            {linkChildData && (
-                <LinkChildSetupModal
-                    visible={isLinkSetupModalVisible}
-                    onClose={() => {
-                        setIsLinkSetupModalVisible(false);
-                        setLinkChildData(null);
-                    }}
-                    childId={linkChildData.childId}
-                    childName={linkChildData.childName}
-                    code={linkChildData.code}
-                    onSuccess={handleLinkChildSuccess}
-                />
-            )}
         </View>
     );
 }

@@ -15,9 +15,7 @@ import MemberStoreScreen from '../screens/family/MemberStoreScreen';
 import { RootStackParamList } from './types';
 
 import SharingSettingsScreen from '../screens/household/SharingSettingsScreen';
-import BentoParentScreen from '../screens/parent/BentoParentScreen';
 
-import AdminViewShowcase from '../screens/parent/AdminViewShowcase';
 import { NotificationCenterScreen } from '../screens/notifications/NotificationCenterScreen';
 
 const Stack = createStackNavigator<RootStackParamList>();
@@ -42,9 +40,8 @@ export default function AppNavigator() {
                     <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
                     <Stack.Screen name="MemberStore" component={MemberStoreScreen} />
                     <Stack.Screen name="SharingSettings" component={SharingSettingsScreen} />
-                    <Stack.Screen name="BentoTest" component={BentoParentScreen} />
-                    <Stack.Screen name="AdminViewShowcase" component={AdminViewShowcase} />
                     <Stack.Screen name="NotificationCenter" component={NotificationCenterScreen} />
+                    <Stack.Screen name="ParentCalendar" component={require('../screens/calendar/ParentCalendarScreen').default} />
                 </>
             ) : (
                 <>
