@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
-import { Agenda, DateData } from 'react-native-calendars';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
+import { Calendar, DateData } from 'react-native-calendars';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Plus, Settings } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -8,7 +8,7 @@ import { useCalendar } from '../../hooks/useCalendar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarSettingsModal from '../../components/calendar/CalendarSettingsModal';
 import CreateEventModal from '../../components/calendar/CreateEventModal';
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 export default function ParentCalendarScreen() {
     const { currentTheme: theme } = useTheme();
@@ -22,43 +22,71 @@ export default function ParentCalendarScreen() {
     useFocusEffect(
         useCallback(() => {
             refreshEvents();
-        }, [])
+        }, [refreshEvents])
     );
 
-    // Transform events for react-native-calendars Agenda
-    const agendaItems = useMemo(() => {
-        const items: { [key: string]: any[] } = {};
+    // Get events for selected date
+    const selectedDateEvents = useMemo(() => {
+        return events.filter(event => {
+            const dateStr = event.startDate instanceof Date
+                ? event.startDate.toISOString()
+                : event.startDate;
+            const dateKey = dateStr.split('T')[0];
+            return dateKey === selectedDate;
+        });
+    }, [events, selectedDate]);
+
+    // Create marked dates for calendar
+    const markedDates = useMemo(() => {
+        const marked: { [key: string]: any } = {};
 
         events.forEach(event => {
             const dateStr = event.startDate instanceof Date
                 ? event.startDate.toISOString()
                 : event.startDate;
             const dateKey = dateStr.split('T')[0];
-            if (!items[dateKey]) {
-                items[dateKey] = [];
+
+            if (!marked[dateKey]) {
+                marked[dateKey] = { marked: true, dots: [] };
             }
-            items[dateKey].push({
-                name: event.title,
-                height: 50,
-                day: dateKey,
-                ...event
-            });
         });
 
-        // Ensure selected date has an empty array if no events, to avoid Agenda glitches
-        if (!items[selectedDate]) {
-            items[selectedDate] = [];
-        }
+        // Mark selected date
+        marked[selectedDate] = {
+            ...marked[selectedDate],
+            selected: true,
+            selectedColor: theme.colors.actionPrimary,
+        };
 
-        return items;
-    }, [events, selectedDate]);
+        return marked;
+    }, [events, selectedDate, theme.colors.actionPrimary]);
 
-    const renderItem = (item: any, firstItemInDay: boolean) => {
+    const onDayPress = useCallback((day: DateData) => {
+        setSelectedDate(day.dateString);
+    }, []);
+
+    const calendarTheme = useMemo(() => ({
+        calendarBackground: theme.colors.bgSurface,
+        backgroundColor: theme.colors.bgCanvas,
+        dayTextColor: theme.colors.textPrimary,
+        monthTextColor: theme.colors.textPrimary,
+        textSectionTitleColor: theme.colors.textSecondary,
+        selectedDayBackgroundColor: theme.colors.actionPrimary,
+        selectedDayTextColor: '#ffffff',
+        todayTextColor: theme.colors.actionPrimary,
+        dotColor: theme.colors.actionPrimary,
+        selectedDotColor: '#ffffff',
+        textDayFontWeight: '400' as const,
+        textMonthFontWeight: 'bold' as const,
+        textDayHeaderFontWeight: '600' as const,
+    }), [theme]);
+
+    const renderEventItem = useCallback(({ item }: { item: any }) => {
         return (
             <TouchableOpacity style={[styles.item, { backgroundColor: theme.colors.bgSurface }]}>
                 <View style={[styles.itemColorStrip, { backgroundColor: item.color || theme.colors.actionPrimary }]} />
                 <View style={styles.itemContent}>
-                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>{item.name}</Text>
+                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>{item.title}</Text>
                     <Text style={[styles.itemTime, { color: theme.colors.textSecondary }]}>
                         {format(new Date(item.startDate), 'h:mm a')} - {format(new Date(item.endDate), 'h:mm a')}
                     </Text>
@@ -68,15 +96,17 @@ export default function ParentCalendarScreen() {
                 </View>
             </TouchableOpacity>
         );
-    };
+    }, [theme]);
 
-    const renderEmptyDate = () => {
+    const renderEmptyState = useCallback(() => {
         return (
-            <View style={styles.emptyDate}>
-                <Text style={{ color: theme.colors.textSecondary }}>No events for this time.</Text>
+            <View style={styles.emptyState}>
+                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
+                    No events for {format(parseISO(selectedDate), 'MMMM d, yyyy')}
+                </Text>
             </View>
         );
-    };
+    }, [theme, selectedDate]);
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
@@ -99,31 +129,28 @@ export default function ParentCalendarScreen() {
                 </View>
             </View>
 
-            {/* Calendar Agenda */}
-            <Agenda
-                items={agendaItems}
-                selected={selectedDate}
-                renderItem={renderItem}
-                renderEmptyDate={renderEmptyDate}
-                rowHasChanged={(r1, r2) => r1.name !== r2.name}
-                showClosingKnob={true}
-                theme={{
-                    calendarBackground: theme.colors.bgSurface,
-                    agendaKnobColor: theme.colors.borderSubtle,
-                    backgroundColor: theme.colors.bgCanvas,
-                    dayTextColor: theme.colors.textPrimary,
-                    monthTextColor: theme.colors.textPrimary,
-                    textSectionTitleColor: theme.colors.textSecondary,
-                    selectedDayBackgroundColor: theme.colors.actionPrimary,
-                    selectedDayTextColor: '#ffffff',
-                    todayTextColor: theme.colors.actionPrimary,
-                    dotColor: theme.colors.actionPrimary,
-                    selectedDotColor: '#ffffff',
-                }}
-                onDayPress={(day: DateData) => {
-                    setSelectedDate(day.dateString);
-                }}
+            {/* Calendar */}
+            <Calendar
+                current={selectedDate}
+                markedDates={markedDates}
+                onDayPress={onDayPress}
+                theme={calendarTheme}
+                style={{ backgroundColor: theme.colors.bgSurface }}
             />
+
+            {/* Events List */}
+            <View style={[styles.eventsContainer, { backgroundColor: theme.colors.bgCanvas }]}>
+                <Text style={[styles.eventsHeader, { color: theme.colors.textPrimary }]}>
+                    {format(parseISO(selectedDate), 'EEEE, MMMM d')}
+                </Text>
+                <FlatList
+                    data={selectedDateEvents}
+                    renderItem={renderEventItem}
+                    keyExtractor={(item, index) => item.id || `event-${index}`}
+                    ListEmptyComponent={renderEmptyState}
+                    contentContainerStyle={styles.eventsList}
+                />
+            </View>
 
             <CalendarSettingsModal
                 visible={isSettingsVisible}
@@ -173,12 +200,23 @@ const styles = StyleSheet.create({
         padding: 8,
         borderRadius: 20,
     },
-    item: {
+    eventsContainer: {
         flex: 1,
+        paddingTop: 16,
+    },
+    eventsHeader: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        paddingHorizontal: 16,
+        marginBottom: 12,
+    },
+    eventsList: {
+        paddingHorizontal: 16,
+    },
+    item: {
         borderRadius: 8,
         padding: 12,
-        marginRight: 16,
-        marginTop: 17,
+        marginBottom: 12,
         flexDirection: 'row',
         overflow: 'hidden',
     },
@@ -203,10 +241,11 @@ const styles = StyleSheet.create({
         fontSize: 12,
         fontStyle: 'italic',
     },
-    emptyDate: {
-        height: 15,
-        flex: 1,
-        paddingTop: 30,
-        paddingHorizontal: 16,
+    emptyState: {
+        paddingVertical: 32,
+        alignItems: 'center',
+    },
+    emptyText: {
+        fontSize: 14,
     },
 });

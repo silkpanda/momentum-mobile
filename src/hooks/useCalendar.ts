@@ -32,15 +32,15 @@ export const useCalendar = () => {
         // Don't auto-refresh events here, let the consumer decide when to refresh
     };
 
-    const refreshCalendars = async () => {
+    const refreshCalendars = useCallback(async () => {
         setIsLoading(true);
         const cals = await calendarService.getCalendars();
         setCalendars(cals);
         setIsLoading(false);
         return cals;
-    };
+    }, []);
 
-    const refreshEvents = async (calendarIds: string[] = selectedCalendarIds) => {
+    const refreshEvents = useCallback(async (calendarIds: string[] = selectedCalendarIds) => {
         setIsLoading(true);
         const allEvents: CalendarEvent[] = [];
 
@@ -68,7 +68,7 @@ export const useCalendar = () => {
                     location: evt.location,
                     notes: evt.description,
                     calendarId: 'google-primary',
-                    color: '#4285F4', // Google Blue
+                    color: '#4285F4', // Google Blue,
                 }));
                 allEvents.push(...googleEvents);
             } else if (response.data && Array.isArray(response.data)) {
@@ -82,7 +82,7 @@ export const useCalendar = () => {
                     location: evt.location,
                     notes: evt.description,
                     calendarId: 'google-primary',
-                    color: '#4285F4', // Google Blue
+                    color: '#4285F4', // Google Blue,
                 }));
                 allEvents.push(...googleEvents);
             }
@@ -96,7 +96,7 @@ export const useCalendar = () => {
 
         setEvents(allEvents);
         setIsLoading(false);
-    };
+    }, [selectedCalendarIds]);
 
     return {
         events,
