@@ -25,6 +25,9 @@ import {
 } from '../types';
 
 const getBaseUrl = () => {
+    // UNCOMMENT FOR LOCAL DEBUGGING (Android Emulator: 10.0.2.2, iOS Simulator: localhost)
+    // return 'http://localhost:8000/mobile-bff';
+
     // Production BFF on Render
     return 'https://momentum-mobile-bff.onrender.com/mobile-bff';
 };
@@ -152,6 +155,13 @@ class ApiClient {
         });
     }
 
+    async googleLogin(idToken: string): Promise<ApiResponse<LoginResponse>> {
+        return this.request<LoginResponse>('/auth/google', {
+            method: 'POST',
+            body: JSON.stringify({ idToken }),
+        });
+    }
+
     async register(userData: {
         firstName: string;
         lastName: string;
@@ -170,6 +180,19 @@ class ApiClient {
 
     async getMe(): Promise<ApiResponse<MeResponse>> {
         return this.request<MeResponse>('/auth/me');
+    }
+
+    async completeOnboarding(data: {
+        userId: string;
+        householdId: string;
+        displayName: string;
+        profileColor: string;
+        calendarChoice?: 'sync' | 'create';
+    }): Promise<ApiResponse<{ user: User; household: any }>> {
+        return this.request<{ user: User; household: any }>('/auth/onboarding/complete', {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
     }
 
     // Dashboard

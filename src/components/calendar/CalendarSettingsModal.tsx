@@ -94,18 +94,7 @@ export default function CalendarSettingsModal({ visible, onClose }: CalendarSett
                         Choose which calendars to display in Momentum.
                     </Text>
 
-                    <TouchableOpacity
-                        style={[styles.connectButton, {
-                            backgroundColor: theme.colors.bgCanvas,
-                            borderColor: theme.colors.borderSubtle
-                        }]}
-                        onPress={handleConnectGoogle}
-                    >
-                        <CalendarIcon size={20} color={theme.colors.textPrimary} />
-                        <Text style={[styles.connectButtonText, { color: theme.colors.textPrimary }]}>
-                            Connect Google Calendar
-                        </Text>
-                    </TouchableOpacity>
+                    {/* Connect Google Calendar button removed as it is now handled during onboarding */}
 
                     {isLoading ? (
                         <ActivityIndicator size="large" color={theme.colors.actionPrimary} style={{ marginTop: 20 }} />

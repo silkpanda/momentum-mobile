@@ -8,6 +8,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { useAuth } from '../contexts/AuthContext';
 import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
+import SignupOptionsScreen from '../screens/auth/SignupOptionsScreen';
 import FamilyScreen from '../screens/family/FamilyScreen';
 import ParentScreen from '../screens/parent/ParentScreen';
 import MemberDetailScreen from '../screens/family/MemberDetailScreen';
@@ -45,6 +46,7 @@ export default function AppNavigator() {
                 </>
             ) : (
                 <>
+                    <Stack.Screen name="SignupOptions" component={SignupOptionsScreen} />
                     <Stack.Screen name="Login" component={LoginScreen} />
                     <Stack.Screen name="Register" component={RegisterScreen} />
                 </>

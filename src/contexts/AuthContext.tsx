@@ -11,6 +11,7 @@ interface AuthContextType {
     isLoading: boolean;
     isAuthenticated: boolean;
     login: (email: string, password: string) => Promise<void>;
+    googleLogin: (idToken: string) => Promise<void>;
     register: (userData: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
 }
@@ -129,6 +130,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const googleLogin = async (idToken: string) => {
+        try {
+            const response = await api.googleLogin(idToken);
+
+            if (response.token && response.data) {
+                const newToken = response.token;
+                const newUser = response.data.parent;
+                const newHouseholdId = response.data.primaryHouseholdId;
+
+                // Store auth data
+                await Promise.all([
+                    storage.setToken(newToken),
+                    storage.setUser(newUser),
+                    storage.setHouseholdId(newHouseholdId),
+                ]);
+
+                // Update state
+                setToken(newToken);
+                setUser(newUser);
+                setHouseholdId(newHouseholdId);
+            } else {
+                throw new Error('Invalid response from server');
+            }
+        } catch (error: any) {
+            throw new Error(error.message || 'Google login failed');
+        }
+    };
+
     const register = async (userData: RegisterData) => {
         try {
             const response = await api.register(userData);
@@ -175,6 +204,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user && !!token,
         login,
+        googleLogin,
         register,
         logout,
     };
