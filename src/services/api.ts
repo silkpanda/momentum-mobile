@@ -29,7 +29,10 @@ const getBaseUrl = () => {
     // return 'http://localhost:8000/mobile-bff';
 
     // Production BFF on Render
-    return 'https://momentum-mobile-bff.onrender.com/mobile-bff';
+    // return 'https://momentum-mobile-bff.onrender.com/mobile-bff';
+
+    // Direct Core API (Bypassing BFF to debug rate limits)
+    return 'https://momentum-api.onrender.com/api/v1';
 };
 
 const API_BASE_URL = getBaseUrl();
@@ -185,9 +188,12 @@ class ApiClient {
     async completeOnboarding(data: {
         userId: string;
         householdId: string;
+        householdName?: string;
         displayName: string;
         profileColor: string;
+        pin: string;
         calendarChoice?: 'sync' | 'create';
+        selectedCalendarId?: string;
     }): Promise<ApiResponse<{ user: User; household: any }>> {
         return this.request<{ user: User; household: any }>('/auth/onboarding/complete', {
             method: 'POST',
@@ -725,6 +731,10 @@ class ApiClient {
 
     async getGoogleCalendarEvents(): Promise<ApiResponse<any[]>> {
         return this.request<any[]>('/calendar/google/events');
+    }
+
+    async listGoogleCalendars(): Promise<ApiResponse<{ calendars: any[] }>> {
+        return this.request<{ calendars: any[] }>('/calendar/google/list');
     }
 }
 

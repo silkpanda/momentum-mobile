@@ -9,7 +9,10 @@ import {
     Platform,
     ScrollView,
     ActivityIndicator,
+    Alert,
 } from 'react-native';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import Constants from 'expo-constants';
 import { Mail, Lock, AlertTriangle, CheckCircle, LogIn } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
@@ -26,7 +29,7 @@ interface Props {
 }
 
 export default function LoginScreen({ navigation }: Props) {
-    const { login } = useAuth();
+    const { login, googleLogin } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [isLoading, setIsLoading] = useState(false);
@@ -49,6 +52,44 @@ export default function LoginScreen({ navigation }: Props) {
             // Navigation is handled by auth state, but we can show success briefly
         } catch (err: any) {
             setError(err.message || 'Login failed. Please check your credentials.');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const handleGoogleLogin = async () => {
+        if (Constants.appOwnership === 'expo') {
+            Alert.alert('Not Supported', 'Google Sign-In is not supported in Expo Go. Please use a development build.');
+            return;
+        }
+
+        setIsLoading(true);
+        try {
+            await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+            // Force account selection by revoking access and signing out
+            try {
+                await GoogleSignin.revokeAccess();
+                await GoogleSignin.signOut();
+            } catch (error) {
+                // Ignore error if already signed out or no access to revoke
+                console.log('Sign out/revoke error (expected if not logged in):', error);
+            }
+
+            const userInfo = await GoogleSignin.signIn();
+
+            if (userInfo.data?.idToken) {
+                // Pass serverAuthCode to allow backend to get refresh tokens
+                await googleLogin(userInfo.data.idToken, userInfo.data.serverAuthCode || undefined);
+                setSuccess(true);
+            } else {
+                throw new Error('No ID token received from Google');
+            }
+        } catch (error: any) {
+            console.error('Google Sign-In error:', error);
+            if (error.code !== 'SIGN_IN_CANCELLED') {
+                Alert.alert('Error', 'Failed to sign in with Google');
+            }
         } finally {
             setIsLoading(false);
         }
@@ -78,6 +119,23 @@ export default function LoginScreen({ navigation }: Props) {
                     <Text style={[textStyles.displayMedium, { color: theme.colors.textPrimary, textAlign: 'center', marginBottom: 24 }]}>
                         Welcome Back
                     </Text>
+
+                    {/* Google Login Button */}
+                    <TouchableOpacity
+                        style={[styles.googleButton, { backgroundColor: '#FFFFFF', borderColor: theme.colors.borderSubtle }]}
+                        onPress={handleGoogleLogin}
+                        disabled={isLoading || success}
+                    >
+                        <Text style={[styles.googleButtonText, { color: '#000000' }]}>
+                            Sign in with Google
+                        </Text>
+                    </TouchableOpacity>
+
+                    <View style={styles.divider}>
+                        <View style={[styles.line, { backgroundColor: theme.colors.borderSubtle }]} />
+                        <Text style={[styles.dividerText, { color: theme.colors.textSecondary }]}>OR</Text>
+                        <View style={[styles.line, { backgroundColor: theme.colors.borderSubtle }]} />
+                    </View>
 
                     {/* Status Indicators */}
                     {error && (
@@ -206,6 +264,38 @@ const styles = StyleSheet.create({
     linkButton: {
         marginTop: 16,
         alignItems: 'center',
+    },
+    googleButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 16,
+        borderRadius: 12,
+        borderWidth: 1,
+        marginBottom: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    googleButtonText: {
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    divider: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 24,
+    },
+    line: {
+        flex: 1,
+        height: 1,
+    },
+    dividerText: {
+        marginHorizontal: 16,
+        fontSize: 14,
+        fontWeight: '500',
     },
 });
 

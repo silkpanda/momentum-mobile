@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { View, Text, Modal, TouchableOpacity, TextInput, StyleSheet, ActivityIndicator, ScrollView, Alert } from 'react-native';
-import { X, Check, UserPlus, Link } from 'lucide-react-native';
+import { X, Check, UserPlus, Link, Calendar } from 'lucide-react-native';
 import { api } from '../../services/api';
 import { useTheme } from '../../contexts/ThemeContext';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface CreateMemberModalProps {
     visible: boolean;
@@ -27,12 +28,55 @@ const PROFILE_COLORS = [
 
 export default function CreateMemberModal({ visible, onClose, onSuccess, householdId, usedColors = [] }: CreateMemberModalProps) {
     const { currentTheme: theme } = useTheme();
+    const { user } = useAuth();
     const [mode, setMode] = useState<'create' | 'link'>('create');
     const [firstName, setFirstName] = useState('');
     const [role, setRole] = useState<'Parent' | 'Child'>('Child');
     const [selectedColor, setSelectedColor] = useState<string>(PROFILE_COLORS[0].hex);
     const [linkCode, setLinkCode] = useState('');
     const [loading, setLoading] = useState(false);
+
+    // Calendar Integration State
+    const [useGoogleCalendar, setUseGoogleCalendar] = useState(false);
+    const [calendarAction, setCalendarAction] = useState<'create' | 'sync'>('create');
+    const [calendars, setCalendars] = useState<any[]>([]);
+    const [selectedCalendarId, setSelectedCalendarId] = useState<string>('');
+    const [loadingCalendars, setLoadingCalendars] = useState(false);
+
+    React.useEffect(() => {
+        if (useGoogleCalendar && calendarAction === 'sync' && calendars.length === 0) {
+            fetchCalendars();
+        }
+    }, [useGoogleCalendar, calendarAction]);
+
+    const fetchCalendars = async () => {
+        setLoadingCalendars(true);
+        try {
+            const res = await api.listGoogleCalendars();
+            if (res.data?.calendars) {
+                setCalendars(res.data.calendars);
+                if (res.data.calendars.length > 0 && !selectedCalendarId) {
+                    setSelectedCalendarId(res.data.calendars[0].id);
+                }
+            }
+        } catch (err: any) {
+            console.error(err);
+            const errorMessage = err.message || '';
+            if (errorMessage.includes('Calendar access expired') || errorMessage.includes('reconnect')) {
+                Alert.alert(
+                    'Calendar Access Expired',
+                    'Your Google Calendar connection has expired. Please log out and log back in with Google to reconnect.',
+                    [{ text: 'OK', onPress: () => setUseGoogleCalendar(false) }]
+                );
+            } else {
+                Alert.alert('Error', 'Failed to load calendars');
+            }
+            setUseGoogleCalendar(false);
+        } finally {
+            setLoadingCalendars(false);
+        }
+    };
+
 
     const handleSubmit = async () => {
         if (!firstName.trim()) {
@@ -43,13 +87,22 @@ export default function CreateMemberModal({ visible, onClose, onSuccess, househo
         setLoading(true);
         try {
             if (mode === 'create') {
-                await api.createMember({
+                const memberData: any = {
                     householdId,
                     firstName: firstName.trim(),
                     displayName: firstName.trim(),
                     role,
                     profileColor: selectedColor,
-                });
+                };
+
+                if (useGoogleCalendar) {
+                    memberData.calendarOption = {
+                        type: calendarAction,
+                        calendarId: calendarAction === 'sync' ? selectedCalendarId : undefined,
+                    };
+                }
+
+                await api.createMember(memberData);
             } else {
                 if (!linkCode.trim()) {
                     throw new Error('Please enter a link code');
@@ -63,6 +116,7 @@ export default function CreateMemberModal({ visible, onClose, onSuccess, househo
             setLinkCode('');
             setSelectedColor(PROFILE_COLORS[0].hex);
             setMode('create');
+            setUseGoogleCalendar(false);
 
             onSuccess();
             onClose();
@@ -195,6 +249,116 @@ export default function CreateMemberModal({ visible, onClose, onSuccess, househo
                                         ]}>Parent</Text>
                                     </TouchableOpacity>
                                 </View>
+                                {role === 'Child' && (
+                                    <Text style={[styles.helperText, { color: theme.colors.textTertiary, marginTop: 8 }]}>
+                                        Children will set their secure PIN when they first log in.
+                                    </Text>
+                                )}
+                            </View>
+                        )}
+
+                        {/* Google Calendar Integration - Only if user has Google Auth */}
+                        {mode === 'create' && (user as any)?.googleId && (
+                            <View style={styles.formGroup}>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <Calendar size={20} color={theme.colors.textSecondary} />
+                                        <Text style={[styles.label, { color: theme.colors.textSecondary, marginBottom: 0 }]}>
+                                            Google Calendar
+                                        </Text>
+                                    </View>
+                                    <TouchableOpacity
+                                        onPress={() => setUseGoogleCalendar(!useGoogleCalendar)}
+                                        style={{
+                                            width: 44,
+                                            height: 24,
+                                            borderRadius: 12,
+                                            backgroundColor: useGoogleCalendar ? theme.colors.actionPrimary : theme.colors.bgSurface,
+                                            borderWidth: 1,
+                                            borderColor: useGoogleCalendar ? theme.colors.actionPrimary : theme.colors.borderSubtle,
+                                            justifyContent: 'center',
+                                            padding: 2,
+                                            alignItems: useGoogleCalendar ? 'flex-end' : 'flex-start'
+                                        }}
+                                    >
+                                        <View style={{
+                                            width: 20,
+                                            height: 20,
+                                            borderRadius: 10,
+                                            backgroundColor: useGoogleCalendar ? '#FFF' : theme.colors.textTertiary
+                                        }} />
+                                    </TouchableOpacity>
+                                </View>
+
+                                {useGoogleCalendar && (
+                                    <View style={{ gap: 12, paddingLeft: 8, borderLeftWidth: 2, borderLeftColor: theme.colors.borderSubtle }}>
+                                        <Text style={[styles.helperText, { color: theme.colors.textSecondary, marginTop: 0 }]}>
+                                            Automatically manage this member's schedule in your Google Calendar.
+                                        </Text>
+
+                                        <View style={{ flexDirection: 'row', gap: 12 }}>
+                                            <TouchableOpacity
+                                                onPress={() => setCalendarAction('create')}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    opacity: calendarAction === 'create' ? 1 : 0.6
+                                                }}
+                                            >
+                                                <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: theme.colors.actionPrimary, alignItems: 'center', justifyContent: 'center' }}>
+                                                    {calendarAction === 'create' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.actionPrimary }} />}
+                                                </View>
+                                                <Text style={{ color: theme.colors.textPrimary }}>Create New Calendar</Text>
+                                            </TouchableOpacity>
+
+                                            <TouchableOpacity
+                                                onPress={() => setCalendarAction('sync')}
+                                                style={{
+                                                    flexDirection: 'row',
+                                                    alignItems: 'center',
+                                                    gap: 6,
+                                                    opacity: calendarAction === 'sync' ? 1 : 0.6
+                                                }}
+                                            >
+                                                <View style={{ width: 16, height: 16, borderRadius: 8, borderWidth: 2, borderColor: theme.colors.actionPrimary, alignItems: 'center', justifyContent: 'center' }}>
+                                                    {calendarAction === 'sync' && <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: theme.colors.actionPrimary }} />}
+                                                </View>
+                                                <Text style={{ color: theme.colors.textPrimary }}>Sync Existing</Text>
+                                            </TouchableOpacity>
+                                        </View>
+
+                                        {calendarAction === 'sync' && (
+                                            <View style={{ marginTop: 8 }}>
+                                                {loadingCalendars ? (
+                                                    <ActivityIndicator size="small" color={theme.colors.actionPrimary} />
+                                                ) : (
+                                                    <ScrollView style={{ maxHeight: 150, borderWidth: 1, borderColor: theme.colors.borderSubtle, borderRadius: 8 }}>
+                                                        {calendars.map(cal => (
+                                                            <TouchableOpacity
+                                                                key={cal.id}
+                                                                onPress={() => setSelectedCalendarId(cal.id)}
+                                                                style={{
+                                                                    padding: 12,
+                                                                    backgroundColor: selectedCalendarId === cal.id ? theme.colors.bgSurface : 'transparent',
+                                                                    flexDirection: 'row',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'space-between'
+                                                                }}
+                                                            >
+                                                                <Text style={{ color: theme.colors.textPrimary, flex: 1 }} numberOfLines={1}>{cal.summary}</Text>
+                                                                {selectedCalendarId === cal.id && <Check size={16} color={theme.colors.actionPrimary} />}
+                                                            </TouchableOpacity>
+                                                        ))}
+                                                        {calendars.length === 0 && (
+                                                            <Text style={{ padding: 12, color: theme.colors.textTertiary }}>No calendars found</Text>
+                                                        )}
+                                                    </ScrollView>
+                                                )}
+                                            </View>
+                                        )}
+                                    </View>
+                                )}
                             </View>
                         )}
 

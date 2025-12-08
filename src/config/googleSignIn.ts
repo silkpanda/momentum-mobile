@@ -20,6 +20,7 @@ export const configureGoogleSignIn = () => {
 
             // Scopes for Google Calendar access
             scopes: [
+                'https://www.googleapis.com/auth/calendar',
                 'https://www.googleapis.com/auth/calendar.readonly',
                 'https://www.googleapis.com/auth/calendar.events.readonly',
             ],

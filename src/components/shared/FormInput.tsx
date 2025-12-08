@@ -37,6 +37,7 @@ export default function FormInput({ label, icon: Icon, error, style, ...props }:
 const styles = StyleSheet.create({
     container: {
         marginBottom: 16,
+        width: '100%',
     },
     label: {
         fontSize: 14,
@@ -48,16 +49,19 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderRadius: 8,
-        paddingHorizontal: 12,
-        height: 50,
+        paddingHorizontal: 4,
+        height: 56,
     },
     icon: {
+        marginLeft: 12,
         marginRight: 12,
     },
     input: {
         flex: 1,
         height: '100%',
-        fontSize: 16,
+        fontSize: 18,
+        paddingHorizontal: 12,
+        paddingVertical: 0,
     },
     errorText: {
         fontSize: 12,

@@ -29,13 +29,23 @@ export default function SignupOptionsScreen({ navigation }: Props) {
         setIsLoading(true);
         try {
             await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
+
+            // Force account selection by revoking access and signing out
+            try {
+                await GoogleSignin.revokeAccess();
+                await GoogleSignin.signOut();
+            } catch (error) {
+                // Ignore error if already signed out or no access to revoke
+                console.log('Sign out/revoke error (expected if not logged in):', error);
+            }
+
             const userInfo = await GoogleSignin.signIn();
             const tokens = await GoogleSignin.getTokens();
 
             if (userInfo.data?.idToken) {
                 // This will handle the login/signup on the backend
                 // and update the auth state
-                await googleLogin(userInfo.data.idToken);
+                await googleLogin(userInfo.data.idToken, userInfo.data.serverAuthCode || undefined);
 
                 // Navigation to Onboarding is handled by the AuthContext/AppNavigator 
                 // based on whether the user is new or has completed onboarding.
@@ -99,7 +109,7 @@ export default function SignupOptionsScreen({ navigation }: Props) {
 
                 {/* Login Link */}
                 <View style={styles.footer}>
-                    <Text style={[textStyles.bodyMedium, { color: theme.colors.textSecondary }]}>
+                    <Text style={[textStyles.body, { color: theme.colors.textSecondary }]}>
                         Already have an account?
                     </Text>
                     <TouchableOpacity onPress={() => navigation.navigate('Login')}>

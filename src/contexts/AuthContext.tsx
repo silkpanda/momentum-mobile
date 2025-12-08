@@ -11,9 +11,10 @@ interface AuthContextType {
     isLoading: boolean;
     isAuthenticated: boolean;
     login: (email: string, password: string) => Promise<void>;
-    googleLogin: (idToken: string) => Promise<void>;
+    googleLogin: (idToken: string, serverAuthCode?: string) => Promise<void>;
     register: (userData: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
+    refreshUser: () => Promise<void>;
 }
 
 interface RegisterData {
@@ -43,6 +44,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const loadStoredAuth = async () => {
         logger.debug('loadStoredAuth called');
+        // DEBUG: Clear auth on every launch to force login
+        await storage.clearAll();
+
         try {
             const [storedToken, storedUser, storedHouseholdId] = await Promise.all([
                 storage.getToken(),
@@ -81,6 +85,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                         error.message.includes('401') ||
                         error.message.includes('Unauthorized') ||
                         error.message.includes('Invalid token') ||
+                        error.message.includes('no longer exists') || // Catch "The user belonging to this token no longer exists."
+                        error.message.includes('expired') || // Catch "Your token has expired! Please log in again."
                         error.message.includes('Something went wrong on the server') // Catch the 500 from expired token
                     )) {
                         logger.warn('Auth error detected (or expired token 500), clearing credentials');
@@ -130,9 +136,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
-    const googleLogin = async (idToken: string) => {
+    const googleLogin = async (idToken: string, serverAuthCode?: string) => {
         try {
-            const response = await api.googleLogin(idToken);
+            const response = await api.googleLogin(idToken, serverAuthCode);
 
             if (response.token && response.data) {
                 const newToken = response.token;
@@ -197,6 +203,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await clearAuth();
     };
 
+    const refreshUser = async () => {
+        try {
+            const response = await api.getMe();
+            if (response.data) {
+                setUser(response.data.user);
+                setHouseholdId(response.data.householdId);
+                await storage.setUser(response.data.user);
+                await storage.setHouseholdId(response.data.householdId);
+            }
+        } catch (error) {
+            console.error('Failed to refresh user:', error);
+        }
+    };
+
     const value: AuthContextType = {
         user,
         householdId,
@@ -207,6 +227,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         googleLogin,
         register,
         logout,
+        refreshUser,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

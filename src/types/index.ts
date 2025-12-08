@@ -7,6 +7,7 @@ export interface User {
     role: 'Parent' | 'Child';
     householdId?: string;
     profileColor?: string;
+    onboardingCompleted?: boolean;
 }
 
 export interface Member {
