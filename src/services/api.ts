@@ -32,7 +32,7 @@ const getBaseUrl = () => {
     // return 'https://momentum-mobile-bff.onrender.com/mobile-bff';
 
     // Direct Core API (Bypassing BFF to debug rate limits)
-    return 'https://momentum-api.onrender.com/api/v1';
+    return 'https://momentum-api-vpkw.onrender.com/api/v1';
 };
 
 const API_BASE_URL = getBaseUrl();
