@@ -56,39 +56,34 @@ export const useCalendar = () => {
 
         // 2. Fetch Google Events
         try {
-            const response = await api.getGoogleCalendarEvents();
-            if (response && Array.isArray(response)) {
-                // Handle direct array response (from backend controller)
-                const googleEvents = response.map((evt: any) => ({
-                    id: evt.id,
-                    title: evt.summary || 'No Title',
-                    startDate: evt.start.dateTime || evt.start.date,
-                    endDate: evt.end.dateTime || evt.end.date,
-                    allDay: !evt.start.dateTime,
-                    location: evt.location,
-                    notes: evt.description,
-                    calendarId: 'google-primary',
-                    color: '#4285F4', // Google Blue,
-                }));
-                allEvents.push(...googleEvents);
-            } else if (response.data && Array.isArray(response.data)) {
-                // Handle ApiResponse wrapper
-                const googleEvents = response.data.map((evt: any) => ({
-                    id: evt.id,
-                    title: evt.summary || 'No Title',
-                    startDate: evt.start.dateTime || evt.start.date,
-                    endDate: evt.end.dateTime || evt.end.date,
-                    allDay: !evt.start.dateTime,
-                    location: evt.location,
-                    notes: evt.description,
-                    calendarId: 'google-primary',
-                    color: '#4285F4', // Google Blue,
-                }));
-                allEvents.push(...googleEvents);
+            const response: any = await api.getGoogleCalendarEvents();
+
+            // The API returns: { status: 'success', data: { events: [...] } }
+            let googleEventsData: any[] = [];
+
+            if (response?.data?.events && Array.isArray(response.data.events)) {
+                googleEventsData = response.data.events;
+            } else if (Array.isArray(response)) {
+                // Fallback for direct array response
+                googleEventsData = response;
             }
+
+            const googleEvents = googleEventsData.map((evt: any) => ({
+                id: evt.id,
+                title: evt.summary || 'No Title',
+                startDate: evt.start.dateTime || evt.start.date,
+                endDate: evt.end.dateTime || evt.end.date,
+                allDay: !evt.start.dateTime,
+                location: evt.location,
+                notes: evt.description,
+                calendarId: 'google-primary',
+                color: evt.color || '#4285F4', // Use color from API, fallback to Google Blue
+            }));
+
+            allEvents.push(...googleEvents);
         } catch (error) {
             // Silent fail for now - user might not be connected
-            console.log('Google Calendar fetch skipped/failed');
+            console.log('Google Calendar fetch skipped/failed:', error);
         }
 
         // Sort by date
@@ -98,6 +93,27 @@ export const useCalendar = () => {
         setIsLoading(false);
     }, [selectedCalendarIds]);
 
+    // Optimistically add an event to the UI before server confirmation
+    const addOptimisticEvent = useCallback((event: Partial<CalendarEvent>) => {
+        const optimisticEvent: CalendarEvent = {
+            id: `temp-${Date.now()}`, // Temporary ID
+            title: event.title || 'New Event',
+            startDate: event.startDate || new Date().toISOString(),
+            endDate: event.endDate || new Date().toISOString(),
+            allDay: event.allDay || false,
+            location: event.location || undefined,
+            notes: event.notes || undefined,
+            calendarId: 'google-primary',
+            color: '#4285F4',
+        };
+
+        setEvents(prev => [...prev, optimisticEvent].sort((a, b) =>
+            new Date(a.startDate).getTime() - new Date(b.startDate).getTime()
+        ));
+
+        return optimisticEvent.id;
+    }, []);
+
     return {
         events,
         calendars,
@@ -105,6 +121,7 @@ export const useCalendar = () => {
         isLoading,
         refreshCalendars,
         refreshEvents,
-        toggleCalendar
+        toggleCalendar,
+        addOptimisticEvent,
     };
 };

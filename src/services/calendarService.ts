@@ -1,6 +1,7 @@
 import * as Calendar from 'expo-calendar';
 import { Platform } from 'react-native';
 import { logger } from '../utils/logger';
+import { api } from './api';
 
 export interface CalendarEvent {
     id: string;
@@ -56,6 +57,27 @@ class CalendarService {
         } catch (error) {
             logger.error('Error fetching calendars:', error);
             return [];
+        }
+    }
+
+    /**
+     * Create an event explicitly on the user's Google Calendar via our Backend API.
+     * This ensures it syncs across devices and is visible in Momentum.
+     */
+    async createGoogleEvent(eventDetails: {
+        title: string;
+        startDate: Date;
+        endDate: Date;
+        allDay?: boolean;
+        location?: string;
+        notes?: string;
+    }): Promise<string> {
+        try {
+            const response = await api.post<{ id: string }>('/calendar/google/events', eventDetails);
+            return response.data?.id || 'unknown-id';
+        } catch (error) {
+            logger.error('Error creating Google event:', error);
+            throw error;
         }
     }
 

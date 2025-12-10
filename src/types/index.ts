@@ -137,6 +137,28 @@ export interface WishlistItem {
     canAfford?: boolean;
 }
 
+export interface Event {
+    id: string;
+    _id?: string;
+    householdId: string;
+    title: string;
+    description?: string;
+    location?: string;
+    videoLink?: string;
+    startDate: string; // ISO date string
+    endDate: string; // ISO date string
+    allDay: boolean;
+    attendees: string[]; // Array of member IDs
+    isRecurring: boolean;
+    recurrenceType?: 'daily' | 'weekly' | 'monthly';
+    reminderMinutes?: number;
+    googleEventId?: string; // ID in Google Calendar
+    calendarType: 'personal' | 'family'; // Which calendar it's synced to
+    createdBy: string; // Member ID
+    createdAt?: string;
+    updatedAt?: string;
+}
+
 export interface Household {
     id: string;
     _id?: string;
@@ -148,6 +170,12 @@ export interface Household {
 export interface DashboardData {
     household: Household;
     tasks: Task[];
+    quests?: Quest[];
+    storeItems?: StoreItem[];
+    meals?: Meal[];
+    restaurants?: Restaurant[];
+    routines?: Routine[];
+    wishlistItems?: WishlistItem[];
     pendingApprovals?: number;
 }
 

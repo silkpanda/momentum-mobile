@@ -148,10 +148,6 @@ export default function BentoCommandCenter() {
                         <Text style={[styles.widgetSubtext, { color: theme.colors.textSecondary, marginTop: 4 }]}>
                             View and manage the family schedule.
                         </Text>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 12 }}>
-                            <Text style={{ color: theme.colors.actionPrimary, fontWeight: '600' }}>Open Calendar</Text>
-                            <ArrowRight size={16} color={theme.colors.actionPrimary} style={{ marginLeft: 4 }} />
-                        </View>
                     </TouchableOpacity>
 
                     {/* Task Master Widget - Tall */}

@@ -11,7 +11,10 @@ export default function MealCard({ todaysMeal }: MealCardProps) {
     const { currentTheme: theme } = useTheme();
 
     return (
-        <View style={[styles.mealCard, { backgroundColor: theme.colors.bgSurface }]}>
+        <TouchableOpacity
+            style={[styles.mealCard, { backgroundColor: theme.colors.bgSurface }]}
+            activeOpacity={0.7}
+        >
             <View style={styles.mealHeader}>
                 <Utensils size={24} color={theme.colors.signalSuccess} />
                 <Text style={[styles.cardTitle, { color: theme.colors.textPrimary }]}>Today's Menu</Text>
@@ -24,10 +27,7 @@ export default function MealCard({ todaysMeal }: MealCardProps) {
                     {todaysMeal?.side || ''}
                 </Text>
             </View>
-            <TouchableOpacity style={styles.rateMealButton}>
-                <Text style={[styles.rateMealText, { color: theme.colors.actionPrimary }]}>Rate Meal</Text>
-            </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
     );
 }
 
@@ -61,13 +61,5 @@ const styles = StyleSheet.create({
     },
     mealSide: {
         fontSize: 16,
-    },
-    rateMealButton: {
-        alignSelf: 'flex-start',
-        marginTop: 8,
-    },
-    rateMealText: {
-        fontSize: 16,
-        fontWeight: '600',
     },
 });

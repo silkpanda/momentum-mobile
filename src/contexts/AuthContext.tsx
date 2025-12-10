@@ -15,6 +15,7 @@ interface AuthContextType {
     register: (userData: RegisterData) => Promise<void>;
     logout: () => Promise<void>;
     refreshUser: () => Promise<void>;
+    updateAuthState: (newToken: string, newUser: User, newHouseholdId: string) => Promise<void>;
 }
 
 interface RegisterData {
@@ -44,8 +45,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const loadStoredAuth = async () => {
         logger.debug('loadStoredAuth called');
-        // DEBUG: Clear auth on every launch to force login
-        await storage.clearAll();
 
         try {
             const [storedToken, storedUser, storedHouseholdId] = await Promise.all([
@@ -217,6 +216,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
     };
 
+    const updateAuthState = async (newToken: string, newUser: User, newHouseholdId: string) => {
+        await Promise.all([
+            storage.setToken(newToken),
+            storage.setUser(newUser),
+            storage.setHouseholdId(newHouseholdId),
+        ]);
+        setToken(newToken);
+        setUser(newUser);
+        setHouseholdId(newHouseholdId);
+    };
+
     const value: AuthContextType = {
         user,
         householdId,
@@ -228,6 +238,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         register,
         logout,
         refreshUser,
+        updateAuthState,
     };
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -150,18 +150,56 @@ class ApiClient {
         });
     }
 
+    /**
+     * Wake up the API by pinging the health endpoint
+     * This is useful before critical operations to avoid cold-start failures
+     */
+    async wakeUpApi(): Promise<boolean> {
+        try {
+            logger.info('Waking up API...');
+            const healthUrl = API_BASE_URL.replace('/mobile-bff', '/health');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+            const response = await fetch(healthUrl, {
+                method: 'GET',
+                signal: controller.signal,
+            });
+
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                logger.info('API is awake and ready');
+                return true;
+            }
+
+            logger.warn('API health check returned non-OK status');
+            return false;
+        } catch (error) {
+            logger.warn('API wake-up failed, but continuing anyway:', error);
+            return false; // Don't block the request, just log
+        }
+    }
+
     // Auth endpoints
     async login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
+        // Wake up the API first to avoid cold-start login failures
+        await this.wakeUpApi();
+
         return this.request<LoginResponse>('/auth/login', {
             method: 'POST',
             body: JSON.stringify({ email, password }),
         });
     }
 
-    async googleLogin(idToken: string): Promise<ApiResponse<LoginResponse>> {
+    async googleLogin(idToken: string, serverAuthCode?: string): Promise<ApiResponse<LoginResponse>> {
+        // Wake up the API first to avoid cold-start login failures
+        await this.wakeUpApi();
+
         return this.request<LoginResponse>('/auth/google', {
             method: 'POST',
-            body: JSON.stringify({ idToken }),
+            body: JSON.stringify({ idToken, serverAuthCode }),
         });
     }
 

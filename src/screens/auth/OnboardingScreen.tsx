@@ -20,18 +20,24 @@ interface Props {
 
 export default function OnboardingScreen({ navigation }: Props) {
     const { currentTheme: theme } = useTheme();
-    const { user, refreshUser } = useAuth();
-    const [step, setStep] = useState<'calendar' | 'calendar_select' | 'profile'>('calendar');
+    const { user, refreshUser, updateAuthState } = useAuth();
+    const [step, setStep] = useState<'calendar' | 'calendar_select' | 'family_calendar' | 'family_calendar_select' | 'profile'>('calendar');
     const [isLoading, setIsLoading] = useState(false);
 
-    // Calendar step state
+    // Personal Calendar step state
     const [calendarChoice, setCalendarChoice] = useState<'sync' | 'create' | null>(null);
     const [calendars, setCalendars] = useState<any[]>([]);
     const [selectedCalendarId, setSelectedCalendarId] = useState<string | null>(null);
 
+    // Family Calendar step state
+    const [familyCalendarChoice, setFamilyCalendarChoice] = useState<'sync' | 'create' | null>(null);
+    const [familyCalendars, setFamilyCalendars] = useState<any[]>([]);
+    const [selectedFamilyCalendarId, setSelectedFamilyCalendarId] = useState<string | null>(null);
+
     // Profile step state
     const [displayName, setDisplayName] = useState(user?.firstName || '');
     const [selectedColor, setSelectedColor] = useState(PROFILE_COLORS[0].hex);
+    const [familyColor, setFamilyColor] = useState(PROFILE_COLORS[4].hex); // Default to a different color
     const [pin, setPin] = useState('');
     const [householdName, setHouseholdName] = useState('');
 
@@ -115,15 +121,15 @@ export default function OnboardingScreen({ navigation }: Props) {
                     } else {
                         Alert.alert('Notice', 'No calendars found. Creating a new one instead.');
                         setCalendarChoice('create');
-                        setStep('profile');
+                        setStep('family_calendar');
                     }
                 } else {
                     console.warn('No serverAuthCode received from Google Sign-In');
-                    // Fallback to profile if we can't get calendar access
+                    // Fallback to family calendar if we can't get calendar access
                     Alert.alert(
                         'Calendar Access',
                         'We couldn\'t verify calendar permissions. You can set this up later in Settings.',
-                        [{ text: 'Continue to Profile', onPress: () => setStep('profile') }]
+                        [{ text: 'Continue', onPress: () => setStep('family_calendar') }]
                     );
                 }
 
@@ -138,14 +144,50 @@ export default function OnboardingScreen({ navigation }: Props) {
                 setIsLoading(false);
             }
         } else {
-            // Create selected - go straight to profile
-            setStep('profile');
+            // Create selected - go to family calendar
+            setStep('family_calendar');
         }
     };
 
     const handleCalendarSelection = () => {
         if (!selectedCalendarId) {
             Alert.alert('Select a Calendar', 'Please select a calendar to sync.');
+            return;
+        }
+        setStep('family_calendar');
+    };
+
+    const handleFamilyCalendarChoice = async (choice: 'sync' | 'create') => {
+        setFamilyCalendarChoice(choice);
+
+        if (choice === 'sync') {
+            // Reuse the same calendar list (family can pick from same Google account)
+            setIsLoading(true);
+            try {
+                const response = await api.listGoogleCalendars();
+                if (response.data && response.data.calendars) {
+                    setFamilyCalendars(response.data.calendars);
+                    setStep('family_calendar_select');
+                } else {
+                    Alert.alert('Notice', 'No calendars found. Creating a new one instead.');
+                    setFamilyCalendarChoice('create');
+                    setStep('profile');
+                }
+            } catch (error) {
+                console.error('Family calendar list error:', error);
+                Alert.alert('Error', 'Failed to load calendars. Please try again.');
+            } finally {
+                setIsLoading(false);
+            }
+        } else {
+            // Create selected - go to profile
+            setStep('profile');
+        }
+    };
+
+    const handleFamilyCalendarSelection = () => {
+        if (!selectedFamilyCalendarId) {
+            Alert.alert('Select a Calendar', 'Please select a family calendar to sync.');
             return;
         }
         setStep('profile');
@@ -181,9 +223,12 @@ export default function OnboardingScreen({ navigation }: Props) {
                 householdName: householdName.trim() || undefined,
                 displayName: displayName.trim(),
                 profileColor: selectedColor,
+                familyColor: familyColor, // NEW
                 pin: pin,
                 calendarChoice: calendarChoice || undefined,
                 selectedCalendarId: selectedCalendarId || undefined,
+                familyCalendarChoice: familyCalendarChoice || undefined, // NEW
+                selectedFamilyCalendarId: selectedFamilyCalendarId || undefined, // NEW
             };
 
             console.log('[Onboarding] Data being sent:', {
@@ -199,8 +244,18 @@ export default function OnboardingScreen({ navigation }: Props) {
             const response = await api.completeOnboarding(onboardingData);
 
             if (response.data) {
-                // Onboarding complete! Refresh user to update state and navigate
-                await refreshUser();
+                // Onboarding complete!
+                // If we got a new token (which we should for household changes), update auth state immediately
+                if ((response as any).token) {
+                    console.log('[Onboarding] Updating auth state with new token');
+                    await updateAuthState(
+                        (response as any).token,
+                        response.data.user,
+                        response.data.household._id || response.data.household.id
+                    );
+                } else {
+                    await refreshUser();
+                }
                 Alert.alert('Success', 'Welcome to Momentum!');
             }
         } catch (error: any) {
@@ -232,7 +287,9 @@ export default function OnboardingScreen({ navigation }: Props) {
                 <View style={styles.progressContainer}>
                     <View style={styles.progressDots}>
                         <View style={[styles.dot, { backgroundColor: theme.colors.actionPrimary }]} />
-                        <View style={[styles.dot, { backgroundColor: (step === 'calendar_select' || step === 'profile') ? theme.colors.actionPrimary : theme.colors.borderSubtle }]} />
+                        <View style={[styles.dot, { backgroundColor: (step === 'calendar_select' || step === 'family_calendar' || step === 'family_calendar_select' || step === 'profile') ? theme.colors.actionPrimary : theme.colors.borderSubtle }]} />
+                        <View style={[styles.dot, { backgroundColor: (step === 'family_calendar' || step === 'family_calendar_select' || step === 'profile') ? theme.colors.actionPrimary : theme.colors.borderSubtle }]} />
+                        <View style={[styles.dot, { backgroundColor: (step === 'family_calendar_select' || step === 'profile') ? theme.colors.actionPrimary : theme.colors.borderSubtle }]} />
                         <View style={[styles.dot, { backgroundColor: step === 'profile' ? theme.colors.actionPrimary : theme.colors.borderSubtle }]} />
                     </View>
                 </View>
@@ -323,6 +380,92 @@ export default function OnboardingScreen({ navigation }: Props) {
                             <Text style={styles.buttonText}>Continue</Text>
                         </TouchableOpacity>
                     </View>
+                ) : step === 'family_calendar' ? (
+                    <View style={styles.stepContainer}>
+                        <Text style={[styles.stepTitle, { color: theme.colors.textPrimary }]}>
+                            Family Calendar Setup
+                        </Text>
+                        <Text style={[textStyles.body, { color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 32 }]}>
+                            How would you like to manage your family's shared calendar?
+                        </Text>
+
+                        <TouchableOpacity
+                            style={[styles.choiceCard, {
+                                backgroundColor: theme.colors.bgSurface,
+                                borderColor: familyCalendarChoice === 'sync' ? theme.colors.actionPrimary : theme.colors.borderSubtle
+                            }]}
+                            onPress={() => handleFamilyCalendarChoice('sync')}
+                            disabled={isLoading}
+                        >
+                            {isLoading && familyCalendarChoice === 'sync' ? (
+                                <ActivityIndicator color={theme.colors.actionPrimary} />
+                            ) : (
+                                <Calendar size={32} color={theme.colors.actionPrimary} />
+                            )}
+                            <Text style={[styles.choiceTitle, { color: theme.colors.textPrimary }]}>
+                                Sync Existing Calendar
+                            </Text>
+                            <Text style={[styles.choiceDescription, { color: theme.colors.textSecondary }]}>
+                                Use a calendar you already have
+                            </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[styles.choiceCard, {
+                                backgroundColor: theme.colors.bgSurface,
+                                borderColor: familyCalendarChoice === 'create' ? theme.colors.actionPrimary : theme.colors.borderSubtle
+                            }]}
+                            onPress={() => handleFamilyCalendarChoice('create')}
+                            disabled={isLoading}
+                        >
+                            <Plus size={32} color={theme.colors.actionPrimary} />
+                            <Text style={[styles.choiceTitle, { color: theme.colors.textPrimary }]}>
+                                Create New Family Calendar
+                            </Text>
+                            <Text style={[styles.choiceDescription, { color: theme.colors.textSecondary }]}>
+                                Start fresh with a dedicated family calendar
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
+                ) : step === 'family_calendar_select' ? (
+                    <View style={styles.stepContainer}>
+                        <Text style={[styles.stepTitle, { color: theme.colors.textPrimary }]}>
+                            Select Family Calendar
+                        </Text>
+                        <Text style={[textStyles.body, { color: theme.colors.textSecondary, textAlign: 'center', marginBottom: 32 }]}>
+                            Which Google Calendar should be used for family events?
+                        </Text>
+
+                        {familyCalendars.map((cal) => (
+                            <TouchableOpacity
+                                key={cal.id}
+                                style={[styles.calendarOption, {
+                                    backgroundColor: theme.colors.bgSurface,
+                                    borderColor: selectedFamilyCalendarId === cal.id ? theme.colors.actionPrimary : theme.colors.borderSubtle
+                                }]}
+                                onPress={() => setSelectedFamilyCalendarId(cal.id)}
+                            >
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <View style={[styles.radioCircle, {
+                                        borderColor: selectedFamilyCalendarId === cal.id ? theme.colors.actionPrimary : theme.colors.textSecondary
+                                    }]}>
+                                        {selectedFamilyCalendarId === cal.id && <View style={[styles.radioDot, { backgroundColor: theme.colors.actionPrimary }]} />}
+                                    </View>
+                                    <View>
+                                        <Text style={[textStyles.label, { color: theme.colors.textPrimary }]}>{cal.summary}</Text>
+                                        <Text style={[textStyles.caption, { color: theme.colors.textSecondary }]}>{cal.description || 'No description'}</Text>
+                                    </View>
+                                </View>
+                            </TouchableOpacity>
+                        ))}
+
+                        <TouchableOpacity
+                            style={[styles.button, { backgroundColor: theme.colors.actionPrimary }]}
+                            onPress={handleFamilyCalendarSelection}
+                        >
+                            <Text style={styles.buttonText}>Continue</Text>
+                        </TouchableOpacity>
+                    </View>
                 ) : (
                     <View style={styles.stepContainer}>
                         <Text style={[styles.stepTitle, { color: theme.colors.textPrimary }]}>
@@ -380,6 +523,28 @@ export default function OnboardingScreen({ navigation }: Props) {
                                         onPress={() => setSelectedColor(color.hex)}
                                     >
                                         {selectedColor === color.hex && <Check size={16} color="#FFFFFF" />}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+                        </View>
+
+                        <View style={styles.colorPickerContainer}>
+                            <Text style={[styles.label, { color: theme.colors.textSecondary }]}>
+                                Family Color
+                            </Text>
+                            <View style={[styles.colorGrid, { backgroundColor: theme.colors.bgSurface, borderColor: theme.colors.borderSubtle }]}>
+                                {PROFILE_COLORS.map((color) => (
+                                    <TouchableOpacity
+                                        key={color.hex}
+                                        style={[
+                                            styles.colorOption,
+                                            { backgroundColor: color.hex },
+                                            familyColor === color.hex && styles.selectedColorOption,
+                                            familyColor === color.hex && { borderColor: theme.colors.actionPrimary }
+                                        ]}
+                                        onPress={() => setFamilyColor(color.hex)}
+                                    >
+                                        {familyColor === color.hex && <Check size={16} color="#FFFFFF" />}
                                     </TouchableOpacity>
                                 ))}
                             </View>

@@ -12,6 +12,7 @@ interface DataContextType {
     tasks: Task[];
     quests: Quest[];
     members: Member[];
+    household: any; // Added household
     storeItems: StoreItem[];
     meals: Meal[];
     restaurants: Restaurant[];
@@ -39,15 +40,19 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const { on, off } = useSocket();
 
     // All data in one place
+    // State
     const [tasks, setTasks] = useState<Task[]>([]);
     const [quests, setQuests] = useState<Quest[]>([]);
     const [members, setMembers] = useState<Member[]>([]);
+    const [household, setHousehold] = useState<any | null>(null);
     const [storeItems, setStoreItems] = useState<StoreItem[]>([]);
     const [meals, setMeals] = useState<Meal[]>([]);
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [routines, setRoutines] = useState<Routine[]>([]);
     const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
-    const [householdId, setHouseholdId] = useState<string>('');
+
+    // Derived state (backwards compatibility)
+    const householdId = household?.id || household?._id || '';
 
     const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -59,69 +64,45 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 logger.info('🔄 Loading all app data...');
             }
 
-            // Fetch everything in parallel
-            const [
-                tasksRes,
-                questsRes,
-                dashboardRes,
-                storeRes,
-                mealsRes,
-                restaurantsRes,
-                routinesRes,
-            ] = await Promise.all([
-                api.getTasks(),
-                api.getQuests(),
-                api.getDashboardData(),
-                api.getStoreItems(),
-                api.getMeals().catch(() => ({ data: { meals: [] } })), // Optional
-                api.getRestaurants().catch(() => ({ data: { restaurants: [] } })), // Optional
-                api.getAllRoutines().catch(() => ({ data: { routines: [] } })), // Optional
-            ]);
+            // Fetch everything in ONE request
+            const response = await api.getDashboardData();
 
-            // Update all state at once
-            if (tasksRes.data?.tasks) setTasks(tasksRes.data.tasks);
-            if (questsRes.data?.quests) setQuests(questsRes.data.quests);
-            if (storeRes.data?.storeItems) setStoreItems(storeRes.data.storeItems);
-            // API can return either 'recipes' or 'meals'
-            if (mealsRes.data && 'recipes' in mealsRes.data) setMeals(mealsRes.data.recipes);
-            if (restaurantsRes.data?.restaurants) setRestaurants(restaurantsRes.data.restaurants);
-            if (routinesRes.data?.routines) setRoutines(routinesRes.data.routines);
+            if (response.data) {
+                const {
+                    household: fetchedHousehold,
+                    tasks: fetchedTasks,
+                    quests: fetchedQuests,
+                    storeItems: fetchedStoreItems,
+                    meals: fetchedMeals,
+                    restaurants: fetchedRestaurants,
+                    routines: fetchedRoutines,
+                    wishlistItems: fetchedWishlistItems
+                } = response.data;
 
-            if (dashboardRes.data?.household) {
-                const household = dashboardRes.data.household;
-                setHouseholdId(household.id || household._id || '');
+                // Update all state
+                if (fetchedTasks) setTasks(fetchedTasks);
+                if (fetchedQuests) setQuests(fetchedQuests);
+                if (fetchedStoreItems) setStoreItems(fetchedStoreItems);
+                if (fetchedMeals) setMeals(fetchedMeals);
+                if (fetchedRestaurants) setRestaurants(fetchedRestaurants);
+                if (fetchedRoutines) setRoutines(fetchedRoutines);
+                if (fetchedWishlistItems) setWishlistItems(fetchedWishlistItems);
 
-                if (household.members) {
-                    const sanitizedMembers = household.members.map((m: any) => ({
-                        ...m,
-                        id: m.id || m._id
-                    }));
-                    setMembers(sanitizedMembers);
+                if (fetchedHousehold) {
+                    setHousehold(fetchedHousehold);
 
-                    // Fetch all wishlist items for the household in a single call
-                    try {
-                        const wishlistRes = await api.getHouseholdWishlist(household.id || household._id || '');
-                        if (wishlistRes.data?.wishlistItems) {
-                            setWishlistItems(wishlistRes.data.wishlistItems);
-                        } else {
-                            setWishlistItems([]);
-                        }
-                    } catch (error) {
-                        logger.error('Error loading wishlist items:', error);
-                        setWishlistItems([]);
+                    if (fetchedHousehold.members) {
+                        const sanitizedMembers = fetchedHousehold.members.map((m: any) => ({
+                            ...m,
+                            id: m.id || m._id
+                        }));
+                        setMembers(sanitizedMembers);
                     }
                 }
             }
 
             if (!silent) {
-                logger.info('✅ All data loaded successfully', {
-                    tasks: tasksRes.data?.tasks?.length || 0,
-                    quests: questsRes.data?.quests?.length || 0,
-                    members: members.length,
-                    storeItems: storeRes.data?.storeItems?.length || 0,
-                    routines: routinesRes.data?.routines?.length || 0,
-                    wishlistItems: wishlistItems.length,
-                });
+                logger.info('✅ All data loaded successfully (Unified Sync)');
             }
         } catch (error) {
             logger.error('❌ Error loading data:', error);
@@ -229,6 +210,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         tasks,
         quests,
         members,
+        household,
         storeItems,
         meals,
         restaurants,
