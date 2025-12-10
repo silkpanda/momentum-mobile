@@ -189,12 +189,18 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             loadAllData(true);
         };
 
+        const handleHouseholdUpdate = () => {
+            logger.info('📡 Household updated via WebSocket - refreshing members');
+            loadAllData(true); // Reload all data to get fresh member list
+        };
+
         on('taskUpdated', handleTaskUpdate);
         on('questUpdated', handleQuestUpdate);
         on('memberUpdated', handleMemberUpdate);
         on('storeUpdated', handleStoreUpdate);
         on('routine_updated', handleRoutineUpdate);
         on('wishlist_updated', handleWishlistUpdate);
+        on('household_updated', handleHouseholdUpdate);
 
         return () => {
             off('taskUpdated', handleTaskUpdate);
@@ -203,6 +209,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             off('storeUpdated', handleStoreUpdate);
             off('routine_updated', handleRoutineUpdate);
             off('wishlist_updated', handleWishlistUpdate);
+            off('household_updated', handleHouseholdUpdate);
         };
     }, [isAuthenticated, on, off, loadAllData]);
 

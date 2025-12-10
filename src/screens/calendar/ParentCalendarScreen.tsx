@@ -1,21 +1,26 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ScrollView } from 'react-native';
-import { Calendar, DateData } from 'react-native-calendars';
+import { View, Text, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { CalendarProvider, ExpandableCalendar, AgendaList, DateData, CalendarUtils } from 'react-native-calendars';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { ArrowLeft, Plus, Settings } from 'lucide-react-native';
+import { ArrowLeft, Plus, Settings, MapPin, Clock } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useCalendar } from '../../hooks/useCalendar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import CalendarSettingsModal from '../../components/calendar/CalendarSettingsModal';
 import CreateEventModal from '../../components/calendar/CreateEventModal';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 
 export default function ParentCalendarScreen() {
     const { currentTheme: theme } = useTheme();
     const navigation = useNavigation();
     const insets = useSafeAreaInsets();
     const { events, refreshEvents, isLoading } = useCalendar();
-    const [selectedDate, setSelectedDate] = useState(new Date().toISOString().split('T')[0]);
+
+    // Default to today
+    const today = useMemo(() => new Date().toISOString().split('T')[0], []);
+    const [selectedDate, setSelectedDate] = useState(today);
+
+    // Modal states
     const [isSettingsVisible, setIsSettingsVisible] = useState(false);
     const [isCreateModalVisible, setIsCreateModalVisible] = useState(false);
 
@@ -25,18 +30,34 @@ export default function ParentCalendarScreen() {
         }, [refreshEvents])
     );
 
-    // Get events for selected date
-    const selectedDateEvents = useMemo(() => {
-        return events.filter(event => {
+    // Transform events for AgendaList: [{ title: '2023-10-01', data: [...] }]
+    const sectionedEvents = useMemo(() => {
+        if (!events || events.length === 0) return [];
+
+        // 1. Group by date
+        const grouped: { [key: string]: any[] } = {};
+        events.forEach(event => {
             const dateStr = event.startDate instanceof Date
                 ? event.startDate.toISOString()
                 : event.startDate;
             const dateKey = dateStr.split('T')[0];
-            return dateKey === selectedDate;
-        });
-    }, [events, selectedDate]);
 
-    // Create marked dates for calendar
+            if (!grouped[dateKey]) {
+                grouped[dateKey] = [];
+            }
+            grouped[dateKey].push(event);
+        });
+
+        // 2. Sort dates and Create sections
+        const sortedDates = Object.keys(grouped).sort();
+
+        return sortedDates.map(date => ({
+            title: date,
+            data: grouped[date].sort((a, b) => new Date(a.startDate).getTime() - new Date(b.startDate).getTime())
+        }));
+    }, [events]);
+
+    // Marked dates for the calendar dots
     const markedDates = useMemo(() => {
         const marked: { [key: string]: any } = {};
 
@@ -49,64 +70,120 @@ export default function ParentCalendarScreen() {
             if (!marked[dateKey]) {
                 marked[dateKey] = { marked: true, dots: [] };
             }
+
+            // Add a dot for each event (limit to 3 to avoid clutter)
+            if (marked[dateKey].dots.length < 3) {
+                marked[dateKey].dots.push({
+                    color: event.color || theme.colors.actionPrimary
+                });
+            }
         });
 
-        // Mark selected date
-        marked[selectedDate] = {
-            ...marked[selectedDate],
-            selected: true,
-            selectedColor: theme.colors.actionPrimary,
-        };
-
         return marked;
-    }, [events, selectedDate, theme.colors.actionPrimary]);
+    }, [events, theme.colors.actionPrimary]);
 
-    const onDayPress = useCallback((day: DateData) => {
-        setSelectedDate(day.dateString);
+    const onDateChanged = useCallback((date: string, updateSource: string) => {
+        setSelectedDate(date);
     }, []);
 
     const calendarTheme = useMemo(() => ({
         calendarBackground: theme.colors.bgSurface,
-        backgroundColor: theme.colors.bgCanvas,
+        todayTextColor: theme.colors.actionPrimary,
         dayTextColor: theme.colors.textPrimary,
+        textDisabledColor: theme.colors.textSecondary,
         monthTextColor: theme.colors.textPrimary,
-        textSectionTitleColor: theme.colors.textSecondary,
         selectedDayBackgroundColor: theme.colors.actionPrimary,
         selectedDayTextColor: '#ffffff',
-        todayTextColor: theme.colors.actionPrimary,
         dotColor: theme.colors.actionPrimary,
         selectedDotColor: '#ffffff',
-        textDayFontWeight: '400' as const,
-        textMonthFontWeight: 'bold' as const,
-        textDayHeaderFontWeight: '600' as const,
+        arrowColor: theme.colors.actionPrimary,
+        textDayFontFamily: 'Inter_400Regular',
+        textMonthFontFamily: 'Inter_600SemiBold',
+        textDayHeaderFontFamily: 'Inter_500Medium',
+        stylesheet: {
+            calendar: {
+                header: {
+                    dayHeader: {
+                        fontWeight: '600',
+                        color: theme.colors.textSecondary,
+                        fontFamily: 'Inter_500Medium'
+                    }
+                }
+            },
+            expandable: {
+                main: {
+                    container: {
+                        shadowColor: 'transparent', // Remove library default shadow to control it ourselves or keep it clean
+                        elevation: 0
+                    }
+                }
+            }
+        }
     }), [theme]);
 
-    const renderEventItem = useCallback(({ item }: { item: any }) => {
+    const renderSectionHeader = useCallback((section: any) => {
+        const date = parseISO(section);
+        const dateText = format(date, 'EEEE, MMMM d');
+        const isToday = isSameDay(date, new Date());
+
         return (
-            <TouchableOpacity style={[styles.item, { backgroundColor: theme.colors.bgSurface }]}>
-                <View style={[styles.itemColorStrip, { backgroundColor: item.color || theme.colors.actionPrimary }]} />
-                <View style={styles.itemContent}>
-                    <Text style={[styles.itemTitle, { color: theme.colors.textPrimary }]}>{item.title}</Text>
-                    <Text style={[styles.itemTime, { color: theme.colors.textSecondary }]}>
-                        {format(new Date(item.startDate), 'h:mm a')} - {format(new Date(item.endDate), 'h:mm a')}
-                    </Text>
-                    {item.location && (
-                        <Text style={[styles.itemLocation, { color: theme.colors.textSecondary }]}>{item.location}</Text>
-                    )}
+            <View style={[styles.sectionHeaderContainer, { backgroundColor: theme.colors.bgCanvas }]}>
+                <Text style={[
+                    styles.sectionHeaderText,
+                    {
+                        color: isToday ? theme.colors.actionPrimary : theme.colors.textPrimary,
+                        fontFamily: isToday ? 'Inter_600SemiBold' : 'Inter_600SemiBold'
+                    }
+                ]}>
+                    {isToday ? 'Today, ' : ''}{dateText}
+                </Text>
+            </View>
+        );
+    }, [theme]);
+
+    const renderEventItem = useCallback(({ item }: { item: any }) => {
+        const startTime = format(new Date(item.startDate), 'h:mm a');
+        const endTime = format(new Date(item.endDate), 'h:mm a');
+
+        return (
+            <TouchableOpacity
+                style={[styles.itemContainer, { backgroundColor: theme.colors.bgSurface }]}
+                onPress={() => Alert.alert('Event Details', `${item.title}\n${startTime} - ${endTime}`)} // Placeholder until Edit implemented
+            >
+                <View style={styles.timeColumn}>
+                    <Text style={[styles.timeText, { color: theme.colors.textPrimary }]}>{format(new Date(item.startDate), 'h:mm')}</Text>
+                    <Text style={[styles.ampmText, { color: theme.colors.textSecondary }]}>{format(new Date(item.startDate), 'a')}</Text>
+                </View>
+
+                <View style={[styles.eventCard, {
+                    backgroundColor: item.color ? `${item.color}15` : `${theme.colors.actionPrimary}15`, // Light bg
+                    borderLeftColor: item.color || theme.colors.actionPrimary
+                }]}>
+                    <Text style={[styles.eventTitle, { color: theme.colors.textPrimary }]}>{item.title}</Text>
+                    <View style={styles.eventFooter}>
+                        <View style={styles.iconRow}>
+                            <Clock size={12} color={theme.colors.textSecondary} />
+                            <Text style={[styles.subText, { color: theme.colors.textSecondary }]}> {startTime} - {endTime}</Text>
+                        </View>
+                        {item.location && (
+                            <View style={[styles.iconRow, { marginLeft: 12 }]}>
+                                <MapPin size={12} color={theme.colors.textSecondary} />
+                                <Text style={[styles.subText, { color: theme.colors.textSecondary }]}> {item.location}</Text>
+                            </View>
+                        )}
+                    </View>
                 </View>
             </TouchableOpacity>
         );
     }, [theme]);
 
-    const renderEmptyState = useCallback(() => {
+    const renderEmptyItem = () => {
         return (
-            <View style={styles.emptyState}>
-                <Text style={[styles.emptyText, { color: theme.colors.textSecondary }]}>
-                    No events for {format(parseISO(selectedDate), 'MMMM d, yyyy')}
-                </Text>
+            <View style={styles.emptyItem}>
+                <Text style={{ color: theme.colors.textSecondary }}>No events planned</Text>
             </View>
         );
-    }, [theme, selectedDate]);
+    }
 
     return (
         <View style={[styles.container, { backgroundColor: theme.colors.bgCanvas }]}>
@@ -115,7 +192,7 @@ export default function ParentCalendarScreen() {
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerButton}>
                     <ArrowLeft size={24} color={theme.colors.textPrimary} />
                 </TouchableOpacity>
-                <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Family Calendar</Text>
+                <Text style={[styles.headerTitle, { color: theme.colors.textPrimary }]}>Calendar</Text>
                 <View style={styles.headerActions}>
                     <TouchableOpacity onPress={() => setIsSettingsVisible(true)} style={styles.headerButton}>
                         <Settings size={24} color={theme.colors.textPrimary} />
@@ -129,28 +206,49 @@ export default function ParentCalendarScreen() {
                 </View>
             </View>
 
-            {/* Calendar */}
-            <Calendar
-                current={selectedDate}
-                markedDates={markedDates}
-                onDayPress={onDayPress}
+            <CalendarProvider
+                date={selectedDate}
+                onDateChanged={onDateChanged}
+                showTodayButton
                 theme={calendarTheme}
-                style={{ backgroundColor: theme.colors.bgSurface }}
-            />
-
-            {/* Events List */}
-            <View style={[styles.eventsContainer, { backgroundColor: theme.colors.bgCanvas }]}>
-                <Text style={[styles.eventsHeader, { color: theme.colors.textPrimary }]}>
-                    {format(parseISO(selectedDate), 'EEEE, MMMM d')}
-                </Text>
-                <FlatList
-                    data={selectedDateEvents}
-                    renderItem={renderEventItem}
-                    keyExtractor={(item, index) => item.id || `event-${index}`}
-                    ListEmptyComponent={renderEmptyState}
-                    contentContainerStyle={styles.eventsList}
+            >
+                <ExpandableCalendar
+                    firstDay={1}
+                    markedDates={markedDates}
+                    theme={calendarTheme}
+                    hideKnob={false} // Show the handle to swipe
+                    allowShadow={true} // Add shadow for depth
+                    disablePan={false} // Enable swiping
+                    renderArrow={(direction) => {
+                        if (direction === 'left') {
+                            return <ArrowLeft size={20} color={theme.colors.actionPrimary} />;
+                        } else {
+                            return <ArrowLeft size={20} color={theme.colors.actionPrimary} style={{ transform: [{ rotate: '180deg' }] }} />;
+                        }
+                    }}
                 />
-            </View>
+
+                {sectionedEvents.length > 0 ? (
+                    <AgendaList
+                        sections={sectionedEvents}
+                        renderItem={renderEventItem}
+                        renderSectionHeader={renderSectionHeader}
+                        sectionStyle={{ backgroundColor: theme.colors.bgCanvas }}
+                    />
+                ) : (
+                    <View style={styles.emptyState}>
+                        <Text style={[styles.emptyStateText, { color: theme.colors.textSecondary }]}>
+                            No upcoming events
+                        </Text>
+                        <TouchableOpacity
+                            style={[styles.createButton, { backgroundColor: theme.colors.actionPrimary }]}
+                            onPress={() => setIsCreateModalVisible(true)}
+                        >
+                            <Text style={styles.createButtonText}>Add Event</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+            </CalendarProvider>
 
             <CalendarSettingsModal
                 visible={isSettingsVisible}
@@ -183,6 +281,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingBottom: 16,
         borderBottomWidth: 1,
+        zIndex: 10, // Ensure header is above calendar
     },
     headerButton: {
         padding: 8,
@@ -200,52 +299,94 @@ const styles = StyleSheet.create({
         padding: 8,
         borderRadius: 20,
     },
-    eventsContainer: {
-        flex: 1,
-        paddingTop: 16,
-    },
-    eventsHeader: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        paddingHorizontal: 16,
-        marginBottom: 12,
-    },
-    eventsList: {
-        paddingHorizontal: 16,
-    },
-    item: {
-        borderRadius: 8,
-        padding: 12,
-        marginBottom: 12,
+    // Event Item Styles
+    itemContainer: {
         flexDirection: 'row',
-        overflow: 'hidden',
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 0.5,
+        borderBottomColor: 'rgba(0,0,0,0.05)',
     },
-    itemColorStrip: {
-        width: 4,
+    timeColumn: {
+        width: 50,
+        alignItems: 'flex-end',
         marginRight: 12,
-        borderRadius: 2,
+        paddingTop: 2,
     },
-    itemContent: {
-        flex: 1,
-    },
-    itemTitle: {
+    timeText: {
         fontSize: 16,
         fontWeight: '600',
-        marginBottom: 4,
     },
-    itemTime: {
-        fontSize: 14,
-        marginBottom: 2,
-    },
-    itemLocation: {
+    ampmText: {
         fontSize: 12,
-        fontStyle: 'italic',
+        fontWeight: '400',
+        marginTop: 2,
     },
-    emptyState: {
-        paddingVertical: 32,
+    eventCard: {
+        flex: 1,
+        borderRadius: 16, // More rounded (Bento style)
+        padding: 16, // More breathing room
+        borderLeftWidth: 4,
+        shadowColor: "#000", // Subtle shadow
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    eventTitle: {
+        fontSize: 16,
+        fontWeight: '700', // Bolder title
+        marginBottom: 6,
+    },
+    eventFooter: {
+        flexDirection: 'row',
         alignItems: 'center',
     },
-    emptyText: {
-        fontSize: 14,
+    iconRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
     },
+    subText: {
+        fontSize: 12,
+        marginLeft: 4,
+    },
+    section: {
+        fontSize: 14,
+        fontWeight: '600',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    emptyState: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginTop: 50,
+    },
+    emptyStateText: {
+        fontSize: 16,
+        marginBottom: 16,
+    },
+    createButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 20,
+    },
+    createButtonText: {
+        color: '#FFFFFF',
+        fontWeight: '600',
+    },
+    emptyItem: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    sectionHeaderContainer: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+    },
+    sectionHeaderText: {
+        fontSize: 14,
+        fontWeight: '600',
+        textTransform: 'uppercase', // Optional Bento touch
+        letterSpacing: 0.5,
+    }
 });

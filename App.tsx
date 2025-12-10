@@ -1,6 +1,7 @@
 import 'react-native-gesture-handler';
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, Platform } from 'react-native';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
@@ -66,23 +67,25 @@ export default function App() {
   }
 
   return (
-    <ErrorBoundary>
-      <SafeAreaProvider>
-        <ThemeProvider>
-          <NavigationContainer>
-            <AuthProvider>
-              <SocketProvider>
-                <DataProvider>
-                  <NotificationManager>
-                    <AppNavigator />
-                  </NotificationManager>
-                  <StatusBar style="auto" />
-                </DataProvider>
-              </SocketProvider>
-            </AuthProvider>
-          </NavigationContainer>
-        </ThemeProvider>
-      </SafeAreaProvider>
-    </ErrorBoundary>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <ErrorBoundary>
+        <SafeAreaProvider>
+          <ThemeProvider>
+            <NavigationContainer>
+              <AuthProvider>
+                <SocketProvider>
+                  <DataProvider>
+                    <NotificationManager>
+                      <AppNavigator />
+                    </NotificationManager>
+                    <StatusBar style="auto" />
+                  </DataProvider>
+                </SocketProvider>
+              </AuthProvider>
+            </NavigationContainer>
+          </ThemeProvider>
+        </SafeAreaProvider>
+      </ErrorBoundary>
+    </GestureHandlerRootView>
   );
 }

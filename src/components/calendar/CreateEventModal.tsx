@@ -227,12 +227,14 @@ export default function CreateEventModal({ visible, onClose, onSuccess }: Create
                                 contentContainerStyle={styles.memberList}
                             >
                                 {members.map(member => {
-                                    const isSelected = selectedAttendees.includes(member.id);
+                                    // Use userId (which maps to FamilyMember ID in BFF), not profile ID
+                                    const memberId = member.userId;
+                                    const isSelected = selectedAttendees.includes(memberId);
                                     return (
                                         <TouchableOpacity
                                             key={member.id}
                                             style={styles.memberItem}
-                                            onPress={() => toggleAttendee(member.id)}
+                                            onPress={() => toggleAttendee(memberId)}
                                         >
                                             <View style={[
                                                 styles.avatar,
