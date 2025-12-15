@@ -8,3 +8,4 @@ describe('Mobile Health Check', () => {
         expect(tree).toMatchSnapshot();
     });
 });
+
