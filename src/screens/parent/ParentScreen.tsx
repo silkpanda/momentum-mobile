@@ -2,12 +2,14 @@
 // momentum-mobile/src/screens/parent/ParentScreen.tsx
 // Parent View - Admin Concepts Showcase (Bento Default)
 // =========================================================
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { ArrowLeft, Grid3x3, Sun, Rocket } from 'lucide-react-native';
 import { useTheme } from '../../contexts/ThemeContext';
+import { api } from '../../services/api';
+import { logger } from '../../utils/logger';
 
 // Import the 3 concept implementations
 import BentoCommandCenter from '../../components/admin-concepts/BentoCommandCenter';
@@ -28,6 +30,16 @@ export default function ParentScreen() {
     const insets = useSafeAreaInsets();
     const navigation = useNavigation();
     const { currentTheme: theme } = useTheme();
+
+    // Sync with Google Calendar when parent view is accessed
+    useFocusEffect(
+        useCallback(() => {
+            logger.info('🔄 Parent view accessed - syncing with Google Calendar...');
+            api.getGoogleCalendarEvents().catch(err => {
+                logger.info('Calendar sync skipped:', err.message);
+            });
+        }, [])
+    );
 
     return (
         <View style={{ flex: 1, backgroundColor: theme.colors.bgSurface }}>

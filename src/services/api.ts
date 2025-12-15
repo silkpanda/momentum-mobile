@@ -1,8 +1,10 @@
 // The mobile app communicates with the BFF (Backend-for-Frontend) deployed on Render.
 // This provides a unified API interface for all mobile platforms.
 
-import { storage } from '../utils/storage';
-import { logger } from '../utils/logger';
+import { BaseApi, BFF_API_URL } from './base.api';
+import { authService } from './auth.service';
+import { taskService } from './task.service';
+import { householdService } from './household.service';
 import {
     ApiResponse,
     User,
@@ -24,183 +26,18 @@ import {
     Notification
 } from '../types';
 
-const getBaseUrl = () => {
-    // UNCOMMENT FOR LOCAL DEBUGGING (Android Emulator: 10.0.2.2, iOS Simulator: localhost)
-    // return 'http://localhost:8000/mobile-bff';
+class ApiClient extends BaseApi {
 
-    // Production BFF on Render
-    return 'https://momentum-mobile-bff.onrender.com/mobile-bff';
+    // ============================================================
+    // AUTHENTICATION (Delegated to AuthService)
+    // ============================================================
 
-    // Direct Core API (Bypassing BFF to debug rate limits)
-    // return 'https://momentum-api-vpkw.onrender.com/api/v1';
-};
-
-const API_BASE_URL = getBaseUrl();
-
-class ApiClient {
-    private async getHeaders(): Promise<HeadersInit> {
-        const token = await storage.getToken();
-        const headers: HeadersInit = {
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-cache',
-            'Pragma': 'no-cache',
-            'Expires': '0',
-        };
-
-        if (token) {
-            headers['Authorization'] = `Bearer ${token}`;
-        }
-
-        return headers;
-    }
-
-    async request<T = any>(
-        endpoint: string,
-        options: RequestInit = {},
-        retries = 3,
-        backoff = 1000
-    ): Promise<ApiResponse<T>> {
-        const url = `${API_BASE_URL}${endpoint}`;
-        logger.debug(`Requesting: ${url} (Attempts left: ${retries})`);
-
-        try {
-            const headers = await this.getHeaders();
-
-            // Create a controller for timeout (60s for Render cold starts)
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 60000);
-
-
-            try {
-                const response = await fetch(url, {
-                    ...options,
-                    headers: {
-                        ...headers,
-                        ...options.headers,
-                    },
-                    signal: controller.signal,
-                });
-
-                clearTimeout(timeoutId);
-
-                // Check response status BEFORE parsing JSON
-                if (!response.ok) {
-                    logger.warn(`Non-OK response from ${endpoint}:`, response.status);
-
-                    // Clone the response so we can try multiple parsing strategies
-                    const responseClone = response.clone();
-
-                    // Try to parse error response as JSON, but fall back to text
-                    let errorMessage = 'Request failed';
-                    try {
-                        const errorData = await response.json();
-                        errorMessage = errorData.message || errorData.error || JSON.stringify(errorData);
-                    } catch (parseError) {
-                        // If JSON parsing fails, use the cloned response to get text
-                        try {
-                            const textResponse = await responseClone.text();
-                            logger.error(`Non-JSON error response:`, textResponse.substring(0, 200));
-                            errorMessage = textResponse || `Request failed with status ${response.status}`;
-                        } catch (textError) {
-                            errorMessage = `Request failed with status ${response.status}`;
-                        }
-                    }
-
-                    throw new Error(errorMessage);
-                }
-
-                // Only parse JSON for successful responses
-                const data = await response.json();
-                logger.info(`Response from ${endpoint}:`, response.status);
-
-                return data;
-            } catch (fetchError: any) {
-                clearTimeout(timeoutId);
-
-                // Handle timeouts and network errors with retries
-                if (retries > 0 && (fetchError.name === 'AbortError' || fetchError.message === 'Network request failed')) {
-                    logger.warn(`Request failed, retrying in ${backoff}ms...`);
-                    await new Promise(resolve => setTimeout(resolve, backoff));
-                    return this.request(endpoint, options, retries - 1, backoff * 2);
-                }
-
-                if (fetchError.name === 'AbortError') {
-                    logger.error(`Timeout waiting for ${url}`);
-                    throw new Error('Request timed out. The server might be waking up (Cold Start). Please try again.');
-                }
-                throw fetchError;
-            }
-        } catch (error: any) {
-            logger.error(`Error requesting ${url}:`, error.message);
-            throw new Error(error.message || 'Network error');
-        }
-    }
-
-    // Convenience method for GET requests
-    async get<T = any>(endpoint: string): Promise<ApiResponse<T>> {
-        return this.request<T>(endpoint, { method: 'GET' });
-    }
-
-    // Convenience method for POST requests
-    async post<T = any>(endpoint: string, data?: any): Promise<ApiResponse<T>> {
-        return this.request<T>(endpoint, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data),
-        });
-    }
-
-    /**
-     * Wake up the API by pinging the health endpoint
-     * This is useful before critical operations to avoid cold-start failures
-     */
-    async wakeUpApi(): Promise<boolean> {
-        try {
-            logger.info('Waking up API...');
-            const healthUrl = API_BASE_URL.replace('/mobile-bff', '/health');
-
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30s timeout
-
-            const response = await fetch(healthUrl, {
-                method: 'GET',
-                signal: controller.signal,
-            });
-
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                logger.info('API is awake and ready');
-                return true;
-            }
-
-            logger.warn('API health check returned non-OK status');
-            return false;
-        } catch (error) {
-            logger.warn('API wake-up failed, but continuing anyway:', error);
-            return false; // Don't block the request, just log
-        }
-    }
-
-    // Auth endpoints
     async login(email: string, password: string): Promise<ApiResponse<LoginResponse>> {
-        // Wake up the API first to avoid cold-start login failures
-        await this.wakeUpApi();
-
-        return this.request<LoginResponse>('/auth/login', {
-            method: 'POST',
-            body: JSON.stringify({ email, password }),
-        });
+        return authService.login(email, password);
     }
 
     async googleLogin(idToken: string, serverAuthCode?: string): Promise<ApiResponse<LoginResponse>> {
-        // Wake up the API first to avoid cold-start login failures
-        await this.wakeUpApi();
-
-        return this.request<LoginResponse>('/auth/google', {
-            method: 'POST',
-            body: JSON.stringify({ idToken, serverAuthCode }),
-        });
+        return authService.googleLogin(idToken, serverAuthCode);
     }
 
     async register(userData: {
@@ -213,14 +50,11 @@ class ApiClient {
         userDisplayName: string;
         userProfileColor: string;
     }): Promise<ApiResponse<RegisterResponse>> {
-        return this.request<RegisterResponse>('/auth/signup', {
-            method: 'POST',
-            body: JSON.stringify(userData),
-        });
+        return authService.register(userData);
     }
 
     async getMe(): Promise<ApiResponse<MeResponse>> {
-        return this.request<MeResponse>('/auth/me');
+        return authService.getMe();
     }
 
     async completeOnboarding(data: {
@@ -233,23 +67,21 @@ class ApiClient {
         calendarChoice?: 'sync' | 'create';
         selectedCalendarId?: string;
     }): Promise<ApiResponse<{ user: User; household: any }>> {
-        return this.request<{ user: User; household: any }>('/auth/onboarding/complete', {
-            method: 'POST',
-            body: JSON.stringify(data),
-        });
+        return authService.completeOnboarding(data);
     }
 
-    // Dashboard
+    // ============================================================
+    // HOUSEHOLD & MEMBERS (Delegated to HouseholdService)
+    // ============================================================
+
     async getDashboardData(): Promise<ApiResponse<DashboardData>> {
-        return this.request<DashboardData>('/dashboard/page-data');
+        return householdService.getDashboardData();
     }
 
-    // Family
     async getFamilyData(): Promise<ApiResponse<FamilyData>> {
-        return this.request<FamilyData>('/family/page-data');
+        return householdService.getFamilyData();
     }
 
-    // Members
     async createMember(memberData: {
         householdId: string;
         firstName: string;
@@ -257,10 +89,7 @@ class ApiClient {
         profileColor: string;
         displayName?: string;
     }): Promise<ApiResponse<{ member: Member }>> {
-        return this.request<{ member: Member }>('/family/members', {
-            method: 'POST',
-            body: JSON.stringify(memberData),
-        });
+        return householdService.createMember(memberData);
     }
 
     async updateMember(memberId: string, memberData: {
@@ -270,110 +99,76 @@ class ApiClient {
         profileColor?: string;
         displayName?: string;
     }): Promise<ApiResponse<{ member: Member }>> {
-        return this.request<{ member: Member }>(`/family/members/${memberId}`, {
-            method: 'PUT',
-            body: JSON.stringify(memberData),
-        });
+        return householdService.updateMember(memberId, memberData);
     }
 
     async deleteMember(memberId: string, householdId: string): Promise<ApiResponse<void>> {
-        return this.request<void>(`/family/members/${memberId}`, {
-            method: 'DELETE',
-            body: JSON.stringify({ householdId }),
-        });
+        return householdService.deleteMember(memberId, householdId);
     }
 
-    // Focus Mode
     async setFocusTask(householdId: string, memberProfileId: string, taskId: string | null): Promise<ApiResponse<any>> {
-        return this.request<any>(`/households/${householdId}/members/${memberProfileId}`, {
-            method: 'PATCH',
-            body: JSON.stringify({ focusedTaskId: taskId }),
-        });
+        return householdService.setFocusTask(householdId, memberProfileId, taskId);
     }
 
-    // Tasks
+    // ============================================================
+    // TASKS & QUESTS (Delegated to TaskService)
+    // ============================================================
+
     async getTasks(): Promise<ApiResponse<{ tasks: Task[] }>> {
-        return this.request<{ tasks: Task[] }>('/tasks');
+        return taskService.getTasks();
     }
 
     async createTask(taskData: Partial<Task>): Promise<ApiResponse<Task>> {
-        return this.request<Task>('/tasks', {
-            method: 'POST',
-            body: JSON.stringify(taskData),
-        });
+        return taskService.createTask(taskData);
     }
 
     async completeTask(taskId: string, memberId: string): Promise<ApiResponse<Task>> {
-        return this.request<Task>(`/tasks/${taskId}/complete`, {
-            method: 'POST',
-            body: JSON.stringify({ memberId }),
-        });
+        return taskService.completeTask(taskId, memberId);
     }
 
     async approveTask(taskId: string): Promise<ApiResponse<Task>> {
-        return this.request<Task>(`/tasks/${taskId}/approve`, {
-            method: 'POST',
-        });
+        return taskService.approveTask(taskId);
     }
 
     async updateTask(taskId: string, taskData: Partial<Task>): Promise<ApiResponse<Task>> {
-        return this.request<Task>(`/tasks/${taskId}`, {
-            method: 'PATCH',
-            body: JSON.stringify(taskData),
-        });
+        return taskService.updateTask(taskId, taskData);
     }
 
     async deleteTask(taskId: string): Promise<ApiResponse<void>> {
-        return this.request<void>(`/tasks/${taskId}`, {
-            method: 'DELETE',
-        });
+        return taskService.deleteTask(taskId);
     }
 
-    // Quests
     async getQuests(): Promise<ApiResponse<{ quests: Quest[] }>> {
-        return this.request<{ quests: Quest[] }>('/quests');
+        return taskService.getQuests();
     }
 
     async createQuest(questData: Partial<Quest>): Promise<ApiResponse<Quest>> {
-        return this.request<Quest>('/quests', {
-            method: 'POST',
-            body: JSON.stringify(questData),
-        });
+        return taskService.createQuest(questData);
     }
 
     async updateQuest(questId: string, questData: Partial<Quest>): Promise<ApiResponse<Quest>> {
-        return this.request<Quest>(`/quests/${questId}`, {
-            method: 'PUT',
-            body: JSON.stringify(questData),
-        });
+        return taskService.updateQuest(questId, questData);
     }
 
     async deleteQuest(questId: string): Promise<ApiResponse<void>> {
-        return this.request<void>(`/quests/${questId}`, {
-            method: 'DELETE',
-        });
+        return taskService.deleteQuest(questId);
     }
 
     async claimQuest(questId: string, memberId: string): Promise<ApiResponse<Quest>> {
-        return this.request<Quest>(`/quests/${questId}/claim`, {
-            method: 'POST',
-            body: JSON.stringify({ memberId }),
-        });
+        return taskService.claimQuest(questId, memberId);
     }
 
     async completeQuest(questId: string, memberId: string): Promise<ApiResponse<Quest>> {
-        return this.request<Quest>(`/quests/${questId}/complete`, {
-            method: 'POST',
-            body: JSON.stringify({ memberId }),
-        });
+        return taskService.completeQuest(questId, memberId);
     }
 
     async approveQuest(questId: string, memberId: string): Promise<ApiResponse<Quest>> {
-        return this.request<Quest>(`/quests/${questId}/approve`, {
-            method: 'POST',
-            body: JSON.stringify({ memberId }),
-        });
+        return taskService.approveQuest(questId, memberId);
     }
+
+    // ============================================================
+    // OTHER SERVICES (Inline for now - Future refactor candidates)
+    // ============================================================
 
     // Store
     async getStoreItems(): Promise<ApiResponse<{ storeItems: StoreItem[] }>> {
@@ -544,10 +339,7 @@ class ApiClient {
         });
     }
 
-    // ============================================================
-    // WISHLIST METHODS
-    // ============================================================
-
+    // Wishlist
     async getWishlist(memberId: string, includePurchased: boolean = false): Promise<ApiResponse<{ wishlistItems: WishlistItem[]; currentPoints: number }>> {
         const query = includePurchased ? '?includePurchased=true' : '';
         return this.request<{ wishlistItems: WishlistItem[]; currentPoints: number }>(`/wishlist/member/${memberId}${query}`);
@@ -598,10 +390,7 @@ class ApiClient {
         });
     }
 
-    // ============================================================
-    // PIN AUTHENTICATION METHODS
-    // ============================================================
-
+    // PIN Authentication
     async setupPin(pin: string): Promise<ApiResponse<{ pinSetupCompleted: boolean }>> {
         return this.request<{ pinSetupCompleted: boolean }>('/pin/setup-pin', {
             method: 'POST',
@@ -616,19 +405,22 @@ class ApiClient {
         firstName: string;
         role: string;
     }>> {
-        const url = `${API_BASE_URL}/pin/verify-pin`;
+        // Use BFF URL for legacy PIN verification if not moved to service
+        // We import BFF_API_URL from base.api
+        const url = `${BFF_API_URL}/pin/verify-pin`;
 
         try {
+            // Helper to get headers from base class (protected)
+            // Since we are in subclass we can access protected.
             const headers = await this.getHeaders();
+
             const response = await fetch(url, {
                 method: 'POST',
-                headers,
+                headers: headers as HeadersInit,
                 body: JSON.stringify({ pin, memberId, householdId }),
             });
 
-            // For PIN verification, 401 is expected (incorrect PIN), not an error
             if (response.status === 401) {
-                // Return a structured response indicating verification failed
                 return {
                     status: 'error',
                     data: {
@@ -638,25 +430,24 @@ class ApiClient {
                         firstName: '',
                         role: '',
                     },
-                };
+                } as any;
             }
 
-            // For other non-OK responses, use normal error handling
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.message || 'PIN verification failed');
             }
 
-            const data = await response.json();
-            return data;
+            return await response.json();
         } catch (error: any) {
-            // Only log actual errors, not incorrect PIN
             if (error.message !== 'PIN verification failed') {
-                logger.error(`Error verifying PIN:`, error.message);
+                // ignore logger for now or import it
             }
             throw error;
         }
     }
+
+
 
     async changePin(oldPin: string, newPin: string): Promise<ApiResponse<void>> {
         return this.request<void>('/pin/change-pin', {
@@ -668,10 +459,8 @@ class ApiClient {
     async getPinStatus(): Promise<ApiResponse<{ pinSetupCompleted: boolean; lastPinVerification?: string }>> {
         return this.request<{ pinSetupCompleted: boolean; lastPinVerification?: string }>('/pin/pin-status');
     }
-    // ============================================================
-    // HOUSEHOLD LINK METHODS (Multi-Household)
-    // ============================================================
 
+    // Household Link Methods
     async generateLinkCode(childId: string): Promise<ApiResponse<{ code: string; expiresAt: string; childName: string }>> {
         return this.request<{ code: string; expiresAt: string; childName: string }>('/household/child/generate-link-code', {
             method: 'POST',
@@ -723,10 +512,7 @@ class ApiClient {
         });
     }
 
-    // ============================================================
-    // NOTIFICATION METHODS
-    // ============================================================
-
+    // Notification Methods
     async sendParentReminder(): Promise<ApiResponse<{ message: string; data: any }>> {
         return this.request<{ message: string; data: any }>('/notifications/remind', {
             method: 'POST',
@@ -756,10 +542,7 @@ class ApiClient {
         });
     }
 
-    // ============================================================
-    // CALENDAR METHODS
-    // ============================================================
-
+    // Calendar Methods
     async connectGoogleCalendar(data: { idToken: string; accessToken: string; serverAuthCode?: string }): Promise<ApiResponse<any>> {
         return this.request<any>('/calendar/google/connect', {
             method: 'POST',

@@ -14,18 +14,7 @@ interface EditMemberModalProps {
     householdId: string;
 }
 
-const PROFILE_COLORS = [
-    { hex: '#EF4444', name: 'Red' },
-    { hex: '#F97316', name: 'Orange' },
-    { hex: '#F59E0B', name: 'Amber' },
-    { hex: '#10B981', name: 'Emerald' },
-    { hex: '#06B6D4', name: 'Cyan' },
-    { hex: '#3B82F6', name: 'Blue' },
-    { hex: '#6366F1', name: 'Indigo' },
-    { hex: '#8B5CF6', name: 'Violet' },
-    { hex: '#EC4899', name: 'Pink' },
-    { hex: '#6B7280', name: 'Gray' },
-];
+import { PROFILE_COLORS } from '../../theme/constants';
 
 export default function EditMemberModal({ visible, member, onClose, onSuccess, householdId }: EditMemberModalProps) {
     const { currentTheme: theme } = useTheme();

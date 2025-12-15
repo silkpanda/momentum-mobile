@@ -18,6 +18,7 @@ interface DataContextType {
     restaurants: Restaurant[];
     routines: Routine[];
     wishlistItems: WishlistItem[];
+    events: any[]; // Calendar events
     householdId: string;
 
     // Loading states
@@ -50,6 +51,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
     const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
     const [routines, setRoutines] = useState<Routine[]>([]);
     const [wishlistItems, setWishlistItems] = useState<WishlistItem[]>([]);
+    const [events, setEvents] = useState<any[]>([]); // Calendar events
 
     // Derived state (backwards compatibility)
     const householdId = household?.id || household?._id || '';
@@ -76,7 +78,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                     meals: fetchedMeals,
                     restaurants: fetchedRestaurants,
                     routines: fetchedRoutines,
-                    wishlistItems: fetchedWishlistItems
+                    wishlistItems: fetchedWishlistItems,
+                    events: fetchedEvents
                 } = response.data;
 
                 // Update all state
@@ -87,6 +90,12 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
                 if (fetchedRestaurants) setRestaurants(fetchedRestaurants);
                 if (fetchedRoutines) setRoutines(fetchedRoutines);
                 if (fetchedWishlistItems) setWishlistItems(fetchedWishlistItems);
+                if (fetchedEvents) {
+                    console.log('[DataContext] Setting events from API:', fetchedEvents.length);
+                    setEvents(fetchedEvents);
+                } else {
+                    console.log('[DataContext] No events in API response');
+                }
 
                 if (fetchedHousehold) {
                     setHousehold(fetchedHousehold);
@@ -104,6 +113,13 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             if (!silent) {
                 logger.info('✅ All data loaded successfully (Unified Sync)');
             }
+
+            // Trigger background Google Calendar sync to populate MongoDB
+            // This runs in the background and doesn't block the UI
+            api.getGoogleCalendarEvents().catch(err => {
+                // Silent fail - calendar might not be connected yet
+                logger.info('Background calendar sync skipped:', err.message);
+            });
         } catch (error) {
             logger.error('❌ Error loading data:', error);
         } finally {
@@ -155,6 +171,20 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         }
     }, [isAuthenticated, loadAllData]);
 
+    // Periodic background sync with Google Calendar (every 5 minutes)
+    useEffect(() => {
+        if (!isAuthenticated) return;
+
+        const syncInterval = setInterval(() => {
+            logger.info('🔄 Running periodic Google Calendar sync...');
+            api.getGoogleCalendarEvents().catch(err => {
+                logger.info('Periodic calendar sync skipped:', err.message);
+            });
+        }, 5 * 60 * 1000); // 5 minutes
+
+        return () => clearInterval(syncInterval);
+    }, [isAuthenticated]);
+
     // WebSocket listeners - update data in real-time
     useEffect(() => {
         if (!isAuthenticated) return;
@@ -194,6 +224,11 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             loadAllData(true); // Reload all data to get fresh member list
         };
 
+        const handleEventUpdate = () => {
+            logger.info('📡 Calendar event updated via WebSocket');
+            loadAllData(true); // Reload to get fresh events
+        };
+
         on('taskUpdated', handleTaskUpdate);
         on('questUpdated', handleQuestUpdate);
         on('memberUpdated', handleMemberUpdate);
@@ -201,6 +236,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         on('routine_updated', handleRoutineUpdate);
         on('wishlist_updated', handleWishlistUpdate);
         on('household_updated', handleHouseholdUpdate);
+        on('event_updated', handleEventUpdate);
 
         return () => {
             off('taskUpdated', handleTaskUpdate);
@@ -210,6 +246,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
             off('routine_updated', handleRoutineUpdate);
             off('wishlist_updated', handleWishlistUpdate);
             off('household_updated', handleHouseholdUpdate);
+            off('event_updated', handleEventUpdate);
         };
     }, [isAuthenticated, on, off, loadAllData]);
 
@@ -223,6 +260,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
         restaurants,
         routines,
         wishlistItems,
+        events,
         householdId,
         isInitialLoad,
         isRefreshing,

@@ -13,11 +13,7 @@ interface LinkChildSetupModalProps {
     onSuccess: () => void;
 }
 
-const PROFILE_COLORS = [
-    '#FF6B6B', '#4ECDC4', '#45B7D1', '#FFA07A',
-    '#98D8C8', '#F7DC6F', '#BB8FCE', '#85C1E2',
-    '#F8B739', '#52B788', '#E63946', '#457B9D'
-];
+import { PROFILE_COLORS } from '../../theme/constants';
 
 export default function LinkChildSetupModal({
     visible,
@@ -29,7 +25,7 @@ export default function LinkChildSetupModal({
 }: LinkChildSetupModalProps) {
     const { currentTheme: theme } = useTheme();
     const [displayName, setDisplayName] = useState(childName);
-    const [selectedColor, setSelectedColor] = useState(PROFILE_COLORS[0]);
+    const [selectedColor, setSelectedColor] = useState(PROFILE_COLORS[0].hex);
     const [loading, setLoading] = useState(false);
 
     const handleSubmit = async () => {
@@ -64,7 +60,7 @@ export default function LinkChildSetupModal({
 
     const handleClose = () => {
         setDisplayName(childName);
-        setSelectedColor(PROFILE_COLORS[0]);
+        setSelectedColor(PROFILE_COLORS[0].hex);
         onClose();
     };
 
@@ -126,16 +122,16 @@ export default function LinkChildSetupModal({
                             <View style={styles.colorGrid}>
                                 {PROFILE_COLORS.map((color) => (
                                     <TouchableOpacity
-                                        key={color}
+                                        key={color.hex}
                                         style={[
                                             styles.colorOption,
-                                            { backgroundColor: color },
-                                            selectedColor === color && styles.colorOptionSelected,
+                                            { backgroundColor: color.hex },
+                                            selectedColor === color.hex && styles.colorOptionSelected,
                                         ]}
-                                        onPress={() => setSelectedColor(color)}
+                                        onPress={() => setSelectedColor(color.hex)}
                                         disabled={loading}
                                     >
-                                        {selectedColor === color && (
+                                        {selectedColor === color.hex && (
                                             <View style={styles.colorCheckmark} />
                                         )}
                                     </TouchableOpacity>

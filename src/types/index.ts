@@ -176,6 +176,7 @@ export interface DashboardData {
     restaurants?: Restaurant[];
     routines?: Routine[];
     wishlistItems?: WishlistItem[];
+    events?: any[]; // Calendar events
     pendingApprovals?: number;
 }
 

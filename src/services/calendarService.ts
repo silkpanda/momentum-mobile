@@ -13,6 +13,7 @@ export interface CalendarEvent {
     notes?: string;
     calendarId: string;
     color?: string;
+    attendees?: string[];
 }
 
 export interface CalendarSource {
@@ -81,6 +82,26 @@ class CalendarService {
         }
     }
 
+    /**
+     * Update an existing Google Calendar event via our Backend API.
+     */
+    async updateGoogleEvent(eventId: string, eventDetails: {
+        title?: string;
+        startDate?: Date;
+        endDate?: Date;
+        allDay?: boolean;
+        location?: string;
+        notes?: string;
+        attendees?: string[];
+    }): Promise<void> {
+        try {
+            await api.patch(`/calendar/google/events/${eventId}`, eventDetails);
+        } catch (error) {
+            logger.error('Error updating Google event:', error);
+            throw error;
+        }
+    }
+
     async createEvent(calendarId: string, eventDetails: {
         title: string;
         startDate: Date;
@@ -142,6 +163,18 @@ class CalendarService {
         } catch (error) {
             logger.error('Error fetching events:', error);
             return [];
+        }
+    }
+
+    /**
+     * Delete a Google Calendar event via our Backend API.
+     */
+    async deleteGoogleEvent(eventId: string): Promise<void> {
+        try {
+            await api.delete(`/calendar/google/events/${eventId}`);
+        } catch (error) {
+            logger.error('Error deleting Google event:', error);
+            throw error;
         }
     }
 }
