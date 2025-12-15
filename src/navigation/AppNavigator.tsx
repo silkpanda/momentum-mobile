@@ -10,7 +10,7 @@ import LoginScreen from '../screens/auth/LoginScreen';
 import RegisterScreen from '../screens/auth/RegisterScreen';
 import SignupOptionsScreen from '../screens/auth/SignupOptionsScreen';
 import OnboardingScreen from '../screens/auth/OnboardingScreen';
-import FamilyScreen from '../screens/family/FamilyScreen';
+import FamilyBentoScreen from '../screens/family/FamilyBentoScreen';
 import ParentScreen from '../screens/parent/ParentScreen';
 import MemberDetailScreen from '../screens/family/MemberDetailScreen';
 import MemberStoreScreen from '../screens/family/MemberStoreScreen';
@@ -40,7 +40,7 @@ export default function AppNavigator() {
                     <Stack.Screen name="Onboarding" component={OnboardingScreen} />
                 ) : (
                     <>
-                        <Stack.Screen name="Family" component={FamilyScreen} />
+                        <Stack.Screen name="Family" component={FamilyBentoScreen} />
                         <Stack.Screen name="Parent" component={ParentScreen} />
                         <Stack.Screen name="MemberDetail" component={MemberDetailScreen} />
                         <Stack.Screen name="MemberStore" component={MemberStoreScreen} />
