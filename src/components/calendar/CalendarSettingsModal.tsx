@@ -4,7 +4,7 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { X, Check, Calendar as CalendarIcon } from 'lucide-react-native';
 import { useCalendar } from '../../hooks/useCalendar';
 import { api } from '../../services/api';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin } from '../../utils/googleSigninWrapper';
 import Constants from 'expo-constants';
 
 interface CalendarSettingsModalProps {

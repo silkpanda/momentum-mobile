@@ -9,7 +9,7 @@ import FormInput from '../../components/shared/FormInput';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/types';
 import { api } from '../../services/api';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin } from '../../utils/googleSigninWrapper';
 import Constants from 'expo-constants';
 
 type OnboardingScreenNavigationProp = StackNavigationProp<RootStackParamList, 'Onboarding'>;

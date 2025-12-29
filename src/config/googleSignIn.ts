@@ -1,4 +1,4 @@
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin } from '../utils/googleSigninWrapper';
 import Constants from 'expo-constants';
 
 // Configure Google Sign-In once at app startup

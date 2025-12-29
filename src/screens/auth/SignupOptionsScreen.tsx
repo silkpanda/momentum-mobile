@@ -6,7 +6,7 @@ import { textStyles } from '../../theme/typography';
 import { Mail } from 'lucide-react-native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '../../navigation/types';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin } from '../../utils/googleSigninWrapper';
 import Constants from 'expo-constants';
 
 type SignupOptionsScreenNavigationProp = StackNavigationProp<RootStackParamList, 'SignupOptions'>;

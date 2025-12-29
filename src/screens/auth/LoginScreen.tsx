@@ -11,7 +11,7 @@ import {
     ActivityIndicator,
     Alert,
 } from 'react-native';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { GoogleSignin } from '../../utils/googleSigninWrapper';
 import Constants from 'expo-constants';
 import { Mail, Lock, AlertTriangle, CheckCircle, LogIn } from 'lucide-react-native';
 import { useAuth } from '../../contexts/AuthContext';
