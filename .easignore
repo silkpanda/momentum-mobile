@@ -1,0 +1,21 @@
+# Ignore generated native directories
+android/
+ios/
+
+# Ignore Expo cache
+.expo/
+
+# Ignore lock files
+*.lock
+
+# Ignore monorepo agent and AI artifacts
+**/.agent/
+**/.artifacts/
+**/.gemini/
+**/archive/
+**/docs/
+**/Design Folder/
+**/*.tar
+**/*.tar.gz
+**/.git/
+node_modules/
