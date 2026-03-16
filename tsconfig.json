@@ -1,0 +1,14 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "types": [
+      "jest"
+    ],
+    "paths": {
+      "momentum-shared": [
+        "../momentum-shared/index.ts"
+      ]
+    }
+  }
+}
