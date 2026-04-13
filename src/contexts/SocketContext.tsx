@@ -40,7 +40,12 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     socket.on('connect_error', (err) => { logger.error('WebSocket error:', err.message); });
 
     socketRef.current = socket;
-    return () => { socket.disconnect(); socketRef.current = null; setIsConnected(false); };
+    return () => {
+      socket.removeAllListeners(); // Remove all listeners before disconnecting to prevent accumulation on reconnect
+      socket.disconnect();
+      socketRef.current = null;
+      setIsConnected(false);
+    };
   }, [isAuthenticated, token, householdId]);
 
   const on = useCallback((event: string, handler: (...args: any[]) => void) => { socketRef.current?.on(event, handler); }, []);

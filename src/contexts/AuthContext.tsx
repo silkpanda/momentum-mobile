@@ -30,10 +30,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [householdId, setHouseholdId] = useState<string | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Ref (not state) so the guard doesn't trigger extra renders
+  const isLoadingAuthRef = React.useRef(false);
 
   useEffect(() => { loadStoredAuth(); }, []);
 
   const loadStoredAuth = async () => {
+    // Guard against concurrent calls (e.g. StrictMode double-invoke or fast remounts)
+    if (isLoadingAuthRef.current) return;
+    isLoadingAuthRef.current = true;
     try {
       const [storedToken, storedUser, storedHouseholdId] = await Promise.all([
         storage.getToken(), storage.getUser(), storage.getHouseholdId(),
@@ -53,6 +58,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       logger.error('Error loading auth:', error);
     } finally {
       setIsLoading(false);
+      isLoadingAuthRef.current = false;
     }
   };
 

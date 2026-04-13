@@ -30,6 +30,14 @@ export default function SignupOptionsScreen() {
         return;
       }
       await GoogleSignin.hasPlayServices();
+      
+      // Force account picker by signing out first if already signed in
+      try {
+        await GoogleSignin.signOut();
+      } catch (signOutError) {
+        logger.info('Not signed in or failed to sign out:', signOutError);
+      }
+      
       const userInfo = await GoogleSignin.signIn();
       const idToken = userInfo.data?.idToken;
       if (idToken) {

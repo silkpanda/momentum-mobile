@@ -84,11 +84,53 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+
+    // Granular task handler: patch only the changed task instead of refetching everything
+    const onTaskUpdated = (payload: { type?: string; task?: any; taskId?: string; memberUpdate?: any }) => {
+      if (payload.type === 'create' && payload.task) {
+        setTasks(prev => {
+          const exists = prev.some(t => t._id === payload.task._id || t.id === payload.task._id);
+          return exists ? prev : [payload.task, ...prev];
+        });
+      } else if (payload.type === 'delete' && payload.taskId) {
+        setTasks(prev => prev.filter(t => t._id !== payload.taskId && t.id !== payload.taskId));
+      } else if (payload.task) {
+        setTasks(prev => {
+          const exists = prev.some(t => t._id === payload.task._id || t.id === payload.task._id);
+          if (exists) return prev.map(t => (t._id === payload.task._id || t.id === payload.task._id) ? { ...t, ...payload.task } : t);
+          return [payload.task, ...prev]; // new task arrived via update event
+        });
+      }
+      // Patch member points inline if the payload includes an update
+      if (payload.memberUpdate) {
+        const { memberId, ...updates } = payload.memberUpdate;
+        if (memberId) updateMember(String(memberId), updates);
+      }
+    };
+
+    // member_updated carries a targeted patch — no full reload needed
+    const onMemberUpdated = (payload: { memberId?: string; [key: string]: any }) => {
+      if (payload.memberId) {
+        const { memberId, timestamp, ...updates } = payload;
+        updateMember(String(memberId), updates);
+      }
+    };
+
+    // Structural changes (household membership, quests, store, routines, wishlist, events)
+    // still trigger a silent full reload since their payloads aren't granular enough yet
     const reload = () => loadAllData(true);
-    const wsEvents = ['taskUpdated', 'questUpdated', 'memberUpdated', 'storeUpdated', 'routine_updated', 'wishlist_updated', 'household_updated', 'event_updated'];
-    wsEvents.forEach(e => on(e, reload));
-    return () => { wsEvents.forEach(e => off(e, reload)); };
-  }, [isAuthenticated, on, off, loadAllData]);
+
+    on('taskUpdated', onTaskUpdated);
+    on('member_updated', onMemberUpdated);
+    const fullReloadEvents = ['questUpdated', 'storeUpdated', 'routine_updated', 'wishlist_updated', 'household_updated', 'event_updated'];
+    fullReloadEvents.forEach(e => on(e, reload));
+
+    return () => {
+      off('taskUpdated', onTaskUpdated);
+      off('member_updated', onMemberUpdated);
+      fullReloadEvents.forEach(e => off(e, reload));
+    };
+  }, [isAuthenticated, on, off, loadAllData, updateMember]);
 
   return (
     <DataContext.Provider value={{ tasks, quests, members, household, storeItems, meals, restaurants, routines, wishlistItems, events, householdId, isInitialLoad, isRefreshing, refresh, updateTask, updateQuest, updateMember, updateRoutine, updateWishlistItem }}>
