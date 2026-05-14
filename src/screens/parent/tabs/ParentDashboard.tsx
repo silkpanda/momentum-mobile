@@ -1,71 +1,191 @@
-import React from 'react';
-import { View, Text, StyleSheet, SafeAreaView, ScrollView, TouchableOpacity } from 'react-native';
-import { bentoPalette, spacing, borderRadius, shadows, typography } from '../../../theme/bentoTokens';
+import React, { useState } from 'react';
+import {
+  View, Text, StyleSheet, SafeAreaView, ScrollView,
+  TouchableOpacity, Alert, ActivityIndicator, RefreshControl,
+} from 'react-native';
+import { bentoPalette, spacing, borderRadius, shadows } from '../../../theme/bentoTokens';
 import { useData } from '../../../contexts/DataContext';
-import { TrendingUp, CheckCircle2, AlertCircle, Clock } from 'lucide-react-native';
+import { api } from '../../../services/api';
+import { TrendingUp, CheckCircle2, XCircle, Clock, Zap } from 'lucide-react-native';
 
 export default function ParentDashboard() {
-  const { tasks, quests, members } = useData();
+  const { tasks, quests, members, refresh, isRefreshing } = useData();
+  const [actionLoading, setActionLoading] = useState<string | null>(null);
 
-  const pendingApprovals = tasks.filter(t => t.status === 'Completed' || t.status === 'PendingApproval');
-  const activeTasks = tasks.filter(t => t.status === 'Pending');
+  const pendingTaskApprovals = tasks.filter(t => t.status === 'PendingApproval');
+  const pendingQuestApprovals = quests.flatMap(q =>
+    q.claims
+      .filter(c => c.status === 'completed')
+      .map(c => ({ quest: q, claim: c }))
+  );
+
+  const getMemberName = (id: string) => {
+    const m = members.find(m => m.id === id || m._id === id);
+    return m ? m.firstName : 'Unknown';
+  };
+
+  const handleApproveTask = async (taskId: string) => {
+    setActionLoading(`approve-task-${taskId}`);
+    try {
+      await api.approveTask(taskId);
+      await refresh();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to approve task');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleRejectTask = (taskId: string, taskTitle: string) => {
+    Alert.alert('Reject Task', `Send "${taskTitle}" back to pending?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Reject', style: 'destructive',
+        onPress: async () => {
+          setActionLoading(`reject-task-${taskId}`);
+          try {
+            await api.rejectTask(taskId);
+            await refresh();
+          } catch (e: any) {
+            Alert.alert('Error', e.message || 'Failed to reject task');
+          } finally {
+            setActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleApproveQuest = async (questId: string, memberId: string) => {
+    setActionLoading(`approve-quest-${questId}-${memberId}`);
+    try {
+      await api.approveQuest(questId, memberId);
+      await refresh();
+    } catch (e: any) {
+      Alert.alert('Error', e.message || 'Failed to approve quest');
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const totalPending = pendingTaskApprovals.length + pendingQuestApprovals.length;
 
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Control Deck</Text>
-        <Text style={styles.subtitle}>Overview of family activity</Text>
+        <Text style={styles.subtitle}>Family activity overview</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Quick Stats */}
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={refresh} tintColor={bentoPalette.brandPrimary} />}
+      >
+        {/* Stats Row */}
         <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: '#fff' }]}>
-            <Clock size={24} color={bentoPalette.alert} />
-            <Text style={styles.statValue}>{pendingApprovals.length}</Text>
-            <Text style={styles.statLabel}>Pending</Text>
+          <View style={[styles.statCard, totalPending > 0 && styles.statCardAlert]}>
+            <Clock size={22} color={totalPending > 0 ? bentoPalette.alert : bentoPalette.textTertiary} />
+            <Text style={[styles.statValue, totalPending > 0 && { color: bentoPalette.alert }]}>{totalPending}</Text>
+            <Text style={styles.statLabel}>Needs Review</Text>
           </View>
-          <View style={[styles.statCard, { backgroundColor: '#fff' }]}>
-            <CheckCircle2 size={24} color={bentoPalette.success} />
+          <View style={styles.statCard}>
+            <CheckCircle2 size={22} color={bentoPalette.success} />
             <Text style={styles.statValue}>{tasks.filter(t => t.status === 'Approved').length}</Text>
-            <Text style={styles.statLabel}>Done today</Text>
+            <Text style={styles.statLabel}>Approved</Text>
+          </View>
+          <View style={styles.statCard}>
+            <Zap size={22} color={bentoPalette.brandPrimary} />
+            <Text style={styles.statValue}>{tasks.filter(t => t.status === 'Pending').length}</Text>
+            <Text style={styles.statLabel}>In Progress</Text>
           </View>
         </View>
 
-        {/* Section: Recent Activity - STUB */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Recent Activity</Text>
-          <View style={styles.activityCard}>
-            <Text style={styles.activityText}>Activity feed coming soon...</Text>
-          </View>
-        </View>
-
-        {/* Section: Pending Approvals */}
+        {/* Task Approvals */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Needs Review</Text>
-            <TouchableOpacity><Text style={styles.seeAll}>See All</Text></TouchableOpacity>
+            <Text style={styles.sectionTitle}>Tasks Awaiting Review</Text>
+            {pendingTaskApprovals.length > 0 && (
+              <View style={styles.badge}><Text style={styles.badgeText}>{pendingTaskApprovals.length}</Text></View>
+            )}
           </View>
-          
-          {pendingApprovals.map(task => (
-            <View key={task.id} style={styles.itemCard}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemTitle}>{task.title}</Text>
-                <Text style={styles.itemMeta}>Completed by {task.assignedTo[0]}</Text>
-              </View>
-              <TouchableOpacity style={styles.approveButton}>
-                <Text style={styles.approveText}>Approve</Text>
-              </TouchableOpacity>
-            </View>
-          ))}
-          
-          {pendingApprovals.length === 0 && (
+
+          {pendingTaskApprovals.length === 0 ? (
             <View style={styles.emptyCard}>
-              <TrendingUp size={32} color={bentoPalette.brandLight} />
-              <Text style={styles.emptyText}>Nothing to approve right now!</Text>
+              <TrendingUp size={28} color={bentoPalette.brandLight} />
+              <Text style={styles.emptyText}>All caught up!</Text>
             </View>
+          ) : (
+            pendingTaskApprovals.map(task => {
+              const completerId = task.completedBy ?? (task.assignedTo[0] ?? '');
+              const isApprovingThis = actionLoading === `approve-task-${task.id}`;
+              const isRejectingThis = actionLoading === `reject-task-${task.id}`;
+              return (
+                <View key={task.id} style={styles.approvalCard}>
+                  <View style={styles.approvalInfo}>
+                    <Text style={styles.approvalTitle}>{task.title}</Text>
+                    <Text style={styles.approvalMeta}>
+                      Completed by {getMemberName(completerId)} · {task.pointsValue ?? task.value} pts
+                    </Text>
+                  </View>
+                  <View style={styles.actionRow}>
+                    <TouchableOpacity
+                      style={[styles.rejectBtn, isRejectingThis && styles.btnLoading]}
+                      onPress={() => handleRejectTask(task.id, task.title)}
+                      disabled={!!actionLoading}
+                    >
+                      {isRejectingThis
+                        ? <ActivityIndicator size="small" color={bentoPalette.error} />
+                        : <XCircle size={20} color={bentoPalette.error} />}
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.approveBtn, isApprovingThis && styles.btnLoading]}
+                      onPress={() => handleApproveTask(task.id)}
+                      disabled={!!actionLoading}
+                    >
+                      {isApprovingThis
+                        ? <ActivityIndicator size="small" color="#fff" />
+                        : <Text style={styles.approveBtnText}>Approve</Text>}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })
           )}
         </View>
+
+        {/* Quest Approvals */}
+        {pendingQuestApprovals.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Text style={styles.sectionTitle}>Quests Awaiting Review</Text>
+              <View style={styles.badge}><Text style={styles.badgeText}>{pendingQuestApprovals.length}</Text></View>
+            </View>
+
+            {pendingQuestApprovals.map(({ quest, claim }) => {
+              const key = `${quest.id}-${claim.memberId}`;
+              const isApproving = actionLoading === `approve-quest-${quest.id}-${claim.memberId}`;
+              return (
+                <View key={key} style={styles.approvalCard}>
+                  <View style={styles.approvalInfo}>
+                    <Text style={styles.approvalTitle}>{quest.title}</Text>
+                    <Text style={styles.approvalMeta}>
+                      Completed by {getMemberName(claim.memberId)} · {quest.pointsValue} pts
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={[styles.approveBtn, isApproving && styles.btnLoading]}
+                    onPress={() => handleApproveQuest(quest.id, claim.memberId)}
+                    disabled={!!actionLoading}
+                  >
+                    {isApproving
+                      ? <ActivityIndicator size="small" color="#fff" />
+                      : <Text style={styles.approveBtnText}>Approve</Text>}
+                  </TouchableOpacity>
+                </View>
+              );
+            })}
+          </View>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -73,38 +193,45 @@ export default function ParentDashboard() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: bentoPalette.canvas },
-  header: { padding: spacing.xl },
+  header: { paddingHorizontal: spacing.xl, paddingTop: spacing.xl, paddingBottom: spacing.md },
   title: { fontSize: 28, fontWeight: 'bold', color: bentoPalette.textPrimary },
-  subtitle: { fontSize: 16, color: bentoPalette.textSecondary },
-  scroll: { padding: spacing.xl, paddingTop: 0 },
-  statsRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.xl },
+  subtitle: { fontSize: 14, color: bentoPalette.textSecondary, marginTop: 2 },
+  scroll: { padding: spacing.xl, paddingTop: spacing.md },
+  statsRow: { flexDirection: 'row', gap: spacing.sm, marginBottom: spacing.xl },
   statCard: {
-    flex: 1, padding: spacing.xl, borderRadius: borderRadius.xl,
-    alignItems: 'center', ...shadows.soft
+    flex: 1, padding: spacing.md, borderRadius: borderRadius.xl,
+    alignItems: 'center', backgroundColor: '#fff', ...shadows.soft,
   },
-  statValue: { fontSize: 24, fontWeight: 'bold', color: bentoPalette.textPrimary, marginVertical: 4 },
-  statLabel: { fontSize: 12, color: bentoPalette.textSecondary, textTransform: 'uppercase' },
+  statCardAlert: { backgroundColor: bentoPalette.alertLight },
+  statValue: { fontSize: 22, fontWeight: 'bold', color: bentoPalette.textPrimary, marginVertical: 2 },
+  statLabel: { fontSize: 10, color: bentoPalette.textSecondary, textTransform: 'uppercase', textAlign: 'center' },
   section: { marginBottom: spacing.xl },
-  sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: spacing.md },
+  sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.md },
   sectionTitle: { fontSize: 18, fontWeight: 'bold', color: bentoPalette.textPrimary },
-  seeAll: { color: bentoPalette.brandPrimary, fontWeight: '600' },
-  itemCard: {
-    flexDirection: 'row', backgroundColor: '#fff', padding: spacing.md,
-    borderRadius: borderRadius.lg, alignItems: 'center', marginBottom: spacing.sm, ...shadows.soft
+  badge: { backgroundColor: bentoPalette.alert, paddingHorizontal: 8, paddingVertical: 2, borderRadius: 10 },
+  badgeText: { color: '#fff', fontSize: 11, fontWeight: 'bold' },
+  emptyCard: {
+    padding: spacing.xxl, alignItems: 'center', backgroundColor: '#fff',
+    borderRadius: borderRadius.xl, ...shadows.soft,
   },
-  itemInfo: { flex: 1 },
-  itemTitle: { fontSize: 16, fontWeight: '600', color: bentoPalette.textPrimary },
-  itemMeta: { fontSize: 13, color: bentoPalette.textSecondary },
-  approveButton: { 
-    backgroundColor: bentoPalette.success, paddingHorizontal: 16, 
-    paddingVertical: 8, borderRadius: borderRadius.md 
+  emptyText: { marginTop: spacing.sm, color: bentoPalette.textTertiary },
+  approvalCard: {
+    backgroundColor: '#fff', borderRadius: borderRadius.lg, padding: spacing.md,
+    marginBottom: spacing.sm, ...shadows.soft,
+    flexDirection: 'row', alignItems: 'center', gap: spacing.md,
   },
-  approveText: { color: '#fff', fontWeight: 'bold' },
-  activityCard: { padding: spacing.xl, backgroundColor: '#f8fafc', borderRadius: borderRadius.lg, borderStyle: 'dashed', borderWidth: 1, borderColor: '#e2e8f0' },
-  activityText: { color: bentoPalette.textTertiary, textAlign: 'center' },
-  emptyCard: { 
-    padding: spacing.xxl, alignItems: 'center', backgroundColor: '#fff', 
-    borderRadius: borderRadius.xl, ...shadows.soft 
+  approvalInfo: { flex: 1 },
+  approvalTitle: { fontSize: 15, fontWeight: '600', color: bentoPalette.textPrimary },
+  approvalMeta: { fontSize: 12, color: bentoPalette.textSecondary, marginTop: 2 },
+  actionRow: { flexDirection: 'row', gap: spacing.sm, alignItems: 'center' },
+  rejectBtn: {
+    width: 38, height: 38, borderRadius: 19, borderWidth: 1.5,
+    borderColor: bentoPalette.error, justifyContent: 'center', alignItems: 'center',
   },
-  emptyText: { marginTop: spacing.md, color: bentoPalette.textTertiary, textAlign: 'center' }
+  approveBtn: {
+    backgroundColor: bentoPalette.success, paddingHorizontal: 14,
+    paddingVertical: 8, borderRadius: borderRadius.md,
+  },
+  approveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
+  btnLoading: { opacity: 0.6 },
 });

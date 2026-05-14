@@ -29,6 +29,7 @@ class ApiClient extends BaseApi {
   async createTask(taskData: Partial<Task>): Promise<ApiResponse<Task>> { return taskService.createTask(taskData); }
   async completeTask(taskId: string, memberId: string): Promise<ApiResponse<Task>> { return taskService.completeTask(taskId, memberId); }
   async approveTask(taskId: string): Promise<ApiResponse<Task>> { return taskService.approveTask(taskId); }
+  async rejectTask(taskId: string): Promise<ApiResponse<Task>> { return taskService.rejectTask(taskId); }
   async updateTask(taskId: string, taskData: Partial<Task>): Promise<ApiResponse<Task>> { return taskService.updateTask(taskId, taskData); }
   async deleteTask(taskId: string): Promise<ApiResponse<void>> { return taskService.deleteTask(taskId); }
   async getQuests(): Promise<ApiResponse<{ quests: Quest[] }>> { return taskService.getQuests(); }

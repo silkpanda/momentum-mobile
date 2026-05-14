@@ -14,6 +14,9 @@ class TaskService extends BaseApi {
   async approveTask(taskId: string): Promise<ApiResponse<Task>> {
     return this.request<Task>(`/tasks/${taskId}/approve`, { method: 'POST' });
   }
+  async rejectTask(taskId: string): Promise<ApiResponse<Task>> {
+    return this.request<Task>(`/tasks/${taskId}/reject`, { method: 'POST' });
+  }
   async updateTask(taskId: string, taskData: Partial<Task>): Promise<ApiResponse<Task>> {
     return this.request<Task>(`/tasks/${taskId}`, { method: 'PATCH', body: JSON.stringify(taskData) });
   }

@@ -1,15 +1,15 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { bentoPalette, spacing } from '../../theme/bentoTokens';
-import { 
-  LayoutDashboard, ClipboardList, Zap, ShoppingBag, 
-  Utensils, Users, Settings, Bell, Calendar 
+import {
+  LayoutDashboard, ClipboardList, Zap,
+  Users, Settings, Sun,
 } from 'lucide-react-native';
 
-// Stub screens for tabs (will implement full ones in Phase 3)
 import ParentDashboard from './tabs/ParentDashboard';
 import TaskManagement from './tabs/TaskManagement';
 import QuestManagement from './tabs/QuestManagement';
+import RoutinesManagement from './tabs/RoutinesManagement';
 import MemberManagement from './tabs/MemberManagement';
 import ParentSettings from './tabs/ParentSettings';
 
@@ -26,25 +26,29 @@ export default function ParentScreen() {
           borderTopColor: 'rgba(0,0,0,0.05)',
           height: 85,
           paddingBottom: 25,
-          paddingTop: 10,
+          paddingTop: 8,
         },
         tabBarActiveTintColor: bentoPalette.brandPrimary,
         tabBarInactiveTintColor: bentoPalette.textTertiary,
+        tabBarLabelStyle: { fontSize: 10, fontWeight: '600' },
         tabBarIcon: ({ color, size }) => {
-          if (route.name === 'Dashboard') return <LayoutDashboard size={size} color={color} />;
-          if (route.name === 'Tasks') return <ClipboardList size={size} color={color} />;
-          if (route.name === 'Quests') return <Zap size={size} color={color} />;
-          if (route.name === 'Members') return <Users size={size} color={color} />;
-          if (route.name === 'Settings') return <Settings size={size} color={color} />;
+          const s = size - 2;
+          if (route.name === 'Dashboard')  return <LayoutDashboard size={s} color={color} />;
+          if (route.name === 'Tasks')      return <ClipboardList   size={s} color={color} />;
+          if (route.name === 'Quests')     return <Zap             size={s} color={color} />;
+          if (route.name === 'Routines')   return <Sun             size={s} color={color} />;
+          if (route.name === 'Members')    return <Users           size={s} color={color} />;
+          if (route.name === 'Settings')   return <Settings        size={s} color={color} />;
           return null;
         },
       })}
     >
       <Tab.Screen name="Dashboard" component={ParentDashboard} />
-      <Tab.Screen name="Tasks" component={TaskManagement} />
-      <Tab.Screen name="Quests" component={QuestManagement} />
-      <Tab.Screen name="Members" component={MemberManagement} />
-      <Tab.Screen name="Settings" component={ParentSettings} />
+      <Tab.Screen name="Tasks"     component={TaskManagement}  />
+      <Tab.Screen name="Quests"    component={QuestManagement} />
+      <Tab.Screen name="Routines"  component={RoutinesManagement} />
+      <Tab.Screen name="Members"   component={MemberManagement} />
+      <Tab.Screen name="Settings"  component={ParentSettings}  />
     </Tab.Navigator>
   );
 }
